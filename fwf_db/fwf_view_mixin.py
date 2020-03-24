@@ -200,7 +200,7 @@ class FWFViewMixin(ABC):
         sslice = self.parent.columns[field]
         values = set()
         for _, line in self.iter_lines():
-            value = line[sslice].tobytes()
+            value = line[sslice]
             if func:
                 value = func(value)
             values.add(value)

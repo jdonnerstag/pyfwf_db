@@ -53,7 +53,6 @@ class FWFTable(FWFViewMixin):
         self.file = None        # File name
         self.fd = None          # open file handle
         self.mm = None          # memory map (read-only)
-        self.mv = None          # memory view (read-only)
 
 
     def add_slice_info(self, fieldspecs, widths):
@@ -124,16 +123,15 @@ class FWFTable(FWFViewMixin):
             self.file = file
             fd = self.fd = open(file, "rb")
             self.mm = mmap.mmap(fd.fileno(), 0, access=mmap.ACCESS_COPY)
-            self.mv = memoryview(self.mm).toreadonly()
         else:
             # Support data already loaded in whatever way. Nice for testing.
             self.file = id(file)
-            self.mv = memoryview(file).toreadonly()
+            self.mm = file
 
-        self.number_of_newline_bytes = self._number_of_newline_bytes(self.mv)
+        self.number_of_newline_bytes = self._number_of_newline_bytes(self.mm)
         self.fwidth = sum(self.widths) + self.number_of_newline_bytes   # The length of each line
-        self.fsize = self.get_file_size(self.mv)
-        self.start_pos = self.skip_comment_line(self.mv, self.comment_char)
+        self.fsize = self.get_file_size(self.mm)
+        self.start_pos = self.skip_comment_line(self.mm, self.comment_char)
         self.reclen = int((self.fsize - self.start_pos + 1) / self.fwidth)
         self.lines = slice(0, self.reclen)
 
@@ -152,16 +150,13 @@ class FWFTable(FWFViewMixin):
         # may still hold references to memoryview. Assign "None" to the variable
         # to release the data.
 
-        if self.mv:
-            self.mv.release()
-
-        if self.mm:
-            self.mm.close()
-
         if self.fd:
+            if self.mm:
+                self.mm.close()
+
             self.fd.close()
 
-        self.mv = self.mm = self.fd = None
+        self.mm = self.fd = None
 
 
     def __len__(self):
@@ -188,7 +183,7 @@ class FWFTable(FWFViewMixin):
         """Get the raw line data for the line with the index"""
 
         pos = self.pos_from_index(index)
-        return self.mv[pos : pos + self.fwidth]
+        return self.mm[pos : pos + self.fwidth]
 
 
     def iter_lines_with_slice(self, xslice=None):
@@ -207,7 +202,7 @@ class FWFTable(FWFViewMixin):
 
         while start_pos < end_pos:
             end = start_pos + self.fwidth
-            rtn = self.mv[start_pos : end]
+            rtn = self.mm[start_pos : end]
             yield irow, rtn
             start_pos = end
             irow += 1

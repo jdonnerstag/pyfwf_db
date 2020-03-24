@@ -44,9 +44,8 @@ def test_bytes_input():
         assert fwf.encoding is None
         assert len(fwf.columns) == 8
         assert fwf.fwidth == 83
-        assert fwf.fd == None
-        assert fwf.mm == None
-        assert fwf.mv != None
+        assert fwf.fd is None
+        assert fwf.mm is not None
         assert fwf.start_pos == 18
         assert fwf.reclen == 10
         assert len(fwf) == 10
@@ -59,9 +58,8 @@ def test_file_input():
         assert fwf.encoding is None
         assert len(fwf.columns) == 8
         assert fwf.fwidth == 83
-        assert fwf.fd != None
-        assert fwf.mm != None
-        assert fwf.mv != None
+        assert fwf.fd is not None
+        assert fwf.mm is not None
         assert fwf.reclen == 10012
         assert fwf.start_pos == 0
         assert len(fwf) == 10012
@@ -178,7 +176,7 @@ def test_table_filter_by_function():
 
         def my_complex_reusable_test(line):
             # Not very efficient, but shows that you can do essentially everything
-            rtn = (line[gender] == b'F') and line[state].tobytes().decode().startswith('A')
+            rtn = (line[gender] == b'F') and line[state].decode().startswith('A')
             return rtn
 
         rtn = fwf[:].filter_by_line(my_complex_reusable_test)
@@ -228,13 +226,13 @@ def test_index():
         assert len(list(rtn.idx)) == 2
         assert len(rtn) == 2
 
-        rtn = FWFSimpleIndex(fwf).index("state", lambda x: x.tobytes().decode())
+        rtn = FWFSimpleIndex(fwf).index("state", lambda x: x.decode())
         assert len(list(rtn.idx)) == 9
         assert rtn.loc("MI")
         assert "MI" in rtn
         assert rtn["MI"]
 
-        rtn = FWFSimpleIndex(fwf).index("gender", lambda x: x.tobytes().decode())
+        rtn = FWFSimpleIndex(fwf).index("gender", lambda x: x.decode())
         assert len(list(rtn.idx)) == 2
         assert "M" in rtn
         assert "F" in rtn
