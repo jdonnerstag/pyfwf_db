@@ -13,30 +13,66 @@ Views can be derived from other views.
 
 from itertools import islice
 
-from .fwf_base_view import FWFBaseView
+from .fwf_view_mixin import FWFViewMixin
 
 
-class FWFIndexView(FWFBaseView):
+class FWFIndexView(FWFViewMixin):
     """   """
 
-    def __init__(self, parent, lines, columns):
-        super().__init__(parent, lines, columns)
+    def __init__(self, parent, lines: list, columns: dict):
 
         assert parent is not None
-        assert parent.lines is not None
-        assert parent.columns is not None
+        # assert parent.lines is not None
+        # assert parent.columns is not None
+        assert parent.parent is not None
+
+        self.parent = parent.parent
+        self.columns = columns
 
         assert isinstance(lines, list)
+        self.lines = lines
 
 
     def __len__(self):
         return len(self.lines)
 
 
+    def line_at(self, index):
+        """Get the raw line data for the line with the index"""
+        return self.parent.line_at(index)
+
+
+    def __getitem__(self, args):
+        """Provide support for [..] access: slice by row and column
+        
+        Examples:
+            fwf[0]
+            fwf[0:5]
+            fwf[-1]
+            fwf[-5:]
+            fwf[:]
+            fwf[0, "col-1"]
+            fwf[0, ["col-1", "col-2"]]
+        """
+
+        (row_idx, cols) = args if isinstance(args, tuple) else (args, None)
+        cols = cols or self.columns
+
+        if isinstance(cols, str):
+            cols = [cols]
+
+        if isinstance(row_idx, int):
+            return FWFIndexView(self, self.lines[row_idx], cols)
+        elif isinstance(row_idx, slice):
+            return FWFIndexView(self, self.lines[row_idx], cols)
+        else:
+            raise Exception(f"Invalid range value: {row_idx}")
+
+
     def iloc(self, start, end=None, columns=None):
-        (columns, xslice) = super().iloc(start, end, columns)
+        xslice = self.normalize_slice(len(self), slice(start, end))
         lines = self.lines[xslice]
-        return FWFIndexView(self.parent, lines, columns)
+        return FWFIndexView(self, lines, columns = self.columns)
 
 
     def iter_lines(self):

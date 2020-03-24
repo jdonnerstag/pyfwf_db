@@ -240,8 +240,8 @@ def test_index():
         assert rtn["F"]
         assert not rtn["xxx"]
 
-        for lineno, _ in rtn["M"]:
-            assert lineno in [1, 2, 4]
+        for rec in rtn["M"]:
+            assert rec.idx in [1, 2, 4]
 
         rtn = FWFSimpleIndex(fwf).index(1)  # Also works with integers == state
         assert len(list(rtn.idx)) == 9
@@ -258,26 +258,25 @@ def test_view_of_a_view():
     fwf = FWFTable(HumanFile)
     with fwf.open(DATA):
 
-        rec = fwf[0:8]
+        rec = fwf[1:8]
         assert fwf.columns == rec.columns
-        assert len(list(rec)) == 8
-        assert len(rec) == 8
+        assert len(list(rec)) == 7
+        assert len(rec) == 7
 
         rtn = rec[2:4]
         assert len(list(rtn)) == 2
         assert len(rtn) == 2
-        for lineno, _ in rtn:       # pylint: this is a false-positive, as the code clearly works well
-            assert lineno in [2, 3]
-
+        for rec in rtn:       # pylint: this is a false-positive, as the code clearly works well
+            assert rec.idx in [3, 4]
 
         rtn = fwf.filter_by_field("gender", b'F')
         assert len(list(rtn)) == 7
         assert len(rtn) == 7
-        for lineno, _ in rtn:
-            assert lineno in [0, 3, 5, 6, 7, 8, 9]
+        for rec in rtn:
+            assert rec.idx in [0, 3, 5, 6, 7, 8, 9]
 
-        for lineno, _ in rtn[2:4]:  # pylint: this is a false-positive, as the code clearly works well
-            assert lineno in [5, 6]
+        for rec in rtn[2:4]:  # pylint: this is a false-positive, as the code clearly works well
+            assert rec.idx in [5, 6]
 
 
 def test_multi_view():
@@ -299,10 +298,11 @@ def test_multi_view():
             for idx, _ in mf.iter_lines():
                 assert idx < 20
 
-            for idx, _ in mf:
-                assert idx < 20
+            for rec in mf:
+                assert rec.idx < 20
 
-            assert len(mf[0]) == 1
+            x = mf[0]
+            assert len(x) == 1
             assert len(mf[5]) == 1
             assert len(mf[10]) == 1
             assert len(mf[15]) == 1

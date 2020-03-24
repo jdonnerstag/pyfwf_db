@@ -7,8 +7,6 @@
 from abc import ABC, abstractmethod
 
 from .fwf_line import FWFLine
-from .fwf_index_view import FWFIndexView
-from .fwf_slice_view import FWFSliceView
 
 
 class FWFViewMixin(ABC):
@@ -109,6 +107,12 @@ class FWFViewMixin(ABC):
         """
 
         (row_idx, cols) = args if isinstance(args, tuple) else (args, None)
+        cols = cols or self.columns
+
+        if isinstance(cols, str):
+            cols = [cols]
+
+        from .fwf_slice_view import FWFSliceView
 
         if isinstance(row_idx, int):
             return FWFSliceView(self, slice(row_idx, row_idx + 1), cols)
@@ -159,7 +163,7 @@ class FWFViewMixin(ABC):
         rtn = [i for i, rec in self.iter_lines() if func(rec)]
 
         from .fwf_index_view import FWFIndexView
-        return FWFIndexView(self.parent, rtn, columns or self.columns)
+        return FWFIndexView(self, rtn, columns or self.columns)
 
 
     def filter_by_field(self, field, func, columns=None):
@@ -180,7 +184,7 @@ class FWFViewMixin(ABC):
             rtn = [i for i, rec in self.iter_lines() if rec[sslice] == func]
 
         from .fwf_index_view import FWFIndexView
-        return FWFIndexView(self.parent, rtn, columns or self.columns)
+        return FWFIndexView(self, rtn, columns or self.columns)
 
 
     def unique(self, field, func=None):

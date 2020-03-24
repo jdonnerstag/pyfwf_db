@@ -13,23 +13,26 @@ Views can be derived from other views.
 
 from itertools import islice
 
-from .fwf_base_view import FWFBaseView
+from .fwf_view_mixin import FWFViewMixin
 
 
-class FWFSliceView(FWFBaseView):
+class FWFSliceView(FWFViewMixin):
 
     def __init__(self, parent, lines, columns):
-        super().__init__(parent, lines, columns)
 
         assert parent is not None
         assert parent.lines is not None
         assert parent.columns is not None
+        assert parent.parent is not None
+
+        self.parent = parent.parent
+        self.columns = columns
 
         if isinstance(lines, int):
             lines = self.normalize_slice(len(parent), slice(lines, lines + 1))
 
         if isinstance(lines, slice):
-            lines = self.add_slices(self.parent.lines, lines)
+            lines = self.intersect_slices(parent.lines, lines)
 
         self.lines = lines
 
@@ -38,10 +41,20 @@ class FWFSliceView(FWFBaseView):
         return self.lines.stop - self.lines.start
 
 
+    def line_at(self, index):
+        """Get the raw line data for the line with the index"""
+
+        idx = self.lines.start + index
+        if (idx >= 0) and (idx <= self.lines.start):
+            return self.parent.line_at(idx)
+
+        raise Exception(f"Invalid index: {index}")
+
+
     def iloc(self, start, end=None, columns=None):
-        (columns, xslice) = super().iloc(start, end, columns)
-        lines = self.add_slices(self.lines, xslice)
-        return FWFSliceView(self.parent, lines, columns)
+        xslice = self.normalize_slice(len(self), slice(start, end))
+        lines = self.intersect_slices(self.lines, xslice)
+        return FWFSliceView(self.parent, lines, columns or self.columns)
 
 
     def pos_from_index(self, index):

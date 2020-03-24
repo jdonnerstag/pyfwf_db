@@ -4,17 +4,16 @@
 """
 """
 
-from itertools import islice
-
+from .fwf_view_mixin import FWFViewMixin
 from .fwf_slice_view import FWFSliceView
-from .fwf_base_view import FWFBaseView
 
 
-class FWFMultiView(FWFSliceView):
+class FWFMultiView(FWFViewMixin):
     """    """
 
     def __init__(self, columns=None):
 
+        self.parent = self
         self.columns = columns
         self.files = []
         self.lines = None
@@ -80,17 +79,29 @@ class FWFMultiView(FWFSliceView):
             start_pos = fto
 
 
+    def __len__(self):
+        return self.lines.stop - self.lines.start
+
+
+    def line_at(self, index):
+        """Get the raw line data for the line with the index"""
+        
+        (idx, start, _) = self.determine_fwf_table_index(index)
+        return self.files[idx].line_at(start)
+
+
+    def iter_lines(self):
+        """Iterate over all lines in the file, returning raw line data"""
+        count = 0
+        for file in self.files:
+            for _, rec in file.iter_lines():
+                yield count, rec
+                count += 1
+
+
     def iloc(self, start, stop=None, columns=None):
         rtn = FWFMultiView(self.columns)
         for view in self.determine_fwf_views(start, stop):
             rtn.add_file(view)
 
         return rtn
-
-
-    def iter_lines(self):
-        count = 0
-        for file in self.files:
-            for _, rec in file.iter_lines():
-                yield count, rec
-                count += 1

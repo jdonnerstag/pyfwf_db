@@ -7,10 +7,8 @@ import mmap
 import time 
 from contextlib import contextmanager
 
-from .fwf_line import FWFLine
-from .fwf_index_view import FWFIndexView
-from .fwf_slice_view import FWFSliceView
 from .fwf_view_mixin import FWFViewMixin
+from .fwf_slice_view import FWFSliceView
 
 
 class FWFTable(FWFViewMixin):
@@ -210,6 +208,7 @@ class FWFTable(FWFViewMixin):
             yield irow, rtn
             start_pos = end
             irow += 1
+
 
     def iter_lines(self):
         """Iterate over all lines in the file, returning raw line data"""
