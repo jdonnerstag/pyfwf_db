@@ -41,5 +41,5 @@ class FWFIndexView(FWFBaseView):
 
     def iter_lines(self):
         for i in self.lines:
-            line = self.parent.iloc(i)
+            line = self.parent.line_at(i)
             yield i, line

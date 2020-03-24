@@ -9,12 +9,14 @@ side-effect that it does groupby as well.
 
 from itertools import islice
 
+from .fwf_index_view import FWFIndexView
+
 
 class FWFSimpleIndex(object):
-    def __init__(self, fwf_view):
-        assert fwf_view
+    def __init__(self, parent):
+        assert parent
 
-        self.fwf_view = fwf_view
+        self.parent = parent
         self.column = None
         self.idx = None
 
@@ -23,7 +25,7 @@ class FWFSimpleIndex(object):
         self.column = column
         self.idx = idx = {}
 
-        cols = self.fwf_view.columns
+        cols = self.parent.columns
         if isinstance(column, str):
             xslice = cols[column]
         elif isinstance(column, int):
@@ -31,7 +33,7 @@ class FWFSimpleIndex(object):
         else:
             raise Exception(f"column must be either string or int: {column}")
 
-        for i, line in self.fwf_view.iter_lines():
+        for i, line in self.parent.iter_lines():
             value = line[xslice]
             if func:
                 value = func(value)
@@ -57,11 +59,9 @@ class FWFSimpleIndex(object):
 
 
     def loc(self, key):
-        from fwf_db.fwf_view import FWFView
-
         lines = self.idx.get(key, None)
         if lines is not None:
-            return FWFView(self.fwf_view, lines, self.fwf_view.columns)
+            return FWFIndexView(self.parent, lines, None)
 
 
     def __len__(self):

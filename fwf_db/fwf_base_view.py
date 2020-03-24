@@ -94,7 +94,7 @@ class FWFBaseView(ABC):
         if isinstance(row_idx, slice):
             return self.iloc(row_idx.start, row_idx.stop, cols)
         elif isinstance(row_idx, int):
-            return self.iloc(row_idx, None, cols)
+            return self.iloc(row_idx, row_idx + 1, cols)
 
 
     def __iter__(self):
@@ -121,17 +121,23 @@ class FWFBaseView(ABC):
         return self.get_raw_value(line, field).to_bytes()
 
 
-    def filter_by_line(self, func):
-        return [i for i, rec in self.iter_lines() if func(rec)]
+    def filter_by_line(self, func, columns=None):
+        rtn = [i for i, rec in self.iter_lines() if func(rec)]
+
+        from .fwf_index_view import FWFIndexView
+        return FWFIndexView(self.parent, rtn, columns)
 
 
-    def filter_by_field(self, field, func):
+    def filter_by_field(self, field, func, columns=None):
         sslice = self.columns[field]
 
         if callable(func):
-            return [i for i, rec in self.iter_lines() if func(rec[sslice])]
+            rtn = [i for i, rec in self.iter_lines() if func(rec[sslice])]
+        else:
+            rtn = [i for i, rec in self.iter_lines() if rec[sslice] == func]
 
-        return [i for i, rec in self.iter_lines() if rec[sslice] == func]
+        from .fwf_index_view import FWFIndexView
+        return FWFIndexView(self.parent, rtn, columns)
 
 
     def unique(self, field, func=None):

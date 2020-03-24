@@ -7,13 +7,19 @@ import mmap
 import time 
 from contextlib import contextmanager
 
-from .fwf_view import FWFView
+from .fwf_line import FWFLine
 from .fwf_index_view import FWFIndexView
 from .fwf_slice_view import FWFSliceView
+from .fwf_view_mixin import FWFViewMixin
 
 
-class FWFTable(object):
-    """FWFTable encapsulate the fixed width file"""
+class FWFTable(FWFViewMixin):
+    """A wrapper around fixed-width files.
+
+    This is one of the core classes. It wraps around a fixed-width file, or a 
+    fixed width file representation already available in memory, and provides
+    access to the lines in different ways.
+    """
 
     def __init__(self, reader):
         """Constructor
@@ -23,48 +29,52 @@ class FWFTable(object):
         following properties: ENCODING, FIELDSPECS
         """
 
+        self.parent = self      # See FWFViewMixin
         self.reader = reader
 
-        # Needed for decoding bytes into string
+        # Used when automatically decoding bytes into strings
         self.encoding = getattr(reader, "ENCODING", None)   
         self.fieldspecs = reader.FIELDSPECS     # fixed width file spec
 
         self.widths = [x["len"] for x in self.fieldspecs]   # The width of each field
-        self.slices = self.determine_slices(self.widths)    # The slice for each field
-        self.columns = {x["name"] : self.slices[i] for i, x in enumerate(self.fieldspecs)}
+        self.add_slice_info(self.fieldspecs, self.widths)    # The slice for each field
+        self.columns = {x["name"] : x["slice"] for i, x in enumerate(self.fieldspecs)}
+
+        self.newline_bytes = [0, 1, 10, 13]  # These bytes we recognize as newline
+        self.comment_char = '#'
 
         # The number of newline bytes, e.g. "\r\n", "\n" or "\01"...
-        self.number_of_newline_bytes = 1
-        self.fwidth = sum(self.widths) + self.number_of_newline_bytes   # The length of each line
+        # Required to determine overall line length
+        self.number_of_newline_bytes = None
+        self.fwidth = None      # The length of each line including newline
+        self.fsize = None       # File size
+        self.reclen = None      # Number of records in the file
+        self.start_pos = None   # Position of first record, after skipping leading comment lines
+        self.lines = None       # slice(0, reclen)
 
-        self.fsize = None   # File size
-        self.estimated_records = None   # Estimated number of records in the file
-        self.start_pos = None   # without leading comment lines
-        self.lines = None       # slice(0, no-of-records)
-
-        self.file = None
-        self.fd = None
-        self.mm = None
-        self.mv = None
+        self.file = None        # File name
+        self.fd = None          # open file handle
+        self.mm = None          # memory map (read-only)
+        self.mv = None          # memory view (read-only)
 
 
-    def determine_slices(self, widths):
-        """Based on the field width information, determine the slice for eac field"""
-        slices = []
+    def add_slice_info(self, fieldspecs, widths):
+        """Based on the field width information, determine the slice for each field"""
+
         startpos = 0
-        for flen in widths:
-            slices.append(slice(startpos, startpos + flen))
+        for entry in fieldspecs:
+            flen = entry["len"]
+            entry["slice"] = slice(startpos, startpos + flen)
             startpos += flen
-
-        return slices
 
     
     def is_newline(self, byte):
-        return byte in [0, 1, 10, 13]
+        return byte in self.newline_bytes
 
 
     def skip_comment_line(self, mm, comment_char):
         """Find the first line that is not a comment line and return its position."""
+
         comment_char = ord(comment_char)
         pos = 0
         next_line = (mm[pos] == comment_char)
@@ -81,6 +91,11 @@ class FWFTable(object):
 
 
     def get_file_size(self, mm):
+        """Determine the file size. 
+        
+        Adjust the file size if the last line has no newline.
+        """
+
         fsize = len(mm)
         if self.is_newline(mm[fsize - 1]):
             return fsize
@@ -88,7 +103,9 @@ class FWFTable(object):
         return fsize + self.number_of_newline_bytes
 
 
-    def determine_newline_bytes(self, mm):
+    def _number_of_newline_bytes(self, mm):
+        """Determine the number of newline bytes"""
+
         pos = 0
         while pos < len(mm):
             if self.is_newline(mm[pos]):
@@ -111,20 +128,16 @@ class FWFTable(object):
             self.mm = mmap.mmap(fd.fileno(), 0, access=mmap.ACCESS_COPY)
             self.mv = memoryview(self.mm).toreadonly()
         else:
+            # Support data already loaded in whatever way. Nice for testing.
             self.file = id(file)
             self.mv = memoryview(file).toreadonly()
 
-        self.number_of_newline_bytes = self.determine_newline_bytes(self.mv)
+        self.number_of_newline_bytes = self._number_of_newline_bytes(self.mv)
+        self.fwidth = sum(self.widths) + self.number_of_newline_bytes   # The length of each line
         self.fsize = self.get_file_size(self.mv)
-        self.start_pos = self.skip_comment_line(self.mv, '#')
-        self.estimated_records = int((self.fsize - self.start_pos + 1) / self.fwidth)
-        self.lines = slice(0, self.estimated_records)
-
-        cols = collections.OrderedDict()
-        for i, name in enumerate(self.columns):
-            cols[name] = self.slices[i]
-
-        #logger.debug(f"File size: {self.fsize:,d} - estimated record: {self.estimated_records:,d}")
+        self.start_pos = self.skip_comment_line(self.mv, self.comment_char)
+        self.reclen = int((self.fsize - self.start_pos + 1) / self.fwidth)
+        self.lines = slice(0, self.reclen)
 
         yield self
 
@@ -132,7 +145,7 @@ class FWFTable(object):
 
 
     def close(self):
-        """Close the file"""
+        """Close the file and all open handles"""
 
         # When you receive an error alluding to a pointers still holding to the 
         # memoryview, then look for your "with fwf.open().." block. A with 
@@ -153,43 +166,39 @@ class FWFTable(object):
         self.mv = self.mm = self.fd = None
 
 
-    def __getitem__(self, args):
-        """Provide [..] access to fixed width data: slice by row and column"""
-
-        (row_idx, cols) = args if isinstance(args, tuple) else (args, None)
-
-        if isinstance(row_idx, int):
-            return FWFSliceView(self, slice(row_idx, row_idx + 1), cols)
-        elif isinstance(row_idx, slice):
-            return FWFSliceView(self, row_idx, cols)
-        else:
-            raise Exception(f"Invalid range value: {row_idx}")
-
-
-    def __iter__(self):
-        return self.iter(self.lines)
-
-
     def __len__(self):
+        """Return the number of records in the file"""
         return self.lines.stop - self.lines.start
 
 
     def pos_from_index(self, index):
+        """Determine the position within the file for the line with the index"""
+
         assert index >= 0
 
         pos = self.start_pos + (index * self.fwidth)
-        if pos <= len(self.mv):
+        if pos <= self.fsize:
             return pos
 
         raise Exception(f"Invalid index: too large: {index}")
 
+    
+    def line_at(self, index):
+        """Get the raw line data for the line with the index"""
 
-    def iloc(self, index):
         pos = self.pos_from_index(index)
         return self.mv[pos : pos + self.fwidth]
 
 
     def iter_lines_with_slice(self, xslice=None):
+        """Iterate over the lines denoted by xslice.
+
+        Return raw lines. The start and stop positions must be positiv
+        integer value and valid.
+
+        This is mostly a helper function for View implementations.
+        """
+
         xslice = xslice or self.lines
         irow = xslice.start
         start_pos = self.pos_from_index(xslice.start)
@@ -202,82 +211,7 @@ class FWFTable(object):
             start_pos = end
             irow += 1
 
+    def iter_lines(self):
+        """Iterate over all lines in the file, returning raw line data"""
 
-    def iter_lines_with_index(self, indices):
-        for i in indices:
-            line = self.iloc(i)
-            yield i, line
-
-
-    def iter_lines(self, rows=None):
-        if rows is None:
-            rows = self.lines
-
-        if isinstance(rows, slice):
-            yield from self.iter_lines_with_slice(rows)
-        elif isinstance(rows, list):
-            yield from self.iter_lines_with_index(rows)
-        elif isinstance(rows, int):
-            yield from self.iter_lines_with_index([rows])
-        else:
-            raise Exception(f"Invalid range: {self.lines}")
-
-
-    def iter(self, rows=None):
-        for i, line in self.iter_lines(rows):
-            rtn = [line[v] for v in self.columns.values()]
-            yield (i, rtn)
-
-
-    def iter_pos(self, start_pos, end_pos):
-        irow = 0
-        while start_pos < end_pos:
-            end = start_pos + self.fwidth
-            rtn = self.mv[start_pos : end]
-            yield irow, rtn
-            start_pos = end
-            irow += 1
-
-
-    def get_raw_value(self, line, field):
-        xslice = self.columns(field)
-        return line[xslice]
-
-
-    def get_value(self, line, field):
-        return self.get_raw_value(line, field).to_bytes()
-
-
-    def filter_by_line(self, func, rows=None, columns=None):
-        columns = columns or self.columns
-        rtn = [i for i, rec in self.iter_lines(rows) if func(rec)]
-        return FWFView(self, rtn, columns)                
-
-
-    def filter_by_field(self, field, func, rows=None, columns=None):
-        columns = columns or self.columns
-        sslice = columns[field]
-
-        if callable(func):
-            rtn = [i for i, rec in self.iter_lines(rows) if func(rec[sslice])]
-        else:
-            rtn = [i for i, rec in self.iter_lines(rows) if rec[sslice] == func]
-
-        return FWFView(self, rtn, columns)                
-        
-
-    def unique(self, field, func=None, rows=None, columns=None):
-        columns = columns or self.columns
-        sslice = self.columns[field]
-        values = set()
-        for _, line in self.iter_lines(rows):
-            value = line[sslice].tobytes()
-            if func:
-                value = func(value)
-            values.add(value)
-
-        return values
-
-
-    def to_pandas(self):
-        raise Exception("Not yet implemented")
+        yield from self.iter_lines_with_slice(self.lines)

@@ -7,7 +7,7 @@ import os
 import sys
 import io
 
-from fwf_db import FWFTable, FWFView, FWFSimpleIndex, FWFMultiView
+from fwf_db import FWFTable, FWFSimpleIndex, FWFMultiView
 
 
 DATA = b"""# My comment test
@@ -48,7 +48,7 @@ def test_bytes_input():
         assert fwf.mm == None
         assert fwf.mv != None
         assert fwf.start_pos == 18
-        assert fwf.estimated_records == 10
+        assert fwf.reclen == 10
         assert len(fwf) == 10
         assert fwf.lines
 
@@ -62,7 +62,7 @@ def test_file_input():
         assert fwf.fd != None
         assert fwf.mm != None
         assert fwf.mv != None
-        assert fwf.estimated_records == 10012
+        assert fwf.reclen == 10012
         assert fwf.start_pos == 0
         assert len(fwf) == 10012
         assert fwf.lines
@@ -71,11 +71,12 @@ def test_file_input():
 def test_table_iter():
     fwf = FWFTable(HumanFile)
     with fwf.open(DATA):
-        for i, rec in enumerate(fwf):
+        for rec in fwf:
             assert rec
-            assert i < 10 # we have 10 rows in our test data
+            assert rec.line
+            assert rec.idx < 10 # we have 10 rows in our test data
 
-        assert i == 9 
+        assert rec.idx == 9 
 
 
 def test_table_line_selector():
@@ -295,9 +296,11 @@ def test_multi_view():
 
             assert len(list(mf)) == 20
 
-            for _, idx, file_idx in mf:
+            for idx, _ in mf.iter_lines():
                 assert idx < 20
-                assert file_idx < 2
+
+            for idx, _ in mf:
+                assert idx < 20
 
             assert len(mf[0]) == 1
             assert len(mf[5]) == 1
