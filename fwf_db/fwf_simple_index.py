@@ -61,7 +61,7 @@ class FWFSimpleIndex(object):
     def loc(self, key):
         lines = self.idx.get(key, None)
         if lines is not None:
-            return FWFIndexView(self, lines, self.parent.columns)
+            return FWFIndexView(self.parent, lines, self.parent.columns)
 
 
     def __len__(self):

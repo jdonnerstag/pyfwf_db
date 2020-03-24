@@ -85,16 +85,18 @@ def test_table_line_selector():
 
         rec = fwf[0]
         assert fwf.columns == rec.columns
+        assert rec.idx == 0
+
+        rec = fwf[0:1]
+        assert fwf.columns == rec.columns
         assert rec.lines == slice(0, 1)
         assert len(list(rec)) == 1
 
         rec = fwf[5]
-        assert rec.lines == slice(5, 6)
-        assert len(list(rec)) == 1
+        assert rec.idx == 5
 
         rec = fwf[-1]
-        assert rec.lines == slice(9, 10)
-        assert len(list(rec)) == 1
+        assert rec.idx == 9
 
         rec = fwf[0:5]
         assert rec.lines == slice(0, 5)
@@ -113,15 +115,15 @@ def test_table_colume_selector():
     fwf = FWFTable(HumanFile)
     with fwf.open(DATA):
 
-        rec = fwf[0, "TRANCODE"]
+        rec = fwf[0, "gender"]
         assert len(rec.columns) == 1
-        assert rec.lines == slice(0, 1)
+        assert rec.idx == 0
 
-        rec = fwf[0, ["TRANCODE", "BUSINESS_DATE"]]
+        rec = fwf[0, ["gender", "state"]]
         assert len(rec.columns) == 2
-        assert rec.lines == slice(0, 1)
+        assert rec.idx == 0
 
-        rec = fwf[0:5, ["TRANCODE", "BUSINESS_DATE"]]
+        rec = fwf[0:5, ["state", "gender"]]
         assert len(rec.columns) == 2
         assert rec.lines == slice(0, 5)
 
@@ -243,6 +245,10 @@ def test_index():
         for rec in rtn["M"]:
             assert rec.idx in [1, 2, 4]
 
+        x = rtn["M"]
+        x = rtn["M"][2]
+        assert rtn["M"][2].parent.lines[2] == 4
+
         rtn = FWFSimpleIndex(fwf).index(1)  # Also works with integers == state
         assert len(list(rtn.idx)) == 9
         assert len(rtn) == 9
@@ -301,16 +307,22 @@ def test_multi_view():
             for rec in mf:
                 assert rec.idx < 20
 
-            x = mf[0]
-            assert len(x) == 1
-            assert len(mf[5]) == 1
-            assert len(mf[10]) == 1
-            assert len(mf[15]) == 1
-            assert len(mf[19]) == 1
+            for idx, _ in mf[8:12].iter_lines():
+                assert idx >= 8
+                assert idx < 12
+
+            for rec in mf[8:12]:
+                assert rec.idx >= 8
+                assert rec.idx < 12
+
+            assert mf[0].idx == 0
+            assert mf[5].idx == 5
+            assert mf[10].idx == 10
+            assert mf[15].idx == 15
+            assert mf[19].idx == 19
             assert len(mf[0:5]) == 5
             assert len(mf[-5:]) == 5
             assert len(mf[5:15]) == 10
-            pass
 
 """
 

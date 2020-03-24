@@ -172,6 +172,9 @@ class FWFTable(FWFViewMixin):
     def pos_from_index(self, index):
         """Determine the position within the file for the line with the index"""
 
+        if index < 0:
+            index = len(self) + index
+
         assert index >= 0
 
         pos = self.start_pos + (index * self.fwidth)

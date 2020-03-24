@@ -10,19 +10,23 @@ from datetime import datetime
 class FWFLine(object):
     """   """
 
-    def __init__(self, parent, idx, line, columns):
+    def __init__(self, parent, idx, line, columns=None):
+
+        assert parent is not None
 
         assert isinstance(idx, int)
-        assert isinstance(columns, dict)
+        assert columns is None or isinstance(columns, list)
 
         self.parent = parent
         self.idx = idx
-        self.line = line
-        self.columns = columns
+        self.columns = parent.columns   # It a bit irritating. This is a dict
 
+        # whereas the argument columns is a list
+        if columns:
+            self.columns = {k: v for k, v in self.columns.items() if k in columns}
 
-    def __len__(self):
-        return len(self.columns)
+        self.idx = idx
+        self.line = line 
 
 
     def get_raw(self, field):

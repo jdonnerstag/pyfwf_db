@@ -18,7 +18,7 @@ from .fwf_view_mixin import FWFViewMixin
 
 class FWFSliceView(FWFViewMixin):
 
-    def __init__(self, parent, lines, columns):
+    def __init__(self, parent, lines, columns=None):
 
         assert parent is not None
         assert parent.lines is not None
@@ -26,7 +26,11 @@ class FWFSliceView(FWFViewMixin):
         assert parent.parent is not None
 
         self.parent = parent.parent
-        self.columns = columns
+        self.columns = parent.columns   # It a bit irritating. This is a dict
+
+        # whereas the argument columns is a list
+        if columns:
+            self.columns = {k: v for k, v in self.columns.items() if k in columns}
 
         if isinstance(lines, int):
             lines = self.normalize_slice(len(parent), slice(lines, lines + 1))
@@ -54,7 +58,7 @@ class FWFSliceView(FWFViewMixin):
     def iloc(self, start, end=None, columns=None):
         xslice = self.normalize_slice(len(self), slice(start, end))
         lines = self.intersect_slices(self.lines, xslice)
-        return FWFSliceView(self.parent, lines, columns or self.columns)
+        return FWFSliceView(self.parent, lines, columns)
 
 
     def pos_from_index(self, index):

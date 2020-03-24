@@ -11,12 +11,12 @@ from .fwf_slice_view import FWFSliceView
 class FWFMultiView(FWFViewMixin):
     """    """
 
-    def __init__(self, columns=None):
+    def __init__(self):
 
         self.parent = self
-        self.columns = columns
         self.files = []
         self.lines = None
+        self.columns = None     # Dict(field name -> slice)
 
 
     def add_file(self, fwf_view):
@@ -25,9 +25,8 @@ class FWFMultiView(FWFViewMixin):
         self.files.append(fwf_view)
         self.lines = slice(0, sum(len(x) for x in self.files))
 
-        if self.columns is None:
+        if not self.columns:
             self.columns = fwf_view.columns
-
 
     def remove_file(self, fwf_view):
         if fwf_view is None:
@@ -99,9 +98,26 @@ class FWFMultiView(FWFViewMixin):
                 count += 1
 
 
-    def iloc(self, start, stop=None, columns=None):
-        rtn = FWFMultiView(self.columns)
+    def iloc(self, start, stop=None):
+        rtn = FWFMultiView()
         for view in self.determine_fwf_views(start, stop):
             rtn.add_file(view)
 
         return rtn
+
+
+    def iter_lines_with_slice(self, xslice=None):
+        """Iterate over the lines denoted by xslice.
+
+        Return raw lines. The start and stop positions must be positiv
+        integer value and valid.
+
+        This is mostly a helper function for View implementations.
+        """
+
+        slices = self.determine_fwf_views(xslice.start, xslice.stop)
+        count = xslice.start
+        for file in slices:
+            for _, rec in file.iter_lines():
+                yield count, rec
+                count += 1

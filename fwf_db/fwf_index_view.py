@@ -19,7 +19,7 @@ from .fwf_view_mixin import FWFViewMixin
 class FWFIndexView(FWFViewMixin):
     """   """
 
-    def __init__(self, parent, lines: list, columns: dict):
+    def __init__(self, parent, lines: list, columns: dict=None):
 
         assert parent is not None
         # assert parent.lines is not None
@@ -27,7 +27,11 @@ class FWFIndexView(FWFViewMixin):
         assert parent.parent is not None
 
         self.parent = parent.parent
-        self.columns = columns
+        self.columns = parent.columns   # It a bit irritating. This is a dict
+
+        # whereas the argument columns is a list
+        if columns:
+            self.columns = {k: v for k, v in self.columns.items() if k in columns}
 
         assert isinstance(lines, list)
         self.lines = lines
@@ -39,7 +43,7 @@ class FWFIndexView(FWFViewMixin):
 
     def line_at(self, index):
         """Get the raw line data for the line with the index"""
-        return self.parent.line_at(index)
+        return self.parent.line_at(self.lines[index])
 
 
     def __getitem__(self, args):
@@ -62,7 +66,7 @@ class FWFIndexView(FWFViewMixin):
             cols = [cols]
 
         if isinstance(row_idx, int):
-            return FWFIndexView(self, self.lines[row_idx], cols)
+            return self.get(row_idx)
         elif isinstance(row_idx, slice):
             return FWFIndexView(self, self.lines[row_idx], cols)
         else:

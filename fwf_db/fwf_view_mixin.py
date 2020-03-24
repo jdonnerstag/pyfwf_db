@@ -86,11 +86,16 @@ class FWFViewMixin(ABC):
         """Get the raw line data for the line with the index"""
 
 
-    def get(self, index):
+    def get(self, index, columns=None):
         """Get an object providing easy access to the data in the line 
         denoted by index"""
 
-        return FWFLine(self, index, self.line_at(index), self.columns)
+        if index < 0:
+            index = len(self) + index
+
+        assert index >= 0
+
+        return FWFLine(self, index, self.line_at(index), columns)
 
 
     def __getitem__(self, args):
@@ -107,16 +112,14 @@ class FWFViewMixin(ABC):
         """
 
         (row_idx, cols) = args if isinstance(args, tuple) else (args, None)
-        cols = cols or self.columns
 
         if isinstance(cols, str):
             cols = [cols]
 
-        from .fwf_slice_view import FWFSliceView
-
         if isinstance(row_idx, int):
-            return FWFSliceView(self, slice(row_idx, row_idx + 1), cols)
+            return self.get(row_idx, cols)
         elif isinstance(row_idx, slice):
+            from .fwf_slice_view import FWFSliceView
             return FWFSliceView(self, row_idx, cols)
         else:
             raise Exception(f"Invalid range value: {row_idx}")
@@ -140,7 +143,7 @@ class FWFViewMixin(ABC):
         """
 
         for i, line in self.iter_lines():
-            rtn = FWFLine(self, i, line, self.columns)
+            rtn = FWFLine(self, i, line)
             yield rtn
 
 
@@ -163,7 +166,7 @@ class FWFViewMixin(ABC):
         rtn = [i for i, rec in self.iter_lines() if func(rec)]
 
         from .fwf_index_view import FWFIndexView
-        return FWFIndexView(self, rtn, columns or self.columns)
+        return FWFIndexView(self, rtn, columns)
 
 
     def filter_by_field(self, field, func, columns=None):
@@ -184,7 +187,7 @@ class FWFViewMixin(ABC):
             rtn = [i for i, rec in self.iter_lines() if rec[sslice] == func]
 
         from .fwf_index_view import FWFIndexView
-        return FWFIndexView(self, rtn, columns or self.columns)
+        return FWFIndexView(self, rtn, columns)
 
 
     def unique(self, field, func=None):
@@ -194,7 +197,7 @@ class FWFViewMixin(ABC):
         str, lower, upper, int, ...
         """
 
-        sslice = self.columns[field]
+        sslice = self.parent.columns[field]
         values = set()
         for _, line in self.iter_lines():
             value = line[sslice].tobytes()
