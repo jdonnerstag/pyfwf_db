@@ -5,6 +5,10 @@ import abc
 
 
 class FWFViewLike(abc.ABC):
+    """A core class. Provide all the necessary basics to implement different
+    kind of views, such as views based on a slice, or views based on 
+    indivisual indexes.
+    """
 
     def init_view_like(self, lines, fields):
         assert lines is not None
@@ -25,7 +29,7 @@ class FWFViewLike(abc.ABC):
 
 
     @abc.abstractmethod
-    def fwf_by_index(self, indices):
+    def fwf_by_indices(self, indices):
         """Initiate a FWFLine (or similar) object and return it"""
 
 
@@ -40,6 +44,9 @@ class FWFViewLike(abc.ABC):
 
 
     def normalize_index(self, index, default, stop):
+        """For start and stop values of a slice, determine sensible
+        default when the index is None or < 0
+        """
         if index is None:
             index = default
         elif index < 0:
@@ -108,7 +115,7 @@ class FWFViewLike(abc.ABC):
         """
 
         rtn = [i for i, rec in self.iter_lines() if func(self.fwf_by_line(i, rec))]
-        return self.fwf_by_index(rtn)
+        return self.fwf_by_indices(rtn)
 
 
     def filter_by_field(self, field, func):
@@ -128,10 +135,11 @@ class FWFViewLike(abc.ABC):
         else:
             rtn = [i for i, rec in self.iter_lines() if rec[sslice] == func]
 
-        return self.fwf_by_index(rtn)
+        return self.fwf_by_indices(rtn)
 
 
     def to_pandas(self):
         """Export the data to Pandas dataframes"""
+        # TODO
 
         raise Exception("Not yet implemented")

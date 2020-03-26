@@ -17,8 +17,8 @@ class FWFFile(FWFViewLike):
     """A wrapper around fixed-width files.
 
     This is one of the core classes. It wraps around a fixed-width file, or a 
-    fixed width file representation already available in memory, and provides
-    access to the lines in different ways.
+    fixed width data block in memory, and provides access to the lines in 
+    different ways.
     """
 
     def __init__(self, reader):
@@ -26,7 +26,11 @@ class FWFFile(FWFViewLike):
         
         'reader' is a class that provides information about the 
         fixed-width file. At a minimum the class must provide the
-        following properties: ENCODING, FIELDSPECS
+        following properties: FIELDSPECS.
+
+        ENCODING is an optional property to convert binary data into string.
+
+        Please the unit tests for an example.
         """
 
         self.reader = reader
@@ -46,7 +50,7 @@ class FWFFile(FWFViewLike):
         # Required to determine overall line length
         self.number_of_newline_bytes = None
         self.fwidth = None      # The length of each line including newline
-        self.fsize = None       # File size
+        self.fsize = None       # File size (including possibly missing last newline)
         self.reclen = None      # Number of records in the file
         self.start_pos = None   # Position of first record, after skipping leading comment lines
         self.lines = None       # slice(0, reclen)
@@ -104,8 +108,9 @@ class FWFFile(FWFViewLike):
     def _number_of_newline_bytes(self, mm):
         """Determine the number of newline bytes"""
 
+        maxlen = min(len(mm), 10000)
         pos = 0
-        while pos < len(mm):
+        while pos < maxlen:
             if self.is_newline(mm[pos]):
                 pos += 1
                 rtn = 2 if self.is_newline(mm[pos]) else 1
@@ -118,7 +123,7 @@ class FWFFile(FWFViewLike):
 
     @contextmanager
     def open(self, file):
-        """Initialize the fwf_table with the file"""        
+        """Initialize the fwf table with a file"""        
 
         if isinstance(file, str):
             self.file = file
@@ -134,7 +139,6 @@ class FWFFile(FWFViewLike):
         self.fsize = self.get_file_size(self.mm)
         self.start_pos = self.skip_comment_line(self.mm, self.comment_char)
         self.reclen = int((self.fsize - self.start_pos + 1) / self.fwidth)
-        self.lines = slice(0, self.reclen)
 
         self.init_view_like(slice(0, self.reclen), self.fields)
 
@@ -145,13 +149,6 @@ class FWFFile(FWFViewLike):
 
     def close(self):
         """Close the file and all open handles"""
-
-        # When you receive an error alluding to a pointers still holding to the 
-        # memoryview, then look for your "with fwf.open().." block. A with 
-        # statement does not create a scope (like if, for and while do not create 
-        # a scope either), and hence variables which have FWFView or FWFIndex
-        # may still hold references to memoryview. Assign "None" to the variable
-        # to release the data.
 
         if self.fd:
             if self.mm:
@@ -171,7 +168,7 @@ class FWFFile(FWFViewLike):
         if index < 0:
             index = len(self) + index
 
-        assert index >= 0
+        assert index >= 0, f"Invalid index: {index}"
 
         pos = self.start_pos + (index * self.fwidth)
         if pos <= self.fsize:
@@ -186,36 +183,32 @@ class FWFFile(FWFViewLike):
         return self.mm[pos : pos + self.fwidth]
 
 
-    def fwf_by_index(self, arg):
-        """Initiate a FWFRegion (or similar) object and return it"""
-        return FWFSubset(self, arg, self.fields)
+    def fwf_by_indices(self, indices):
+        """Instantiate a new view based on the indices provided"""
+        return FWFSubset(self, indices, self.fields)
 
 
     def fwf_by_slice(self, arg):
-        """Initiate a FWFRegion (or similar) object and return it"""
+        """Instantiate a new view on the slice provided"""
         return FWFRegion(self, arg, self.fields)
 
 
     def fwf_by_line(self, idx, line):
-        """Initiate a FWFRegion (or similar) object and return it"""
+        """instantiate a new FWFLine on the index and line data provided"""
         return FWFLine(self, idx, line)
 
 
     def iter_lines(self):
-        """Iterate over the lines denoted by xslice.
-
-        Return raw lines. The start and stop positions must be positiv
-        integer value and valid.
-
-        This is mostly a helper function for View implementations.
-        """
+        """Iterate over all the lines in the file"""
 
         start_pos = self.start_pos
         end_pos = self.fsize
+        fwidth = self.fwidth
         irow = 0
         while start_pos < end_pos:
-            end = start_pos + self.fwidth
-            rtn = self.mm[start_pos : end]
+            end = start_pos + fwidth
+            # rtn = memoryview(self.mm[start_pos : end])  # It is not getting faster
+            rtn = self.mm[start_pos : end]  # This is where python copies the memory
             yield irow, rtn
             start_pos = end
             irow += 1

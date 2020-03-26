@@ -1,14 +1,16 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+import numpy as np
 
-class FWFUnique(object):
-    """Create a list of unique (distinct) value of a field, with pure
-    python means
+class FWFUniqueNpBased(object):
+    """A Numpy based implementation that return the unique (distinct)
+    value of a field (column)
     """
-    
-    def __init__(self, fwffile):
+
+    def __init__(self, fwffile, np_type):
         self.fwffile = fwffile
+        self.np_type = np_type
 
 
     def unique(self, field, func=None):
@@ -18,13 +20,16 @@ class FWFUnique(object):
         str, lower, upper, int, ...
         """
 
+        reclen = len(self.fwffile)
+        values = np.empty(reclen, dtype=self.np_type)
+
         sslice = self.fwffile.fields[field]
-        values = set()
-        for _, line in self.fwffile.iter_lines():
+
+        for i, line in self.fwffile.iter_lines():
             value = line[sslice]
             if func:
                 value = func(value)
                 
-            values.add(value)
+            values[i] = value
 
-        return values
+        return np.unique(values)

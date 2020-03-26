@@ -6,8 +6,11 @@ import pytest
 import os
 import sys
 import io
+import numpy as np
 
 from fwf_db import FWFFile, FWFSimpleIndex, FWFMultiFile, FWFUnique
+from fwf_db.fwf_unique_np_based import FWFUniqueNpBased
+from fwf_db.fwf_index_np_based import FWFIndexNumpyBased
 
 
 DATA = b"""# My comment test
@@ -195,6 +198,37 @@ def test_unique():
         assert "F" in rtn
 
 
+def test_unique_numpy():
+    fwf = FWFFile(HumanFile)
+    with fwf.open(DATA):
+
+        rtn = FWFUniqueNpBased(fwf, (np.bytes_, 2)).unique("state")
+        assert len(list(rtn)) == 9
+        assert len(rtn) == 9
+
+        rtn = FWFUniqueNpBased(fwf, "U2").unique("state", lambda x: x.decode())
+        assert len(list(rtn)) == 9
+        assert len(rtn) == 9
+        assert "MI" in rtn
+
+        def to_str(x):
+            return x.decode()
+
+        rtn = FWFUniqueNpBased(fwf, "U1").unique("gender", to_str)
+        assert len(list(rtn)) == 2
+        assert len(rtn) == 2
+        assert "M" in rtn
+        assert "F" in rtn
+
+        # Unique on a view
+        x = fwf[0:5]
+        rtn = FWFUniqueNpBased(x, "U1").unique("gender", to_str)
+        assert len(list(rtn)) == 2
+        assert len(rtn) == 2
+        assert "M" in rtn
+        assert "F" in rtn
+
+
 def test_index():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
@@ -230,6 +264,44 @@ def test_index():
         # Index on a view
         x = fwf[0:5]
         rtn = FWFSimpleIndex(x).index("state")
+        assert len(rtn) == 5
+
+
+def test_index_numpy_based():
+    fwf = FWFFile(HumanFile)
+    with fwf.open(DATA):
+
+        rtn = FWFIndexNumpyBased(fwf).index("state", dtype=(np.bytes_, 2))
+        assert len(rtn) == 9
+
+        rtn = FWFIndexNumpyBased(fwf).index("gender", dtype=(np.bytes_, 1))
+        assert len(rtn) == 2
+
+        rtn = FWFIndexNumpyBased(fwf).index("state", dtype="U2", func=lambda x: x.decode())
+        assert "MI" in rtn
+        assert rtn["MI"]
+
+        rtn = FWFIndexNumpyBased(fwf).index("gender", dtype="U1", func=lambda x: x.decode())
+        assert len(rtn) == 2
+        assert "M" in rtn
+        assert "F" in rtn
+        assert rtn["M"]
+        assert rtn["F"]
+        assert not rtn["xxx"]
+
+        for rec in rtn["M"]:
+            assert rec.lineno in [1, 2, 4]
+
+        x = rtn["M"]
+        x = x[2]
+        assert rtn["M"][2].lineno == 4
+
+        rtn = FWFIndexNumpyBased(fwf).index(1, dtype=(np.bytes_, 8))  # Also works with integers == state
+        assert len(rtn) == 9
+
+        # Index on a view
+        x = fwf[0:5]
+        rtn = FWFIndexNumpyBased(x).index("state", dtype=(np.bytes_, 2))
         assert len(rtn) == 5
 
 
@@ -307,4 +379,4 @@ def test_multi_view():
 # Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":
 if __name__ == '__main__':
 
-    test_table_iter()
+    test_unique_numpy()
