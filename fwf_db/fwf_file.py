@@ -7,9 +7,13 @@ import mmap
 import time 
 from contextlib import contextmanager
 
-from .fwf_view_mixin import FWFViewMixin
+from .fwf_view_like import FWFViewLike
+from .fwf_line import FWFLine
+from .fwf_region import FWFRegion
+from .fwf_subset import FWFSubset
 
-class FWFTable(FWFViewMixin):
+
+class FWFFile(FWFViewLike):
     """A wrapper around fixed-width files.
 
     This is one of the core classes. It wraps around a fixed-width file, or a 
@@ -25,7 +29,6 @@ class FWFTable(FWFViewMixin):
         following properties: ENCODING, FIELDSPECS
         """
 
-        self.parent = self      # See FWFViewMixin
         self.reader = reader
 
         # Used when automatically decoding bytes into strings
@@ -34,7 +37,7 @@ class FWFTable(FWFViewMixin):
 
         self.widths = [x["len"] for x in self.fieldspecs]   # The width of each field
         self.add_slice_info(self.fieldspecs, self.widths)    # The slice for each field
-        self.columns = {x["name"] : x["slice"] for i, x in enumerate(self.fieldspecs)}
+        self.fields = {x["name"] : x["slice"] for i, x in enumerate(self.fieldspecs)}
 
         self.newline_bytes = [0, 1, 10, 13]  # These bytes we recognize as newline
         self.comment_char = '#'
@@ -133,6 +136,8 @@ class FWFTable(FWFViewMixin):
         self.reclen = int((self.fsize - self.start_pos + 1) / self.fwidth)
         self.lines = slice(0, self.reclen)
 
+        self.init_view_like(slice(0, self.reclen), self.fields)
+
         yield self
 
         self.close()
@@ -161,10 +166,8 @@ class FWFTable(FWFViewMixin):
         """Return the number of records in the file"""
         return self.lines.stop - self.lines.start
 
-
+    
     def pos_from_index(self, index):
-        """Determine the position within the file for the line with the index"""
-
         if index < 0:
             index = len(self) + index
 
@@ -174,17 +177,31 @@ class FWFTable(FWFViewMixin):
         if pos <= self.fsize:
             return pos
 
-        raise Exception(f"Invalid index: too large: {index}")
+        raise Exception(f"Invalid index: {index}")
 
     
     def line_at(self, index):
         """Get the raw line data for the line with the index"""
-
         pos = self.pos_from_index(index)
         return self.mm[pos : pos + self.fwidth]
 
 
-    def iter_lines_with_slice(self, xslice=None):
+    def fwf_by_index(self, arg):
+        """Initiate a FWFRegion (or similar) object and return it"""
+        return FWFSubset(self, arg, self.fields)
+
+
+    def fwf_by_slice(self, arg):
+        """Initiate a FWFRegion (or similar) object and return it"""
+        return FWFRegion(self, arg, self.fields)
+
+
+    def fwf_by_line(self, idx, line):
+        """Initiate a FWFRegion (or similar) object and return it"""
+        return FWFLine(self, idx, line)
+
+
+    def iter_lines(self):
         """Iterate over the lines denoted by xslice.
 
         Return raw lines. The start and stop positions must be positiv
@@ -193,20 +210,12 @@ class FWFTable(FWFViewMixin):
         This is mostly a helper function for View implementations.
         """
 
-        xslice = xslice or self.lines
-        irow = xslice.start
-        start_pos = self.pos_from_index(xslice.start)
-        end_pos = self.pos_from_index(xslice.stop)
-
+        start_pos = self.start_pos
+        end_pos = self.fsize
+        irow = 0
         while start_pos < end_pos:
             end = start_pos + self.fwidth
             rtn = self.mm[start_pos : end]
             yield irow, rtn
             start_pos = end
             irow += 1
-
-
-    def iter_lines(self):
-        """Iterate over all lines in the file, returning raw line data"""
-
-        yield from self.iter_lines_with_slice(self.lines)

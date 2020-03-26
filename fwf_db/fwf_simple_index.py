@@ -1,48 +1,37 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-"""A very simple FWFIndex implementation. 
-
-It is using a dict() to maintain the index, which has the nice 
-side-effect that it does groupby as well.
-"""
-
 from itertools import islice
 
-from .fwf_index_view import FWFIndexView
+from .fwf_index_like import FWFIndexLike
+from .fwf_subset import FWFSubset
 
 
-class FWFSimpleIndex(object):
-    def __init__(self, parent):
-        assert parent
+class FWFSimpleIndex(FWFIndexLike):
 
-        self.parent = parent
-        self.column = None
-        self.idx = None
+    def __init__(self, fwfview):
+        self.fwfview = fwfview
+        self.field = None
+        self.data = {}    # dict(value -> [lineno])
 
 
-    def index(self, column, func=None, progress_log=None):
-        self.column = column
-        self.idx = idx = {}
+    def index(self, field, func=None, progress_log=None):
+        fields = self.fwfview.fields
+        if isinstance(field, int):
+            field = next(islice(fields.keys(), field, None))
 
-        cols = self.parent.columns
-        if isinstance(column, str):
-            xslice = cols[column]
-        elif isinstance(column, int):
-            xslice = cols[next(islice(cols, column, None))]
-        else:
-            raise Exception(f"column must be either string or int: {column}")
-
-        for i, line in self.parent.iter_lines():
-            value = line[xslice]
+        sslice = fields[field]
+        self.data = values = {}
+        for i, line in self.fwfview.iter_lines():
+            value = line[sslice]
             if func:
                 value = func(value)
-            
-            v = idx.get(value, None)
-            if not v:
-                idx[value] = [i]
+
+            rtn = values.get(value, [i])
+            if value in values:
+                rtn.append(i)
             else:
-                v.append(i)
+                values[value] = rtn
 
             if progress_log:
                 progress_log(i)
@@ -50,19 +39,14 @@ class FWFSimpleIndex(object):
         return self
 
 
-    def __contains__(self, key):
-        return key in self.idx
-
-
-    def __getitem__(self, key):
-        return self.loc(key)
-
-
-    def loc(self, key):
-        lines = self.idx.get(key, None)
-        if lines is not None:
-            return FWFIndexView(self.parent, lines, self.parent.columns)
-
-
     def __len__(self):
-        return len(self.idx)
+        return len(self.data.keys())
+
+
+    def __iter__(self):     
+        return iter(self.data.keys())
+
+
+    def fwf_subset(self, fwffile, key, fields):
+        if key in self.data:
+            return FWFSubset(fwffile, self.data[key], fields)

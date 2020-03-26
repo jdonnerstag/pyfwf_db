@@ -1,51 +1,41 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-"""
-"""
-
 from datetime import datetime
 
 
 class FWFLine(object):
-    """   """
+    def __init__(self, fwf_file_like, lineno, line):
+        assert fwf_file_like is not None
+        assert isinstance(lineno, int)
 
-    def __init__(self, parent, idx, line, columns=None):
+        self.fwf_file_like = fwf_file_like     
+        self.lineno = lineno
+        self.line = line
 
-        assert parent is not None
-
-        assert isinstance(idx, int)
-        assert columns is None or isinstance(columns, list)
-
-        self.parent = parent
-        self.idx = idx
-        self.columns = parent.columns   # It a bit irritating. This is a dict
-
-        # whereas the argument columns is a list
-        if columns:
-            self.columns = {k: v for k, v in self.columns.items() if k in columns}
-
-        self.idx = idx
-        self.line = line 
-
-
-    def get_raw(self, field):
-        return self.line[self.columns(field)]
+    def __getitem__(self, arg):
+        if isinstance(arg, str):
+            return self.get(arg)
+        elif isinstance(arg, (int, slice)):
+            return self.line[arg]
+        else:
+            raise Exception(f"Invalid Index: {arg}")
 
 
     def get(self, field):
-        return self.get_raw(field).to_bytes()
-
+        field = self.fwf_file_like.fields[field]
+        return self.line[field]
 
     def str(self, field, encoding):
-        return self.get_raw(field).to_bytes().decode(encoding)
-
+        return str(self.get(field), encoding)
 
     def int(self, field):
-        return int(self.get_raw(field).to_bytes())
-
+        return int(self.get(field))
 
     def date(self, field, format="%Y%m%d"):
         rtn = self.str(field, None)
         rtn = datetime.strptime(rtn, format)
         return rtn
+
+    def __repr__(self):
+        return self.line

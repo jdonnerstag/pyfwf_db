@@ -7,7 +7,7 @@ import os
 import sys
 import io
 
-from fwf_db import FWFTable, FWFSimpleIndex, FWFMultiView
+from fwf_dbv2 import FWFFile, FWFSimpleIndex, FWFMultiFile, FWFUnique
 
 
 DATA = b"""# My comment test
@@ -39,10 +39,10 @@ class HumanFile(object):
 
 
 def test_bytes_input():
-    fwf = FWFTable(HumanFile)
+    fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
         assert fwf.encoding is None
-        assert len(fwf.columns) == 8
+        assert len(fwf.fields) == 8
         assert fwf.fwidth == 83
         assert fwf.fd is None
         assert fwf.mm is not None
@@ -53,10 +53,10 @@ def test_bytes_input():
 
 
 def test_file_input():
-    fwf = FWFTable(HumanFile)
+    fwf = FWFFile(HumanFile)
     with fwf.open("./examples/humans.txt"):
         assert fwf.encoding is None
-        assert len(fwf.columns) == 8
+        assert len(fwf.fields) == 8
         assert fwf.fwidth == 83
         assert fwf.fd is not None
         assert fwf.mm is not None
@@ -67,34 +67,32 @@ def test_file_input():
 
 
 def test_table_iter():
-    fwf = FWFTable(HumanFile)
+    fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
         for rec in fwf:
             assert rec
             assert rec.line
-            assert rec.idx < 10 # we have 10 rows in our test data
+            assert rec.lineno < 10 # we have 10 rows in our test data
 
-        assert rec.idx == 9 
+        assert rec.lineno == 9 
 
 
 def test_table_line_selector():
-    fwf = FWFTable(HumanFile)
+    fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
         rec = fwf[0]
-        assert fwf.columns == rec.columns
-        assert rec.idx == 0
+        assert rec.lineno == 0
 
         rec = fwf[0:1]
-        assert fwf.columns == rec.columns
         assert rec.lines == slice(0, 1)
         assert len(list(rec)) == 1
 
         rec = fwf[5]
-        assert rec.idx == 5
+        assert rec.lineno == 5
 
         rec = fwf[-1]
-        assert rec.idx == 9
+        assert rec.lineno == 9
 
         rec = fwf[0:5]
         assert rec.lines == slice(0, 5)
@@ -109,46 +107,29 @@ def test_table_line_selector():
         assert len(list(rec)) == 0
 
 
-def test_table_colume_selector():
-    fwf = FWFTable(HumanFile)
-    with fwf.open(DATA):
-
-        rec = fwf[0, "gender"]
-        assert len(rec.columns) == 1
-        assert rec.idx == 0
-
-        rec = fwf[0, ["gender", "state"]]
-        assert len(rec.columns) == 2
-        assert rec.idx == 0
-
-        rec = fwf[0:5, ["state", "gender"]]
-        assert len(rec.columns) == 2
-        assert rec.lines == slice(0, 5)
-
-
 def test_table_filter_by_line():
-    fwf = FWFTable(HumanFile)
+    fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
         rtn = fwf.filter_by_line(lambda l: l[19] == ord('F'))
         assert len(list(rtn)) == 7
         assert len(rtn) == 7
 
-        rtn = fwf.filter_by_line(lambda l: l[fwf.columns["gender"].start] == ord('M'))
+        rtn = fwf.filter_by_line(lambda l: l[fwf.fields["gender"].start] == ord('M'))
         assert len(list(rtn)) == 3
         assert len(rtn) == 3
 
-        rtn = fwf.filter_by_line(lambda l: l[fwf.columns["state"]] == b'AR')
+        rtn = fwf.filter_by_line(lambda l: l[fwf.fields["state"]] == b'AR')
         assert len(list(rtn)) == 2
         assert len(rtn) == 2
 
-        rtn = fwf.filter_by_line(lambda l: l[fwf.columns["state"]] == b'XX')
+        rtn = fwf.filter_by_line(lambda l: l[fwf.fields["state"]] == b'XX')
         assert len(list(rtn)) == 0
         assert len(rtn) == 0
 
 
 def test_table_filter_by_field():
-    fwf = FWFTable(HumanFile)
+    fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
         rtn = fwf.filter_by_field("gender", lambda x: x == b'F')
@@ -168,11 +149,11 @@ def test_table_filter_by_field():
 
 
 def test_table_filter_by_function():
-    fwf = FWFTable(HumanFile)
+    fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
-        gender = fwf.columns["gender"]
-        state = fwf.columns["state"]
+        gender = fwf.fields["gender"]
+        state = fwf.fields["state"]
 
         def my_complex_reusable_test(line):
             # Not very efficient, but shows that you can do essentially everything
@@ -184,14 +165,14 @@ def test_table_filter_by_function():
 
 
 def test_unique():
-    fwf = FWFTable(HumanFile)
+    fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
-        rtn = fwf.unique("state")
+        rtn = FWFUnique(fwf).unique("state")
         assert len(list(rtn)) == 9
         assert len(rtn) == 9
 
-        rtn = fwf.unique("state", lambda x: x.decode())
+        rtn = FWFUnique(fwf).unique("state", lambda x: x.decode())
         assert len(list(rtn)) == 9
         assert len(rtn) == 9
         assert "MI" in rtn
@@ -199,7 +180,7 @@ def test_unique():
         def to_str(x):
             return x.decode()
 
-        rtn = fwf.unique("gender", to_str)
+        rtn = FWFUnique(fwf).unique("gender", to_str)
         assert len(list(rtn)) == 2
         assert len(rtn) == 2
         assert "M" in rtn
@@ -207,7 +188,7 @@ def test_unique():
 
         # Unique on a view
         x = fwf[0:5]
-        rtn = x.unique("gender", to_str)
+        rtn = FWFUnique(x).unique("gender", to_str)
         assert len(list(rtn)) == 2
         assert len(rtn) == 2
         assert "M" in rtn
@@ -215,25 +196,21 @@ def test_unique():
 
 
 def test_index():
-    fwf = FWFTable(HumanFile)
+    fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
         rtn = FWFSimpleIndex(fwf).index("state")
-        assert len(list(rtn.idx)) == 9
         assert len(rtn) == 9
 
         rtn = FWFSimpleIndex(fwf).index("gender")
-        assert len(list(rtn.idx)) == 2
         assert len(rtn) == 2
 
         rtn = FWFSimpleIndex(fwf).index("state", lambda x: x.decode())
-        assert len(list(rtn.idx)) == 9
-        assert rtn.loc("MI")
         assert "MI" in rtn
         assert rtn["MI"]
 
         rtn = FWFSimpleIndex(fwf).index("gender", lambda x: x.decode())
-        assert len(list(rtn.idx)) == 2
+        assert len(rtn) == 2
         assert "M" in rtn
         assert "F" in rtn
         assert rtn["M"]
@@ -241,29 +218,27 @@ def test_index():
         assert not rtn["xxx"]
 
         for rec in rtn["M"]:
-            assert rec.idx in [1, 2, 4]
+            assert rec.lineno in [1, 2, 4]
 
         x = rtn["M"]
-        x = rtn["M"][2]
-        assert rtn["M"][2].parent.lines[2] == 4
+        x = x[2]
+        assert rtn["M"][2].lineno == 4
 
         rtn = FWFSimpleIndex(fwf).index(1)  # Also works with integers == state
-        assert len(list(rtn.idx)) == 9
         assert len(rtn) == 9
 
         # Index on a view
         x = fwf[0:5]
         rtn = FWFSimpleIndex(x).index("state")
-        assert len(list(rtn.idx)) == 5
         assert len(rtn) == 5
 
 
 def test_view_of_a_view():
-    fwf = FWFTable(HumanFile)
+    fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
         rec = fwf[1:8]
-        assert fwf.columns == rec.columns
+        assert fwf.fields == rec.fields
         assert len(list(rec)) == 7
         assert len(rec) == 7
 
@@ -271,25 +246,25 @@ def test_view_of_a_view():
         assert len(list(rtn)) == 2
         assert len(rtn) == 2
         for rec in rtn:       # pylint: this is a false-positive, as the code clearly works well
-            assert rec.idx in [3, 4]
+            assert rec.lineno in [3, 4]
 
         rtn = fwf.filter_by_field("gender", b'F')
         assert len(list(rtn)) == 7
         assert len(rtn) == 7
         for rec in rtn:
-            assert rec.idx in [0, 3, 5, 6, 7, 8, 9]
+            assert rec.lineno in [0, 3, 5, 6, 7, 8, 9]
 
         for rec in rtn[2:4]:  # pylint: this is a false-positive, as the code clearly works well
-            assert rec.idx in [5, 6]
+            assert rec.lineno in [5, 6]
 
 
 def test_multi_view():
-    fwf1 = FWFTable(HumanFile)
+    fwf1 = FWFFile(HumanFile)
     with fwf1.open(DATA):
-        fwf2 = FWFTable(HumanFile)
+        fwf2 = FWFFile(HumanFile)
         with fwf2.open(DATA):
 
-            mf = FWFMultiView()
+            mf = FWFMultiFile()
             mf.add_file(fwf1)
             mf.add_file(fwf2)
 
@@ -303,21 +278,21 @@ def test_multi_view():
                 assert idx < 20
 
             for rec in mf:
-                assert rec.idx < 20
+                assert rec.lineno < 20
 
             for idx, _ in mf[8:12].iter_lines():
                 assert idx >= 8
                 assert idx < 12
 
             for rec in mf[8:12]:
-                assert rec.idx >= 8
-                assert rec.idx < 12
+                assert rec.lineno >= 8
+                assert rec.lineno < 12
 
-            assert mf[0].idx == 0
-            assert mf[5].idx == 5
-            assert mf[10].idx == 10
-            assert mf[15].idx == 15
-            assert mf[19].idx == 19
+            assert mf[0].lineno == 0
+            assert mf[5].lineno == 5
+            assert mf[10].lineno == 10
+            assert mf[15].lineno == 15
+            assert mf[19].lineno == 19
             assert len(mf[0:5]) == 5
             assert len(mf[-5:]) == 5
             assert len(mf[5:15]) == 10
