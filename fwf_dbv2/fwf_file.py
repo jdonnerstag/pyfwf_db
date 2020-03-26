@@ -7,10 +7,10 @@ import mmap
 import time 
 from contextlib import contextmanager
 
-from fwf_dbv2.fwf_view_like import FWFViewLike
-from fwf_dbv2.fwf_line import FWFLine
-from fwf_dbv2.fwf_region import FWFRegion
-from fwf_dbv2.fwf_subset import FWFSubset
+from .fwf_view_like import FWFViewLike
+from .fwf_line import FWFLine
+from .fwf_region import FWFRegion
+from .fwf_subset import FWFSubset
 
 
 class FWFFile(FWFViewLike):

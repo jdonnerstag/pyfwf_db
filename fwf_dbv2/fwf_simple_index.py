@@ -3,8 +3,8 @@
 
 from itertools import islice
 
-from fwf_dbv2.fwf_index_like import FWFIndexLike
-from fwf_dbv2.fwf_subset import FWFSubset
+from .fwf_index_like import FWFIndexLike
+from .fwf_subset import FWFSubset
 
 
 class FWFSimpleIndex(FWFIndexLike):

@@ -2,9 +2,9 @@
 # encoding: utf-8
 
 
-from fwf_dbv2.fwf_view_like import FWFViewLike
-from fwf_dbv2.fwf_line import FWFLine
-from fwf_dbv2.fwf_subset import FWFSubset
+from .fwf_view_like import FWFViewLike
+from .fwf_line import FWFLine
+from .fwf_subset import FWFSubset
 
 
 class FWFRegion(FWFViewLike):
