@@ -7,7 +7,7 @@ import os
 import sys
 import io
 
-from fwf_dbv2 import FWFFile, FWFSimpleIndex, FWFMultiFile, FWFUnique
+from fwf_db import FWFFile, FWFSimpleIndex, FWFMultiFile, FWFUnique
 
 
 DATA = b"""# My comment test
