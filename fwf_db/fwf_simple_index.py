@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+from collections import defaultdict
 from itertools import islice
 
 from .fwf_index_like import FWFIndexLike
@@ -17,33 +18,10 @@ class FWFSimpleIndex(FWFIndexLike):
         self.data = {}    # dict(value -> [lineno])
 
 
-    def _index(self, field, func=None, chunksize=None):
-
-        # Determine the slice information for the field
-        fields = self.fwfview.fields
-        if isinstance(field, int):
-            field = next(islice(fields.keys(), field, None))
-
-        sslice = fields[field]
-
-        # This will contain the actually index info
-        self.data = values = {}     # dict(name => [<indices])
-
-        for i, line in self.fwfview.iter_lines():
-            value = line[sslice]
-            if func:
-                value = func(value)
-
-            rtn = values.get(value, [i])
-            if value in values:
-                rtn.append(i)
-            else:
-                values[value] = rtn
-
-            if chunksize:
-                yield i
-                
-        return self
+    def _index2(self, gen):
+        # Create the index
+        self.data = values = defaultdict(list)
+        all(values[value].append(i) or True for i, value in gen)
 
 
     def __len__(self):
@@ -56,10 +34,10 @@ class FWFSimpleIndex(FWFIndexLike):
         return iter(self.data.keys())
 
 
-    def fwf_subset(self, fwffile, key, fields):
+    def fwf_subset(self, fwfview, key, fields):
         """Create a view based on the indices associated with the index key provided""" 
         if key in self.data:
-            return FWFSubset(fwffile, self.data[key], fields)
+            return FWFSubset(fwfview, self.data[key], fields)
 
 
     def __contains__(self, param):

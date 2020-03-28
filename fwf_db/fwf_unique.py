@@ -18,13 +18,19 @@ class FWFUnique(object):
         str, lower, upper, int, ...
         """
 
-        sslice = self.fwffile.fields[field]
-        values = set()
-        for _, line in self.fwffile.iter_lines():
-            value = line[sslice]
-            if func:
-                value = func(value)
-                
-            values.add(value)
+        field = self.fwffile.field_from_index(field)
 
+        # If the parent view has an optimized iterator ..
+        if hasattr(self.fwffile, "iter_lines_with_field"):
+            gen = self.fwffile.iter_lines_with_field(field)
+        else:
+            sslice = self.fwffile.fields[field]
+            gen = ((i, line[sslice]) for i, line in self.fwffile.iter_lines())
+
+        # Do we need to apply any transformations...
+        if func:
+            gen = ((i, func(v)) for i, v in gen)
+
+        # Add the value if not yet present
+        values = {value for _, value in gen}
         return values

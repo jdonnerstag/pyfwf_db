@@ -68,8 +68,9 @@ class FWFFile(FWFViewLike):
                     f"Fieldspecs is missing either 'len' or 'slice': {entry}")
 
             if ("len" in entry) and ("slice" in entry):
-                raise Exception(
-                    f"Only one must be present in a fieldspec, len or slice: {entry}")
+                continue
+                #raise Exception(
+                #    f"Only one must be present in a fieldspec, len or slice: {entry}")
 
             if "len" in entry:
                 flen = entry["len"]
@@ -231,3 +232,18 @@ class FWFFile(FWFViewLike):
             yield irow, rtn
             start_pos = end
             irow += 1
+
+
+    def iter_lines_with_field(self, field):
+        """An optimized version that iterates over a single field in all lines.
+        This is useful for unique and index.
+        """
+
+        fslice = self.fields[field]
+        flen = fslice.stop - fslice.start
+        start_pos = self.start_pos + fslice.start
+        end_pos = self.fsize
+        fwidth = self.fwidth
+        for irow, start_pos in enumerate(range(start_pos, end_pos, fwidth)):
+            rtn = self.mm[start_pos : start_pos + flen]  # This is where python copies the memory
+            yield irow, rtn

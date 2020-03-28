@@ -15,22 +15,42 @@ class FWFIndexLike(abc.ABC):
         self.field = None
 
 
-    def index(self, field, func=None, **kvargs):
+    def index(self, field, func=None, log_progress=None):
         """A convience function to create the index without generator"""
-        for _ in self._index(field, func=func, **kvargs):
-            """  """
+
+        gen = self._index1(field, func)
+
+        if log_progress is not None:
+            view = self.fwfview
+            view.progress_count = 0
+            gen = (log_progress(view, i) or (i, v) for i, v in gen)
+                
+        self._index2(gen)
 
         return self
 
 
-    @abc.abstractmethod
-    def _index(self, field, func=None, chunksize=None):
-        """Create an index for data in column 'field'. 
+    def _index1(self, field, func=None):
 
-        Optionally the value can be transformed, e.g. string, int, date, 
-        bevor adding it to the index.
-        """
-        pass
+        field = self.fwfview.field_from_index(field)
+
+        # If the parent view has an optimized iterator ..
+        if hasattr(self.fwfview, "iter_lines_with_field"):
+            gen = self.fwfview.iter_lines_with_field(field)
+        else:
+            sslice = self.fwfview.fields[field]
+            gen = ((i, line[sslice]) for i, line in self.fwfview.iter_lines())
+
+        # Do we need to apply any transformations...
+        if func:
+            gen = ((i, func(v)) for i, v in gen)
+
+        return gen
+
+
+    @abc.abstractmethod
+    def _index2(self, gen):
+        """Create the index"""
 
 
     @abc.abstractmethod

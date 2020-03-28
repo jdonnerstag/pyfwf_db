@@ -2,6 +2,7 @@
 # encoding: utf-8
 
 import abc 
+from itertools import islice
 
 
 class FWFViewLike(abc.ABC):
@@ -41,6 +42,15 @@ class FWFViewLike(abc.ABC):
     @abc.abstractmethod
     def fwf_by_line(self, idx, line):
         """Initiate a FWFRegion (or similar) object and return it"""
+
+
+    def field_from_index(self, idx):
+        """Determine the field namd from the index"""
+        fields = self.fields
+        if isinstance(idx, int):
+            return next(islice(fields.keys(), idx, None))
+
+        return idx
 
 
     def normalize_index(self, index, default):

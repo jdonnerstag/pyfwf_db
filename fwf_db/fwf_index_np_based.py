@@ -16,13 +16,14 @@ class FWFIndexNumpyBased(FWFIndexLike):
     a Pandas based index is (much) faster compared to pure python based on. 
     """ 
 
-    def __init__(self, fwfview):
+    def __init__(self, fwfview, dtype):
         self.fwfview = fwfview
         self.field = None   # The field to use for the index
+        self.dtype = dtype
         self.data = None    # The Pandas groupby result
 
 
-    def _index(self, field, dtype=None, func=None, chunksize=None):
+    def _index2(self, gen):
         """Create the Index
         
         The 'field' to base the index upon
@@ -33,29 +34,12 @@ class FWFIndexNumpyBased(FWFIndexLike):
         
         """
 
-        assert dtype, "Missing parameter: dtype"
-
         # Create the full size index all at once => number of records        
         reclen = len(self.fwfview)
-        values = np.empty(reclen, dtype=dtype)
+        values = np.empty(reclen, dtype=self.dtype)
 
-        # Determine the slice information to retrieve the field from the line
-        fields = self.fwfview.fields
-        if isinstance(field, int):
-            field = next(islice(fields.keys(), field, None))
-
-        sslice = fields[field]
-
-        # Iterate over all rows in the view
-        for i, line in self.fwfview.iter_lines():
-            value = line[sslice]
-            if func:
-                value = func(value)
-
+        for i, value in gen:
             values[i] = value
-
-            if chunksize:
-                yield i
 
         # All the user to process the index data before they are grouped.
         df = pd.DataFrame(values, columns=["values"])
