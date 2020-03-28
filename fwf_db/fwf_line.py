@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+import sys
 from datetime import datetime
 
 
 class FWFLine(object):
-    """Provide convinience methods to access the fields within a 
-    line
+    """A dictory like convinience class to access the fields within a 
+    line. Access is similar to dict() with get(), [], keys, in, ...
     """ 
 
     def __init__(self, fwf_file_like, lineno, line):
@@ -33,16 +34,21 @@ class FWFLine(object):
             raise Exception(f"Invalid Index: {arg}")
 
 
-    def get(self, field):
+    def get(self, field, default=None):
         """Get the binary data for the field""" 
         field = self.fwf_file_like.fields[field]
-        return self.line[field]
+        rtn = self.line[field]
+        if rtn:
+            return rtn
 
+        return default
+            
 
-    def str(self, field, encoding):
+    def str(self, field, encoding=None):
         """Get the data for the field converted into a string, optionally 
         applying an encoding
         """
+        encoding = encoding or sys.getdefaultencoding()
         return str(self.get(field), encoding)
 
 
@@ -58,6 +64,28 @@ class FWFLine(object):
         rtn = self.str(field, None)
         rtn = datetime.strptime(rtn, format)
         return rtn
+
+
+    def __contains__(self, key):
+        """suppot pythons 'in' operator"""
+        return key in self.fwf_file_like.fields
+
+
+    def keys(self): 
+        """Like dict's keys() method, return all field names"""
+        return self.fwf_file_like.fields.keys()
+
+
+    def items(self):
+        """Like dict's items(), return field name and value tuples"""
+        for key in self.keys():
+            rtn = self.get(key)
+            yield (key, rtn)
+
+
+    def to_dict(self):
+        """Provide the line as dict""" 
+        return {k: v for k, v in self.items()}
 
 
     def __repr__(self):
