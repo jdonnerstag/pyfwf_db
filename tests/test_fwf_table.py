@@ -122,6 +122,11 @@ def test_table_line_selector():
         assert rec.lines == slice(0, 0)
         assert len(list(rec)) == 0
 
+
+def test_index_selector():
+    fwf = FWFFile(HumanFile)
+    with fwf.open(DATA):
+
         # Unique on an index view
         rtn = fwf[0, 2, 5]
         assert len(list(rtn)) == 3
@@ -133,6 +138,11 @@ def test_table_line_selector():
         rtn2 = fwf[0:6][0, 2, 5]
         assert rtn.lines == rtn2.lines
 
+
+def test_boolean_selector():
+    fwf = FWFFile(HumanFile)
+    with fwf.open(DATA):
+
         # Unique on an boolean view
         rtn = fwf[True, False, True, False, False, True]
         assert len(list(rtn)) == 3
@@ -140,6 +150,46 @@ def test_table_line_selector():
         for r in rtn:
             assert r.lineno in [0, 2, 5]
             assert r["gender"] in [b"M", b"F"]
+
+
+def test_multiple_selectors():
+    fwf = FWFFile(HumanFile)
+    with fwf.open(DATA):
+
+        rec = fwf[:]
+        assert rec.lines == slice(0, 10)
+        assert len(rec) == 10
+
+        rec = rec[:]
+        assert rec.lines == slice(0, 10)
+        assert len(rec) == 10
+
+        x = [1, 2, 3, 4, 5, 6]
+        y = x[0:-1]
+        assert 6 not in y
+
+        rec = rec[0:-1]
+        assert rec.lines == slice(0, 9)
+        assert len(rec) == 9
+
+        rec = rec[2:-2]
+        assert rec.lines == slice(2, 7)
+        assert len(rec) == 5
+
+        with pytest.raises(Exception):
+            rec = rec[1, 2, 4, 5, 6]
+
+        rec = rec[1, 2, 4, 5]
+        assert rec.lines == [3, 4, 6, 7]  # 6 is out of range
+        assert len(rec) == 4
+
+        rec = rec[True, False, True]
+        assert rec.lines == [3, 6]
+        assert len(rec) == 2
+
+        rec = fwf[:][:][0:-1][2:-2][1, 2, 4, 5][True, False, True]
+        assert rec.lines == [3, 6]
+        assert len(rec) == 2
 
 
 def test_table_filter_by_line():

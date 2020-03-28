@@ -43,14 +43,18 @@ class FWFViewLike(abc.ABC):
         """Initiate a FWFRegion (or similar) object and return it"""
 
 
-    def normalize_index(self, index, default, stop):
+    def normalize_index(self, index, default):
         """For start and stop values of a slice, determine sensible
         default when the index is None or < 0
         """
         if index is None:
             index = default
         elif index < 0:
-            index = len(self) + index + stop
+            index = len(self) + index
+        
+        assert index >= 0, f"Invalid index: must be >= 0: {index}"
+        assert index <= len(self), f"Invalid index: must <= len: {index}"
+
         return index
 
 
@@ -68,17 +72,24 @@ class FWFViewLike(abc.ABC):
         """
 
         if isinstance(row_idx, int):
-            row_idx = self.normalize_index(row_idx, 0, 0)
+            row_idx = self.normalize_index(row_idx, 0)
             return self.fwf_by_line(row_idx, self.line_at(row_idx))
+
         elif isinstance(row_idx, slice):
-            start = self.normalize_index(row_idx.start, 0, 0)
-            stop = self.normalize_index(row_idx.stop, len(self), 1)
+            start = self.normalize_index(row_idx.start, 0)
+            stop = self.normalize_index(row_idx.stop, len(self))
             return self.fwf_by_slice(slice(start, stop))
+
         elif all(x is True or x is False for x in row_idx):
+            # TODO this is rather slow for large indexes
             idx = [i for i, v in enumerate(row_idx) if v is True]
             return self.fwf_by_indices(idx)
+
         elif all(isinstance(x, int) for x in row_idx):
-            return self.fwf_by_indices(list(row_idx))
+            # Don't allow the subset to grow
+            row_idx = [self.normalize_index(x, -1) for x in list(row_idx)]
+            return self.fwf_by_indices(row_idx)
+
         else:
             raise Exception(f"Invalid range value: {row_idx}")
 
