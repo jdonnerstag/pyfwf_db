@@ -63,6 +63,8 @@ class FWFViewLike(abc.ABC):
             fwf[-1]
             fwf[-5:]
             fwf[:]
+            fwf[1, 5, 10, -1]
+            fwf[True, True, False, True]
         """
 
         if isinstance(row_idx, int):
@@ -72,6 +74,11 @@ class FWFViewLike(abc.ABC):
             start = self.normalize_index(row_idx.start, 0, 0)
             stop = self.normalize_index(row_idx.stop, len(self), 1)
             return self.fwf_by_slice(slice(start, stop))
+        elif all(x is True or x is False for x in row_idx):
+            idx = [i for i, v in enumerate(row_idx) if v is True]
+            return self.fwf_by_indices(idx)
+        elif all(isinstance(x, int) for x in row_idx):
+            return self.fwf_by_indices(list(row_idx))
         else:
             raise Exception(f"Invalid range value: {row_idx}")
 
@@ -105,6 +112,22 @@ class FWFViewLike(abc.ABC):
         return (None, None)     # (Index, line)
 
 
+    def filter(self, arg1, arg2=None):
+        """Filter either by line or by field.
+
+        If the first parameter is callable, then filter by line.
+        Else the first parameter must be a valid field name, and the second
+        parameter must be callable. 
+        """
+        if arg2:
+            field = arg1
+            func = arg2
+            return self.filter_by_field(field, func)
+
+        func = arg1
+        return self.filter_by_line(func)
+
+
     def filter_by_line(self, func):
         """Filter lines with a condition
         
@@ -128,6 +151,7 @@ class FWFViewLike(abc.ABC):
         The result is a view on the data, rather then copies.
         """
 
+        assert isinstance(field, str), f"'field' must be a string: {field}"
         sslice = self.fields[field]
 
         if callable(func):

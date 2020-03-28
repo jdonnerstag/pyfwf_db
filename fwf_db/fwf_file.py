@@ -37,11 +37,9 @@ class FWFFile(FWFViewLike):
 
         # Used when automatically decoding bytes into strings
         self.encoding = getattr(reader, "ENCODING", None)   
-        self.fieldspecs = reader.FIELDSPECS     # fixed width file spec
-
-        self.widths = [x["len"] for x in self.fieldspecs]   # The width of each field
-        self.add_slice_info(self.fieldspecs, self.widths)    # The slice for each field
-        self.fields = {x["name"] : x["slice"] for i, x in enumerate(self.fieldspecs)}
+        self.fieldspecs = [v.copy() for v in reader.FIELDSPECS]     # fixed width file spec
+        self.add_slice_info(self.fieldspecs)    # The slice for each field
+        self.fields = {x["name"] : x["slice"] for x in self.fieldspecs}
 
         self.newline_bytes = [0, 1, 10, 13]  # These bytes we recognize as newline
         self.comment_char = '#'
@@ -60,16 +58,32 @@ class FWFFile(FWFViewLike):
         self.mm = None          # memory map (read-only)
 
 
-    def add_slice_info(self, fieldspecs, widths):
+    def add_slice_info(self, fieldspecs):
         """Based on the field width information, determine the slice for each field"""
 
         startpos = 0
         for entry in fieldspecs:
-            flen = entry["len"]
-            entry["slice"] = slice(startpos, startpos + flen)
-            startpos += flen
+            if ("len" not in entry) and ("slice" not in entry):
+                raise Exception(
+                    f"Fieldspecs is missing either 'len' or 'slice': {entry}")
 
-    
+            if ("len" in entry) and ("slice" in entry):
+                raise Exception(
+                    f"Only one must be present in a fieldspec, len or slice: {entry}")
+
+            if "len" in entry:
+                flen = entry["len"]
+                if (flen <= 0) or (flen > 10000):
+                    raise Exception(
+                        f"Fieldspec: Invalid value for len: {entry}")
+
+                entry["slice"] = slice(startpos, startpos + flen)
+                startpos += flen
+            else:
+                fslice = entry["slice"]
+                startpos = fslice.stop
+
+
     def is_newline(self, byte):
         return byte in self.newline_bytes
 
@@ -120,6 +134,10 @@ class FWFFile(FWFViewLike):
 
         raise Exception(f"Failed to find newlines in date")
 
+    
+    def record_length(self, fields):
+        return max(x.stop for x in fields.values())
+
 
     @contextmanager
     def open(self, file):
@@ -135,7 +153,8 @@ class FWFFile(FWFViewLike):
             self.mm = file
 
         self.number_of_newline_bytes = self._number_of_newline_bytes(self.mm)
-        self.fwidth = sum(self.widths) + self.number_of_newline_bytes   # The length of each line
+        # The length of each line
+        self.fwidth = self.record_length(self.fields) + self.number_of_newline_bytes   
         self.fsize = self.get_file_size(self.mm)
         self.start_pos = self.skip_comment_line(self.mm, self.comment_char)
         self.reclen = int((self.fsize - self.start_pos + 1) / self.fwidth)

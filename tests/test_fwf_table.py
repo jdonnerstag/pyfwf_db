@@ -79,6 +79,14 @@ def test_table_iter():
 
         assert rec.lineno == 9 
 
+        # Same with full file slice
+        for rec in fwf[:]:
+            assert rec
+            assert rec.line
+            assert rec.lineno < 10 # we have 10 rows in our test data
+
+        assert rec.lineno == 9 
+
 
 def test_table_line_selector():
     fwf = FWFFile(HumanFile)
@@ -86,16 +94,21 @@ def test_table_line_selector():
 
         rec = fwf[0]
         assert rec.lineno == 0
+        assert rec["birthday"] == b"19570526"
 
         rec = fwf[0:1]
         assert rec.lines == slice(0, 1)
         assert len(list(rec)) == 1
+        for r in rec:
+            assert r["birthday"] in [b"19570526", b"19940213"]
 
         rec = fwf[5]
         assert rec.lineno == 5
+        assert rec["birthday"] == b"19770319"
 
         rec = fwf[-1]
         assert rec.lineno == 9
+        assert rec["birthday"] == b"20080503"
 
         rec = fwf[0:5]
         assert rec.lines == slice(0, 5)
@@ -109,45 +122,71 @@ def test_table_line_selector():
         assert rec.lines == slice(0, 0)
         assert len(list(rec)) == 0
 
+        # Unique on an index view
+        rtn = fwf[0, 2, 5]
+        assert len(list(rtn)) == 3
+        assert len(rtn) == 3
+        for r in rtn:
+            assert r.lineno in [0, 2, 5]
+            assert r["gender"] in [b"M", b"F"]
+
+        rtn2 = fwf[0:6][0, 2, 5]
+        assert rtn.lines == rtn2.lines
+
+        # Unique on an boolean view
+        rtn = fwf[True, False, True, False, False, True]
+        assert len(list(rtn)) == 3
+        assert len(rtn) == 3
+        for r in rtn:
+            assert r.lineno in [0, 2, 5]
+            assert r["gender"] in [b"M", b"F"]
+
 
 def test_table_filter_by_line():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
-        rtn = fwf.filter_by_line(lambda l: l[19] == ord('F'))
+        rtn = fwf.filter(lambda l: l[19] == ord('F'))
         assert len(list(rtn)) == 7
         assert len(rtn) == 7
 
-        rtn = fwf.filter_by_line(lambda l: l[fwf.fields["gender"].start] == ord('M'))
+        rtn = fwf.filter(lambda l: l[fwf.fields["gender"].start] == ord('M'))
         assert len(list(rtn)) == 3
         assert len(rtn) == 3
 
-        rtn = fwf.filter_by_line(lambda l: l[fwf.fields["state"]] == b'AR')
+        rtn = fwf.filter(lambda l: l[fwf.fields["state"]] == b'AR')
         assert len(list(rtn)) == 2
         assert len(rtn) == 2
 
-        rtn = fwf.filter_by_line(lambda l: l[fwf.fields["state"]] == b'XX')
+        rtn = fwf.filter(lambda l: l[fwf.fields["state"]] == b'XX')
         assert len(list(rtn)) == 0
         assert len(rtn) == 0
+
+        # We often need to filter or sort by a date
+        assert b"19000101" < b"20191231"
+        assert b"20190101" < b"20190102"
+        assert b"20190101" == b"20190101"
+        assert b"20190102" > b"20190101"
+        assert b"20200102" > b"20190101"
 
 
 def test_table_filter_by_field():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
-        rtn = fwf.filter_by_field("gender", lambda x: x == b'F')
+        rtn = fwf.filter("gender", lambda x: x == b'F')
         assert len(list(rtn)) == 7
 
-        rtn = fwf.filter_by_field("gender", b'F')
+        rtn = fwf.filter("gender", b'F')
         assert len(list(rtn)) == 7
 
-        rtn = fwf.filter_by_field("gender", lambda x: x == b'M')
+        rtn = fwf.filter("gender", lambda x: x == b'M')
         assert len(list(rtn)) == 3
 
-        rtn = fwf.filter_by_field("gender", b'M')
+        rtn = fwf.filter("gender", b'M')
         assert len(list(rtn)) == 3
 
-        rtn = fwf.filter_by_field("gender", lambda x: x in [b'M', b'F'])
+        rtn = fwf.filter("gender", lambda x: x in [b'M', b'F'])
         assert len(list(rtn)) == 10
 
 
@@ -163,7 +202,7 @@ def test_table_filter_by_function():
             rtn = (line[gender] == b'F') and line[state].decode().startswith('A')
             return rtn
 
-        rtn = fwf[:].filter_by_line(my_complex_reusable_test)
+        rtn = fwf[:].filter(my_complex_reusable_test)
         assert len(list(rtn)) == 2
 
 
@@ -175,11 +214,13 @@ def test_unique():
         assert len(list(rtn)) == 9
         assert len(rtn) == 9
 
+        # Transform the value before adding them to unique 
         rtn = FWFUnique(fwf).unique("state", lambda x: x.decode())
         assert len(list(rtn)) == 9
         assert len(rtn) == 9
         assert "MI" in rtn
 
+        # If the func accepts a single value, it can be used without lambda
         def to_str(x):
             return x.decode()
 
@@ -189,9 +230,22 @@ def test_unique():
         assert "M" in rtn
         assert "F" in rtn
 
-        # Unique on a view
-        x = fwf[0:5]
-        rtn = FWFUnique(x).unique("gender", to_str)
+        # Unique on a region view
+        rtn = FWFUnique(fwf[0:5]).unique("gender", to_str)
+        assert len(list(rtn)) == 2
+        assert len(rtn) == 2
+        assert "M" in rtn
+        assert "F" in rtn
+
+        # Unique on an index view
+        rtn = FWFUnique(fwf[0, 2, 5]).unique("gender", to_str)
+        assert len(list(rtn)) == 2
+        assert len(rtn) == 2
+        assert "M" in rtn
+        assert "F" in rtn
+
+        # Unique on an boolean view
+        rtn = FWFUnique(fwf[True, False, True, False, False, True]).unique("gender", to_str)
         assert len(list(rtn)) == 2
         assert len(rtn) == 2
         assert "M" in rtn
