@@ -11,37 +11,39 @@ the length of each field. This lib is especially targetted to users that
 - need to lookup rows within a single virtual table and across multiple 
   virtual tables of different kind. But no analytics, reporting or 
   number crunching. You can though export filtered subsets into specialised 
-  libs and tools for this purpose.
+  libs and tools if needed.
 - want indexes for speedy access because executing large number of lookups 
   against these data sets are your main concern
 - want to filter the data because you don't need them all, and you want 
   to index just the filtered data
-- need group-by etc. to prepare your index. E.g. just keep the lastest entries.
-- Want to persist the indexes easily and quickly to avoid always rebuilding
+- need group-by etc. to prepare your index. E.g. just keep the lastest 
+  entry from each group
+- want to persist the indexes easily and quickly to avoid always rebuilding
   them. 
 - want casts and transformations to convert only the bytes needed to 
   strings, ints or dates
 - occassionally need to process files that don't have standard line endings, 
   but \x00 or similar
 - are ok with the constraint that the files must be in a file-system (rather 
-  then object store or similar) because this lib leverages mmap to map 
-  the file content into memory. 
-- TODO: Support to unzip compressed file into memory. 
+  then object store or similar) or fit into memory. File from a file system
+  can be much larger then memory, because the lib memory maps the file. Files
+  which are compressed or from an object store can still be processed, but
+  must fit into memory.
 - are ok with field lengths in bytes rather then chars. UTF-8 chars require
   1-6 bytes, which leads to variable line lengths in bytes. The lib
   however relies on a constant line length in bytes.
 
-How did we get here? Building this lib definitely wasn't our first thought:
+How did we get here? Building this lib wasn't our first thought:
 - We need lots of lookups across multiple tables. We are using traditional
   RDBMS systems a lot and have really experienced people. But ingesting and 
-  preparing (staging) the data took "ages". We applied partitioning all kind
-  of tricks to speed up ingest and lookup, but it remained painful, slow and 
+  preparing (staging) the data took "ages". We applied partitioning, and all kind
+  of tricks to speed up ingest and lookups, but it remained painful, slow and 
   also comparatively expensive. We've tested it on-premise and in public clouds,
   including rather big boxes with sufficient I/O and network bandwidth.
 - We tried NoSql but following best pratices, it is adviced to create a 
   schema that matches your queries best. Hence more complexity in the ingest
-  layer. This and network latency for queries don't go away, did not make 
-  us happy.
+  layer. This and because network latency for queries don't go away, did not 
+  make us happy.
 - Several of us have laptops with 24GB RAM and we initially started with
   a 5GB data set in uncompressed fixed-width files. We tried to load them with
   Pandas, but quickly run into out-of-memory exceptions, even with in-stream
@@ -52,15 +54,16 @@ How did we get here? Building this lib definitely wasn't our first thought:
   - we completely avoid any load or ingest job. We can start using new 
     files as soon as they arrive. 
   - A full index scan, takes less then 2 mins on our standard business 
-    laptops (with SDD). Multiple times faster compared to the other 
-    options, on low-cost hardware (vs big boxes and high-speed networks)
+    laptops (with SDD). Multiple times faster than the other 
+    options, and on low-cost hardware (vs big boxes and high-speed networks)
   - With Pandas based indexes it is very fast to identify the line, but
     potentially loading it from disc and converting the line and required 
     fields / columns from bytes into consumable data types, is a bit slower
-    then in-memory preprocessed Pandas dataframes. We need to do million
-    of lookups and it is working well for us. 
- - We've tested it with 200GB data sets, which definitely don't fit into
-   our memory, slowly running into memory issues for the (in-memory) index.
+    compared to in-memory preprocessed Pandas dataframes. But we need to do 
+    millions of lookups and it is working well for us. 
+ - We've tested it with 100GB data sets, slowly approach memory limits
+   for full table (in-memory) indexes. Obviously depending on the number
+   of rows and size of the index key.
 
 
 Table of Contents

@@ -11,7 +11,7 @@ import numpy as np
 from fwf_db import FWFFile, FWFSimpleIndex, FWFMultiFile, FWFUnique
 from fwf_db.fwf_unique_np_based import FWFUniqueNpBased
 from fwf_db.fwf_index_np_based import FWFIndexNumpyBased
-from fwf_db.fwf_operator import FWFOperator
+from fwf_db.fwf_operator import FWFOperator as op
 
 
 DATA = b"""# My comment test
@@ -47,7 +47,6 @@ def test_table_filter_by_line():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
-        op = FWFOperator
         rtn = fwf.filter(op("gender") == b"M")
         assert len(list(rtn)) == 3
         assert len(rtn) == 3
