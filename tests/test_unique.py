@@ -91,11 +91,11 @@ def test_unique_numpy():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
-        rtn = FWFUniqueNpBased(fwf, (np.bytes_, 2)).unique("state")
+        rtn = FWFUniqueNpBased(fwf).unique("state", dtype=(np.bytes_, 2))
         assert len(list(rtn)) == 9
         assert len(rtn) == 9
 
-        rtn = FWFUniqueNpBased(fwf, "U2").unique("state", lambda x: x.decode())
+        rtn = FWFUniqueNpBased(fwf).unique("state", dtype="U2", func=lambda x: x.decode())
         assert len(list(rtn)) == 9
         assert len(rtn) == 9
         assert "MI" in rtn
@@ -103,7 +103,7 @@ def test_unique_numpy():
         def to_str(x):
             return x.decode()
 
-        rtn = FWFUniqueNpBased(fwf, "U1").unique("gender", to_str)
+        rtn = FWFUniqueNpBased(fwf).unique("gender", dtype="U1", func=to_str)
         assert len(list(rtn)) == 2
         assert len(rtn) == 2
         assert "M" in rtn
@@ -111,7 +111,7 @@ def test_unique_numpy():
 
         # Unique on a view
         x = fwf[0:5]
-        rtn = FWFUniqueNpBased(x, "U1").unique("gender", to_str)
+        rtn = FWFUniqueNpBased(x).unique("gender", dtype="U1", func=to_str)
         assert len(list(rtn)) == 2
         assert len(rtn) == 2
         assert "M" in rtn

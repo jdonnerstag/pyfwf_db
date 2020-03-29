@@ -15,14 +15,21 @@ class FWFPandas(FWFBaseMixin):
         self.fwffile = fwffile
 
 
-    def to_pandas(self, dtype):
+    def to_pandas(self, dtype=None):
         """Load fields denoted by dtype into a Pandas dataframe. Please not, Pandas
         does still need a lot of memory
         """
 
-        # In case a fieldspec has been provided...
-        if isinstance(dtype, list):
-            dtype = {e["name"] : e["dtype"] for e in dtype if "dtype" in e}
+        if dtype is None:
+            fieldspec = self.fwffile.fieldspecs
+            dtype = {e["name"] : e.get("dtype", None) for e in fieldspec}
+        elif isinstance(dtype, list):
+            list_of_strings = all(isinstance(x, str) for x in dtype)
+            if list_of_strings:
+                dtype = {x : None for x in dtype}
+            else:
+                # In case a fieldspec has been provided...
+                dtype = {e["name"] : e["dtype"] for e in dtype if "dtype" in e}
 
         names = dtype.keys()
         strs = [ftype in ["str", "string"] for ftype in dtype.items()]
@@ -34,6 +41,7 @@ class FWFPandas(FWFBaseMixin):
         df = pd.DataFrame(gen, columns=names, index=None)
 
         for field, ftype in dtype.items():
-            df[field] = df[field].astype(ftype)
+            if ftype:
+                df[field] = df[field].astype(ftype)
 
         return df
