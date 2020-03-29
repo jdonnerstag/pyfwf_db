@@ -88,5 +88,11 @@ class FWFLine(object):
         return {k: v for k, v in self.items()}
 
 
+    def to_list(self, keys=None):
+        """Provide a values in a a list"""
+        keys = keys or self.keys()
+        return [self.get(key) for key in keys]
+
+
     def __repr__(self):
         return self.line

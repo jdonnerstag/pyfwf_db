@@ -3,8 +3,10 @@
 
 import abc
 
+from .fwf_base_mixin import FWFBaseMixin
 
-class FWFIndexLike(abc.ABC):
+
+class FWFIndexLike(FWFBaseMixin, abc.ABC):
     """An abstract base class defining the minimum methods and
     required core functionalities of every index class
     """
@@ -18,7 +20,7 @@ class FWFIndexLike(abc.ABC):
     def index(self, field, func=None, log_progress=None):
         """A convience function to create the index without generator"""
 
-        gen = self._index1(field, func)
+        gen = self._index1(self.fwfview, field, func)
 
         if log_progress is not None:
             view = self.fwfview
@@ -28,24 +30,6 @@ class FWFIndexLike(abc.ABC):
         self._index2(gen)
 
         return self
-
-
-    def _index1(self, field, func=None):
-
-        field = self.fwfview.field_from_index(field)
-
-        # If the parent view has an optimized iterator ..
-        if hasattr(self.fwfview, "iter_lines_with_field"):
-            gen = self.fwfview.iter_lines_with_field(field)
-        else:
-            sslice = self.fwfview.fields[field]
-            gen = ((i, line[sslice]) for i, line in self.fwfview.iter_lines())
-
-        # Do we need to apply any transformations...
-        if func:
-            gen = ((i, func(v)) for i, v in gen)
-
-        return gen
 
 
     @abc.abstractmethod

@@ -4,8 +4,10 @@
 import abc 
 from itertools import islice
 
+from .fwf_base_mixin import FWFBaseMixin
 
-class FWFViewLike(abc.ABC):
+
+class FWFViewLike(FWFBaseMixin, abc.ABC):
     """A core class. Provide all the necessary basics to implement different
     kind of views, such as views based on a slice, or views based on 
     indivisual indexes.
@@ -51,6 +53,13 @@ class FWFViewLike(abc.ABC):
             return next(islice(fields.keys(), idx, None))
 
         return idx
+
+
+    def field_dtype(self, field):
+        """Return the dtype for the field. NOTE: currently on string types are returned""" 
+        field = self.fields[self.field_from_index(1)]
+        flen = field.stop - field.start
+        return f"S{flen}"
 
 
     def normalize_index(self, index, default):
@@ -181,10 +190,3 @@ class FWFViewLike(abc.ABC):
             rtn = [i for i, rec in self.iter_lines() if rec[sslice] == func]
 
         return self.fwf_by_indices(rtn)
-
-
-    def to_pandas(self):
-        """Export the data to Pandas dataframes"""
-        # TODO
-
-        raise Exception("Not yet implemented")

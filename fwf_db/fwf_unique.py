@@ -2,7 +2,10 @@
 # encoding: utf-8
 
 
-class FWFUnique(object):
+from .fwf_base_mixin import FWFBaseMixin
+
+
+class FWFUnique(FWFBaseMixin):
     """Create a list of unique (distinct) value of a field, with pure
     python means
     """
@@ -18,19 +21,7 @@ class FWFUnique(object):
         str, lower, upper, int, ...
         """
 
-        field = self.fwffile.field_from_index(field)
+        gen = self._index1(self.fwffile, field, func)
 
-        # If the parent view has an optimized iterator ..
-        if hasattr(self.fwffile, "iter_lines_with_field"):
-            gen = self.fwffile.iter_lines_with_field(field)
-        else:
-            sslice = self.fwffile.fields[field]
-            gen = ((i, line[sslice]) for i, line in self.fwffile.iter_lines())
-
-        # Do we need to apply any transformations...
-        if func:
-            gen = ((i, func(v)) for i, v in gen)
-
-        # Add the value if not yet present
-        values = {value for _, value in gen}
-        return values
+        # Create the set() with the unique values
+        return {value for _, value in gen}
