@@ -128,8 +128,7 @@ class FWFFile(FWFViewLike):
         while pos < maxlen:
             if self.is_newline(mm[pos]):
                 pos += 1
-                rtn = 2 if self.is_newline(mm[pos]) else 1
-                return rtn
+                return 2 if self.is_newline(mm[pos]) else 1
 
             pos += 1
 
