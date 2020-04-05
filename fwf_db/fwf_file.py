@@ -40,9 +40,8 @@ class FWFFile(FWFViewLike):
         self.fieldspecs = [v.copy() for v in reader.FIELDSPECS]     # fixed width file spec
         self.add_slice_info(self.fieldspecs)    # The slice for each field
         self.fields = {x["name"] : x["slice"] for x in self.fieldspecs}
-
-        self.newline_bytes = [0, 1, 10, 13]  # These bytes we recognize as newline
-        self.comment_char = '#'
+        self.newline_bytes = getattr(reader, "NEWLINE", None) or [0, 1, 10, 13]  # These bytes we recognize as newline
+        self.comment_char = getattr(reader, "COMMENTS", None) or '#'
 
         # The number of newline bytes, e.g. "\r\n", "\n" or "\01"...
         # Required to determine overall line length
