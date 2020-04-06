@@ -97,7 +97,7 @@ class FWFMultiFile(FWFViewLike):
             ffrom = start_pos
             fto = ffrom + flen
 
-            if (index >= ffrom) and (index <= fto):
+            if (index >= ffrom) and (index < fto):
                 return (i, index - ffrom, index - ffrom + 1)
 
             start_pos = fto

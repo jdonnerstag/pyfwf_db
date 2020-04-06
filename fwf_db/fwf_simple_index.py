@@ -43,3 +43,18 @@ class FWFSimpleIndex(FWFIndexLike):
     def __contains__(self, param):
         return param in self.data
         
+
+    def delevel(self):
+        """In case the index has been created on top of a view, then it is 
+        possible to reduce the level of indirection by one.
+        """
+        # The current implementation is rather specific and may not work with
+        # all kind of parents.
+
+        data = {key : [self.fwfview.lines[i] for i in values] for key, values in self.data.items()}
+
+        rtn = FWFSimpleIndex(self.fwfview.fwffile)
+        rtn.data = data
+        rtn.field = self.field
+
+        return rtn
