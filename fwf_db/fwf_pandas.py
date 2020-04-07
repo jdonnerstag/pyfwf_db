@@ -21,7 +21,11 @@ class FWFPandas(FWFBaseMixin):
         """
 
         if dtype is None:
-            fieldspec = self.fwffile.fieldspecs
+            parent = self.fwffile
+            while getattr(parent, "fieldspecs", None) is None:
+                parent = parent.fwffile
+
+            fieldspec = parent.fieldspecs
             dtype = {e["name"] : e.get("dtype", None) for e in fieldspec}
         elif isinstance(dtype, list):
             list_of_strings = all(isinstance(x, str) for x in dtype)

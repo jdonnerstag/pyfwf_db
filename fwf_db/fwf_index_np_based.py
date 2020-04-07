@@ -96,6 +96,10 @@ class FWFIndexNumpyBased(FWFIndexLike):
         iter(self.data.items())
 
 
+    def keys(self):
+        return self.data.keys()
+        
+
     def fwf_subset(self, fwffile, key, fields):
         """Create a view with the indices associated with the index key provided"""
         rtn = self.data[key]

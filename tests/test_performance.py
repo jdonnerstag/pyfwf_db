@@ -136,7 +136,8 @@ def test_numpy_samples():
 
     print(f'Elapsed time is {time() - t1} seconds.')
 
-#@pytest.mark.slow
+
+@pytest.mark.slow
 def test_perf_numpy_index():
     fwf = FWFFile(CENT_PARTY)
 
@@ -159,68 +160,28 @@ def test_perf_numpy_index():
 
         # In run mode it takes: Create an index on PARTY_ID, using the optimized 
         # field reader (no FWFLine object)
-        # Elapsed time is 6.427615165710449 seconds.   # as fast as reading line by line
+        # Elapsed time is 20.20484495162964 seconds.   # as fast as reading line by line
         # 
         # and access lines randomly 1 mio times
-        # Elapsed time is 6.269562721252441 seconds.
+        # Elapsed time is 5.6988043785095215 seconds.
+        # That is pretty much the same result, that the simple python based index provides.
 
-"""
+
 @pytest.mark.slow
 def test_effective_date():
-    fwf1 = FWFFile(DataFile)
-    fwf2 = FWFFile(DataFile)
+    # Does it make a biggere difference if we filter records for 
+    # effective data or period?
+    # We could filter them before while input streaming, but that is pure
+    # python in an already CPU bound process. Or load all the data first,
+    # which may take longer, then more efficiently filter.
+    pass
 
-    with fwf1.open(DATA) as fd1, fwf2.open(DATA) as fd2:
-
-        mf = FWFMultiFile()
-        mf.add_file(fd1)
-        mf.add_file(fd2)
-
-        assert len(mf) == 20
-        assert len(mf.files) == 2
-        assert mf.lines == slice(0, 20)
-
-        # Filter all records by effective date
-        filtered = mf.filter(op("changed") <= b" 20180501")
-        for i, line in filtered.iter_lines():
-            line = line.decode("utf-8")
-            x = int(line[0:5])
-            assert 1 <= x <= 5
-
-        # And now create an index
-        index = FWFSimpleIndex(filtered).index("ID")
-        assert len(index) == 5
-        for key in index:
-            refs = index[key]
-            assert len(refs) == 2
-
-            line = refs[0]
-            line = int(line["ID"].decode("utf-8"))
-            assert 1 <= x <= 5
-            
-            line = refs[1]
-            line = int(line["ID"].decode("utf-8"))
-            assert 1 <= x <= 5
-
-        # TODO May it would be helpful to use parent consistently instead of fwfview and fwffile
-        # TODO delevel is currently only available in SimpleIndex and not yet very flexible
-        index = index.delevel()
-        assert len(index) == 5
-        for key in index:
-            refs = index[key]
-            assert len(refs) == 2
-
-            line = refs[0]
-            assert (0 <= line.lineno < 5) or (10 <= line.lineno < 15)
-            
-            line = refs[1]
-            assert (0 <= line.lineno < 5) or (10 <= line.lineno < 15)
-"""
 
 # Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":
 if __name__ == '__main__':
 
     # test_perf_iter_lines()
     # test_perf_iter_fwfline()
-    test_perf_numpy_index()
+    test_perf_simple_index()
+    # test_perf_numpy_index()
     # test_numpy_samples()
