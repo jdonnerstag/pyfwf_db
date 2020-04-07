@@ -93,7 +93,7 @@ class FWFIndexNumpyBased(FWFIndexLike):
 
     def __iter__(self):
         """Iterate over all index keys"""
-        iter(self.data.keys)
+        iter(self.data.items())
 
 
     def fwf_subset(self, fwffile, key, fields):

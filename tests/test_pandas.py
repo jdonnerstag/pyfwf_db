@@ -47,6 +47,7 @@ def test_pandas():
         df = FWFPandas(fwf).to_pandas()
         assert len(df.index) == 10
         assert len(df.columns) == 8
+        assert list(df.columns) == list(fwf.fields.keys())
 
 
 # Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":

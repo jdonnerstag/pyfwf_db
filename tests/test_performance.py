@@ -136,7 +136,7 @@ def test_numpy_samples():
 
     print(f'Elapsed time is {time() - t1} seconds.')
 
-@pytest.mark.slow
+#@pytest.mark.slow
 def test_perf_numpy_index():
     fwf = FWFFile(CENT_PARTY)
 
@@ -147,18 +147,11 @@ def test_perf_numpy_index():
         print(f'Elapsed time is {time() - t1} seconds.')
         assert len(index) == 5889278    # No duplictates, which makes sense for this data
 
-        # This is really slow
-        t1 = time()
-        #idx = list(index.data.groups.keys())
-        #idx = list(index.data.groups)
-        df = index.data.tail(1)
-        df = df["values"]
-        print(f'Elapsed time is {time() - t1} seconds.')
-
+        idx = list(index.keys())
         t1 = time()
         for _ in range(int(1e6)):
             key =  randrange(len(index))
-            key = df.iloc[key]
+            key = idx[key]
             refs = index[key]
             assert refs
 
@@ -229,5 +222,5 @@ if __name__ == '__main__':
 
     # test_perf_iter_lines()
     # test_perf_iter_fwfline()
-    # test_perf_numpy_index()
-    test_numpy_samples()
+    test_perf_numpy_index()
+    # test_numpy_samples()
