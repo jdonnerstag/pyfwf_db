@@ -4,6 +4,7 @@
 import numpy as np
 import pandas as pd 
 from itertools import islice
+from collections import defaultdict
 
 from .fwf_index_like import FWFIndexLike
 from .fwf_subset import FWFSubset
@@ -21,7 +22,6 @@ class FWFIndexNumpyBased(FWFIndexLike):
         self.field = None   # The field to use for the index
         self.dtype = None
         self.data = None    # The Pandas groupby result
-        self.keys = None
 
 
     def index(self, field, dtype=None, func=None, log_progress=None, cleanup_df=None):
@@ -43,15 +43,14 @@ class FWFIndexNumpyBased(FWFIndexLike):
         holds the index data.
         'func' to process the field data before adding it to the index, e.g. 
         lower, upper, str, int, etc.. 
-        
         """
 
-        df = self._index2a(gen)
+        values = self._index2a(gen)
 
         if self.cleanup_df is not None:
-            df["values"] = self.cleanup_df(df["values"])
+            values = self.cleanup_df(values)
 
-        self.data = groups = self._index2b(df)
+        self.data = groups = self._index2b(values)
         return groups
 
 
@@ -63,7 +62,6 @@ class FWFIndexNumpyBased(FWFIndexLike):
         holds the index data.
         'func' to process the field data before adding it to the index, e.g. 
         lower, upper, str, int, etc.. 
-        
         """
 
         # Create the full size index all at once => number of records        
@@ -73,36 +71,37 @@ class FWFIndexNumpyBased(FWFIndexLike):
         for i, value in gen:
             values[i] = value
 
-        u, indices = np.unique(values, return_index=True)        
-
-        return pd.DataFrame(values, columns=["values"])
+        return values
 
 
-    def _index2b(self, df):
-        self.keys = pd.unique(df["values"])
-
-        df["index"] = df.index
-        df = df.set_index("values")
-
-        return df
+    def _index2b(self, values):
+        # I tested all sort of numpy and pandas ways, but nothing was as
+        # fast as python generators. Any test needs to consider (a) how
+        # long it takes to create the "index" and (b) how long it takes
+        # to lookup values. For any meaningful performance indication, (a) 
+        # the array must have at least 10 mio entries and (b) you must 
+        # execute at least 1 mio lookups against the 10 mio entties.
+        data = defaultdict(list)
+        all(data[value].append(i) or True for i, value in enumerate(values))
+        return data
 
 
     def __len__(self):
         """The number entries (unique values) in the index"""
-        return len(self.keys)
+        return len(self.data)
 
 
     def __iter__(self):
         """Iterate over all index keys"""
-        iter(self.keys)
+        iter(self.data.keys)
 
 
     def fwf_subset(self, fwffile, key, fields):
         """Create a view with the indices associated with the index key provided"""
-        rtn = self.data.get_group(key)
+        rtn = self.data[key]
         if rtn is not None:
             return FWFSubset(fwffile, rtn, fields)
 
 
     def __contains__(self, param):
-        return param in self.keys
+        return param in self.data

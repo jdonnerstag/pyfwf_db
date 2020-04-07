@@ -112,7 +112,7 @@ def test_numpy_samples():
     values = np.empty(reclen, dtype="S10")
 
     t1 = time()
-    flen = int(reclen / 20)
+    flen = int(reclen / 15)
     for i in range(reclen):
         value = randrange(flen)
         value = f"{value:>10}"
@@ -122,31 +122,19 @@ def test_numpy_samples():
     print(f'Elapsed time is {time() - t1} seconds.')
 
     t1 = time()
-    uniq = np.unique(values)
-    assert len(uniq) == flen
-    print(f'Elapsed time is {time() - t1} seconds.')
-
-    t1 = time()
-    sortx = np.sort(values)
-    print(f'Elapsed time is {time() - t1} seconds.')
-
-    t1 = time()
     data = defaultdict(list)
     all(data[value].append(i) or True for i, value in enumerate(values))
     print(f'Elapsed time is {time() - t1} seconds.')
 
     t1 = time()
-    for _ in range(int(1e6)):
-        key = randrange(flen)
-        key = f"{key:>10}"
-        key = bytes(f"{key:>10}", "utf-8")
+    for i in range(int(1e6)):
+        value = randrange(flen)
+        value = f"{value:>10}"
+        value = bytes(f"{value:>10}", "utf-8")
 
-        rtn = data.get(key, None)
-        #(rtn, ) = np.where(values == key)
-        assert rtn is not None
+        rec = data.get(value, None)
 
     print(f'Elapsed time is {time() - t1} seconds.')
-
 
 @pytest.mark.slow
 def test_perf_numpy_index():
