@@ -339,17 +339,10 @@ def test_cython_create_index():
         t1 = time()
         rtn = hello.create_index(fwf, "PARTY_ID")
 
-        rlen = rtn.buffer_info()[1]
-        fsize = fd.fields["PARTY_ID"].stop - fd.fields["PARTY_ID"].start
-        count = int(rlen / fsize)
-        print(f'Elapsed time is {time() - t1} seconds.    {rlen:,d} - {count}')
-        assert count == len(fd)
-        
-        x = [rtn[pos : pos + fsize].tobytes() for pos in range(0, rlen, fsize)]
-        print(f'Elapsed time is {time() - t1} seconds.')
+        print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
 
         # In run mode: 
-        # 1.9586009979248047   # Yes !!!!
+        # 2.6236753463745117   # Cython really makes a difference
 
 
 # Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":

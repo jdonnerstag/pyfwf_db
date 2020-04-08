@@ -9,6 +9,7 @@ import array
 from libc.string cimport strncmp, strncpy
 from cpython cimport array
 from libc.stdlib cimport malloc, free
+import numpy as np
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -114,18 +115,16 @@ def create_index(fwf, field_name):
     # Allocate memory for index data
     cdef field_slice = fwf.fields[field_name]
     cdef int field_size = field_slice.stop - field_slice.start
-    cdef int memsize = fwf.reclen * field_size
-    cdef array.array result = array.array('b', [])
-    array.resize(result, memsize)
-    cdef char* result_ptr = result.data.as_chars
+    cdef values = np.empty(fwf.reclen, dtype=f"S{field_size}")
 
+    cdef int irow = 0
     cdef const char* ptr = mm + start_pos + <int>field_slice.start
     while start_pos < fsize:
 
-        strncpy(result_ptr, ptr, field_size)
+        values[irow] = ptr[0 : field_size]
 
         start_pos += fwidth
         ptr += fwidth
-        result_ptr += field_size
+        irow += 1
 
-    return result
+    return values
