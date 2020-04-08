@@ -11,12 +11,14 @@ from time import time
 import numpy as np
 import pandas as pd
 from collections import defaultdict
+import ctypes
 
 from fwf_db import FWFFile, FWFSimpleIndex, FWFMultiFile, FWFUnique
 from fwf_db.fwf_unique_np_based import FWFUniqueNpBased
 from fwf_db.fwf_index_np_based import FWFIndexNumpyBased
 from fwf_db.fwf_operator import FWFOperator as op
 
+from fwf_db.cython import hello
 
 class CENT_PARTY:
 
@@ -139,6 +141,7 @@ def test_numpy_samples():
 
 @pytest.mark.slow
 def test_perf_numpy_index():
+
     fwf = FWFFile(CENT_PARTY)
 
     with fwf.open(FILE_1) as fd:
@@ -168,13 +171,166 @@ def test_perf_numpy_index():
 
 
 @pytest.mark.slow
-def test_effective_date():
-    # Does it make a biggere difference if we filter records for 
-    # effective data or period?
-    # We could filter them before while input streaming, but that is pure
-    # python in an already CPU bound process. Or load all the data first,
-    # which may take longer, then more efficiently filter.
-    pass
+def test_effective_date_simple_filter():
+
+    fwf = FWFFile(CENT_PARTY)
+
+    with fwf.open(FILE_1) as fd:
+        assert len(fd) == 5889278   
+
+        t1 = time()
+        fd = fd.filter(op("BUSINESS_DATE") < b"20180118")
+        # They are dummy data with all the same change date !?!?
+        assert len(fd) == 0
+
+        print(f'Elapsed time is {time() - t1} seconds.')
+
+        # In run mode: 
+        # 21.847846508026123     # Compared to 7 secs for simply bytes and 12 secs for FWFLines
+
+
+@pytest.mark.slow
+def test_effective_date_region_filter():
+
+    fwf = FWFFile(CENT_PARTY)
+
+    with fwf.open(FILE_1) as fd:
+        assert len(fd) == 5889278   
+
+        t1 = time()
+        # NOTE: you can not combine the operators with and resp. or
+        fd = fd.filter(op("VALID_FROM") <= b"20130101")
+        fd = fd.filter(op("VALID_UNTIL") >= b"20131231")
+        assert len(fd) == 1293435
+
+        print(f'Elapsed time is {time() - t1} seconds.')
+
+        # In run mode: 
+        # 29.993732929229736    # Compared to 22 secs for only 1 filter
+
+
+@pytest.mark.slow
+def test_effective_date_region_filter_optmized():
+
+    fwf = FWFFile(CENT_PARTY)
+
+    with fwf.open(FILE_1) as fd:
+        assert len(fd) == 5889278   
+
+        valid_from_slice = fd.fields["VALID_FROM"]
+        valid_until_slice = fd.fields["VALID_UNTIL"]
+
+        # Since "    " < "20130101" we don't need an extra test
+        valid_until_last_pos = valid_until_slice.stop - 1
+
+        def region_filter(line):
+            if not (line[valid_from_slice] <= b"20130101"):
+                return False
+
+            if line[valid_until_last_pos] == 32:
+                return True
+
+            return line[valid_until_slice] >= b"20131231"
+
+        t1 = time()
+        # NOTE This does still not handle defaults in case of empty values
+        # NOTE An empty test might simply test the most right value and not the full string
+        fd = fd.filter(region_filter)
+        assert len(fd) == 1293435
+
+        print(f'Elapsed time is {time() - t1} seconds.')
+
+        # In run mode: 
+        # 18.807480335235596    # Even faster then single FWFOperator
+        # But still CPU bound.
+
+
+@pytest.mark.slow
+def test_cython_like_filter():
+
+    hello.say_hello_to("Susie")
+
+    fwf = FWFFile(CENT_PARTY)
+
+    with fwf.open(FILE_1) as fd:
+        assert len(fd) == 5889278   
+
+        region_filter = fwf.iter_and_filter(
+            fd.fields["BUSINESS_DATE"].start, b"20180120",
+            -1, None, 
+            fd.fields["VALID_FROM"].start, b"20130101",
+            fd.fields["VALID_UNTIL"].start, b"20131231",
+        )
+
+        t1 = time()
+        fd = fd.filter(region_filter)
+        assert len(fd) == 1293435
+
+        print(f'Elapsed time is {time() - t1} seconds.')
+
+        # In run mode: 
+        # 29.85299563407898    # Rather slow. It shows that every single python
+        #                      # instructions adds on top.
+
+
+@pytest.mark.slow
+def test_cython_filter():
+
+    hello.say_hello_to("Susie")
+
+    fwf = FWFFile(CENT_PARTY)
+
+    with fwf.open(FILE_1) as fd:
+        assert len(fd) == 5889278   
+
+        region_filter = hello.iter_and_filter(
+            fd.fields["BUSINESS_DATE"].start, b"20180120",
+            -1, None, 
+            fd.fields["VALID_FROM"].start, b"20130101",
+            fd.fields["VALID_UNTIL"].start, b"20131231",
+        )
+
+        t1 = time()
+        fd = fd.filter(region_filter)
+        assert len(fd) == 1293435
+
+        print(f'Elapsed time is {time() - t1} seconds.')
+
+        # In run mode: 
+        # 25.831411838531494   # Only 4 secs faster yet
+
+
+#@pytest.mark.slow
+def test_cython_filter_ex():
+
+    hello.say_hello_to("Susie")
+
+    fwf = FWFFile(CENT_PARTY)
+
+    with fwf.open(FILE_1) as fd:
+        assert len(fd) == 5889278   
+
+        ptr_vdm = ctypes.c_uint.from_buffer(fwf.mm)
+        addr = ctypes.addressof(ptr_vdm)
+        print(hex(addr))
+
+        t1 = time()
+        rtn = hello.iter_and_filter2(addr, fwf,
+            fd.fields["BUSINESS_DATE"].start, b"20180120",
+            -1, None, 
+            fd.fields["VALID_FROM"].start, b"20130101",
+            fd.fields["VALID_UNTIL"].start, b"20131231",
+        )
+
+        # Release the buffer pointer again
+        ptr_vdm = None
+
+        rlen = rtn.buffer_info()[1]
+        assert rlen == 1293435
+        print(f'Elapsed time is {time() - t1} seconds.    {rlen}')
+
+        # In run mode: 
+        # 2.1357336044311523   # Yes !!!!
 
 
 # Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":
@@ -182,6 +338,11 @@ if __name__ == '__main__':
 
     # test_perf_iter_lines()
     # test_perf_iter_fwfline()
-    test_perf_simple_index()
+    # test_perf_simple_index()
     # test_perf_numpy_index()
     # test_numpy_samples()
+    # test_effective_date_simple_filter()
+    # test_effective_date_region_filter()
+    # test_effective_date_region_filter_optmized()
+    # test_cython_like_filter()
+    test_cython_filter_ex()

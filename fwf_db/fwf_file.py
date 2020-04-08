@@ -245,3 +245,53 @@ class FWFFile(FWFViewLike):
         for irow, start_pos in enumerate(range(start_pos, end_pos, fwidth)):
             rtn = self.mm[start_pos : start_pos + flen]  # This is where python copies the memory
             yield irow, rtn
+
+
+    def iter_and_filter(self, 
+        field1_startpos, field1_start_value, field1_endpos, field1_end_value,
+        field2_startpos, field2_start_value, field2_endpos, field2_end_value):
+        """This is an optimized effective date and period filter, that could also
+        be implemented in C/Cython for improved performance.
+
+        - Since it is working on the raw data, the values must be bytes.
+        - If startpos respectively endpos == -1 it'll be ignored
+        - startpos and endpos are relativ to line start
+        - the value length is determined by the length of the value (bytes)
+        - The comparison is pre-configured: start_value <= value <= end_value
+        - Empty values in the line have predetermined meaning: beginning and end of time
+        """
+
+        field1_start_stoppos = field1_startpos + len(field1_start_value or "")
+        field1_end_stoppos = field1_endpos + len(field1_end_value or "")
+        field1_end_lastpos = field1_end_stoppos - 1
+
+        field2_start_stoppos = field2_startpos + len(field2_start_value or "")
+        field2_end_stoppos = field2_endpos + len(field2_end_value or "")
+        field2_end_lastpos = field2_end_stoppos - 1
+
+        def inner_filter(line):
+            if field1_startpos >= 0:
+                value = line[field1_startpos : field1_start_stoppos]
+                if value > field1_start_value:
+                    return False
+
+            if field1_endpos >= 0:
+                if line[field1_end_lastpos] > 32:
+                    value = line[field1_endpos : field1_end_stoppos]
+                    if value < field1_end_value:
+                        return False
+
+            if field2_startpos >= 0:
+                value = line[field2_startpos : field2_start_stoppos]
+                if value > field2_start_value:
+                    return False
+
+            if field2_endpos >= 0:
+                if line[field2_end_lastpos] > 32:
+                    value = line[field2_endpos : field2_end_stoppos]
+                    if value < field2_end_value:
+                        return False
+
+            return True
+
+        return inner_filter
