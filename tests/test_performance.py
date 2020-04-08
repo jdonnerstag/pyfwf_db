@@ -300,7 +300,7 @@ def test_cython_filter():
         # 25.831411838531494   # Only 4 secs faster yet
 
 
-#@pytest.mark.slow
+@pytest.mark.slow
 def test_cython_filter_ex():
 
     hello.say_hello_to("Susie")
@@ -310,20 +310,13 @@ def test_cython_filter_ex():
     with fwf.open(FILE_1) as fd:
         assert len(fd) == 5889278   
 
-        ptr_vdm = ctypes.c_uint.from_buffer(fwf.mm)
-        addr = ctypes.addressof(ptr_vdm)
-        print(hex(addr))
-
         t1 = time()
-        rtn = hello.iter_and_filter2(addr, fwf,
+        rtn = hello.iter_and_filter(fwf,
             fd.fields["BUSINESS_DATE"].start, b"20180120",
             -1, None, 
             fd.fields["VALID_FROM"].start, b"20130101",
             fd.fields["VALID_UNTIL"].start, b"20131231",
         )
-
-        # Release the buffer pointer again
-        ptr_vdm = None
 
         rlen = rtn.buffer_info()[1]
         assert rlen == 1293435
@@ -331,6 +324,32 @@ def test_cython_filter_ex():
 
         # In run mode: 
         # 2.1357336044311523   # Yes !!!!
+
+
+#@pytest.mark.slow
+def test_cython_create_index():
+
+    hello.say_hello_to("Susie")
+
+    fwf = FWFFile(CENT_PARTY)
+
+    with fwf.open(FILE_1) as fd:
+        assert len(fd) == 5889278   
+
+        t1 = time()
+        rtn = hello.create_index(fwf, "PARTY_ID")
+
+        rlen = rtn.buffer_info()[1]
+        fsize = fd.fields["PARTY_ID"].stop - fd.fields["PARTY_ID"].start
+        count = int(rlen / fsize)
+        print(f'Elapsed time is {time() - t1} seconds.    {rlen:,d} - {count}')
+        assert count == len(fd)
+        
+        x = [rtn[pos : pos + fsize].tobytes() for pos in range(0, rlen, fsize)]
+        print(f'Elapsed time is {time() - t1} seconds.')
+
+        # In run mode: 
+        # 1.9586009979248047   # Yes !!!!
 
 
 # Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":
@@ -345,4 +364,5 @@ if __name__ == '__main__':
     # test_effective_date_region_filter()
     # test_effective_date_region_filter_optmized()
     # test_cython_like_filter()
-    test_cython_filter_ex()
+    # test_cython_filter_ex()
+    test_cython_create_index()
