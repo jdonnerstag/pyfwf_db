@@ -4,6 +4,7 @@
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
+import collections
 import ctypes
 import array
 from libc.string cimport strncmp, strncpy
@@ -102,11 +103,13 @@ def iter_and_filter(fwf,
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def create_index(fwf, field_name):
-
+def get_field_data(fwf, field_name):
+    """Return a numpy array with all values in sequence read from the file"""
+    
     cdef long start_pos = fwf.start_pos
     cdef long fsize = fwf.fsize
     cdef int fwidth = fwf.fwidth
+    cdef int reclen = fwf.reclen
 
     # Get the memory map virtual address
     cdef ptr_vdm = ctypes.c_uint.from_buffer(fwf.mm)
@@ -115,13 +118,44 @@ def create_index(fwf, field_name):
     # Allocate memory for index data
     cdef field_slice = fwf.fields[field_name]
     cdef int field_size = field_slice.stop - field_slice.start
-    cdef values = np.empty(fwf.reclen, dtype=f"S{field_size}")
+    cdef values = np.empty(reclen, dtype=f"S{field_size}")
 
     cdef int irow = 0
     cdef const char* ptr = mm + start_pos + <int>field_slice.start
     while start_pos < fsize:
 
         values[irow] = ptr[0 : field_size]
+
+        start_pos += fwidth
+        ptr += fwidth
+        irow += 1
+
+    return values
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+def create_index(fwf, field_name):
+
+    cdef long start_pos = fwf.start_pos
+    cdef long fsize = fwf.fsize
+    cdef int fwidth = fwf.fwidth
+    cdef int reclen = fwf.reclen
+
+    cdef field_slice = fwf.fields[field_name]
+    cdef int field_size = field_slice.stop - field_slice.start
+
+    # Get the memory map virtual address
+    cdef ptr_vdm = ctypes.c_uint.from_buffer(fwf.mm)
+    cdef const char* mm = <const char*><long long>ctypes.addressof(ptr_vdm)
+
+    cdef values = collections.defaultdict(list)
+
+    cdef int irow = 0
+    cdef const char* ptr = mm + start_pos + <int>field_slice.start
+    while start_pos < fsize:
+
+        values[ptr[0 : field_size]] = irow
 
         start_pos += fwidth
         ptr += fwidth

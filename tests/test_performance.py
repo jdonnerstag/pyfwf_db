@@ -247,6 +247,7 @@ def test_effective_date_region_filter_optmized():
 
 @pytest.mark.slow
 def test_cython_like_filter():
+    """Still a python impl. but the interface is close"""
 
     hello.say_hello_to("Susie")
 
@@ -271,34 +272,6 @@ def test_cython_like_filter():
         # In run mode: 
         # 29.85299563407898    # Rather slow. It shows that every single python
         #                      # instructions adds on top.
-
-
-@pytest.mark.slow
-def test_cython_filter():
-
-    hello.say_hello_to("Susie")
-
-    fwf = FWFFile(CENT_PARTY)
-
-    with fwf.open(FILE_1) as fd:
-        assert len(fd) == 5889278   
-
-        region_filter = hello.iter_and_filter(
-            fd.fields["BUSINESS_DATE"].start, b"20180120",
-            -1, None, 
-            fd.fields["VALID_FROM"].start, b"20130101",
-            fd.fields["VALID_UNTIL"].start, b"20131231",
-        )
-
-        t1 = time()
-        fd = fd.filter(region_filter)
-        assert len(fd) == 1293435
-
-        print(f'Elapsed time is {time() - t1} seconds.')
-
-        # In run mode: 
-        # 25.831411838531494   # Only 4 secs faster yet
-
 
 @pytest.mark.slow
 def test_cython_filter_ex():
@@ -326,6 +299,94 @@ def test_cython_filter_ex():
         # 2.1357336044311523   # Yes !!!!
 
 
+@pytest.mark.slow
+def test_cython_get_field_data():
+
+    hello.say_hello_to("Susie")
+
+    fwf = FWFFile(CENT_PARTY)
+
+    with fwf.open(FILE_1) as fd:
+        assert len(fd) == 5889278   
+
+        t1 = time()
+        rtn = hello.get_field_data(fwf, "PARTY_ID")
+
+        print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
+
+        # In run mode: 
+        # 2.2793381214141846   # Cython really makes a difference
+
+
+def my_find_last(data):
+    _, indices = np.unique(data[::-1], return_index=True)
+    return indices[::-1]
+
+
+@pytest.mark.slow
+def test_find_last():
+    """This is an interesting test case as often we need the last record
+    before the effective date, ...."""
+
+    hello.say_hello_to("Susie")
+
+    fwf = FWFFile(CENT_PARTY)
+
+    with fwf.open(FILE_1) as fd:
+        assert len(fd) == 5889278   
+
+        t1 = time()
+        rtn = hello.get_field_data(fwf, "PARTY_ID")
+        print(f'Elapsed time is {time() - t1} seconds.')
+
+        indices = my_find_last(rtn)
+        is_unique = len(indices) == len(fd)
+        print(f'Elapsed time is {time() - t1} seconds. {len(indices):,d} - {"unique" if is_unique else "not unique"} index')
+
+        # In run mode: 
+        # 4.8622496128082275   # Nice ...
+
+        """
+        values = {value : i for i, value in enumerate(rtn)}
+        is_unique = len(values) == len(fd)
+        print(f'Elapsed time is {time() - t1} seconds. {len(values):,d} - {"unique" if is_unique else "not unique"} index')
+
+        # In run mode: 
+        # 9.488121032714844   # 6 secs to create the index
+        """       
+        
+        """
+        df = pd.DataFrame(rtn, columns=["values"])
+        df = df.groupby("values").tail(1)
+        is_unique = len(df.index) == len(fd)
+        print(f'Elapsed time is {time() - t1} seconds. {len(df.index):,d} - {"unique" if is_unique else "not unique"} index')
+
+        # In run mode: 
+        # 22.59328055381775   # 19 secs to create the index
+        """
+
+
+@pytest.mark.slow
+def test_numpy_sort():
+
+    hello.say_hello_to("Susie")
+
+    fwf = FWFFile(CENT_PARTY)
+
+    with fwf.open(FILE_1) as fd:
+        assert len(fd) == 5889278   
+
+        t1 = time()
+        rtn = hello.get_field_data(fwf, "PARTY_ID")
+        print(f'Elapsed time is {time() - t1} seconds.')
+
+        #rtn = np.argsort(rtn)
+        rtn = np.argsort(rtn)
+        print(f'Elapsed time is {time() - t1} seconds. {len(rtn):,d}')
+
+        # In run mode: 
+        # 4.589160680770874   # just 2.2 secs to sort
+
 #@pytest.mark.slow
 def test_cython_create_index():
 
@@ -336,13 +397,52 @@ def test_cython_create_index():
     with fwf.open(FILE_1) as fd:
         assert len(fd) == 5889278   
 
+        """ """
         t1 = time()
         rtn = hello.create_index(fwf, "PARTY_ID")
 
         print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
 
         # In run mode: 
-        # 2.6236753463745117   # Cython really makes a difference
+        # 6.236589670181274    # That is so far the fasted approach
+        """ """
+
+        """
+        t1 = time()
+        rtn = hello.get_field_data(fwf, "PARTY_ID")
+        print(f'Elapsed time is {time() - t1} seconds.')
+
+        values = defaultdict(list)
+        all(values[value].append(i) or True for i, value in enumerate(rtn))
+        print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
+
+        # 16.387330770492554   # Reading the data is really fast, but creating the index is not yet.
+        #                      # Accessing the index afterwards is very fast
+        """
+
+        """
+        t1 = time()
+        rtn = hello.get_field_data(fwf, "PARTY_ID")
+        rtn_hash = [hash(a) for a in rtn]
+        print(f'Elapsed time is {time() - t1} seconds.')
+
+        def find(value):
+            return np.argwhere(rtn_hash == hash(value))
+
+        idx = np.unique(rtn)
+
+        t1 = time()
+        for i in range(int(1e6)):
+            key =  randrange(len(idx))
+            key = idx[key]
+            refs = find(key)
+            assert refs is not None
+
+        print(f'Elapsed time is {time() - t1} seconds.')
+
+        # 4.449473857879639 sec to prepare
+        # 28.354421854019165 for 1 mio searches (compared ro 3 secs with a dict)
+        """
 
 
 # Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":
@@ -359,3 +459,6 @@ if __name__ == '__main__':
     # test_cython_like_filter()
     # test_cython_filter_ex()
     test_cython_create_index()
+    # test_cython_get_field_data()
+    # test_find_last()
+    # test_numpy_sort()
