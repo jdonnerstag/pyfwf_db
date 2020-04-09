@@ -9,11 +9,11 @@ from distutils.extension import Extension
 from Cython.Build import cythonize
 
 ext_modules = [
-    Extension("hello", sources=["hello.pyx"]),
+    Extension("fwf_db_ext", sources=["fwf_db_ext.pyx"]),
 ]
 
 setup(
-    name='Hello world app',
+    name='fwf_db performance extensions',
     ext_modules=cythonize(ext_modules, language_level = "3", annotate=True),
     zip_safe=False,
 )

@@ -1,16 +1,30 @@
-#!/usr/bin/env python
-# encoding: utf-8
+"""fwf_db is about treating large fixed width files almost like a database.
 
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
+Large files may have several hundred million records. They are too large
+to be loaded into memory, hence we map the file content into memory.
+
+This Cython module is not a complete module. It just contains few extension
+methods for fwf_db.
+
+fwf_db is not a replacement for an RDBMS or analytics engine, but must
+be able to handled millions of millions of lookups. To achieve reasonable
+performance an (in-memory) index is needed. Creating the index requires
+processing millions of records, and as validated by test cases, Cython 
+can be useful in creating that index. 
+
+Similarly we had the requirement to filter certain events, e.g. records
+which were provided / updated after a certain (effective) date. Or records
+which are valid during a specific period determined by table fields such as 
+VALID_FROM and VALID_UNTIL. Again a tight loop executed millions of times.
+"""
 
 import collections
 import ctypes
 import array
+import numpy as np
 from libc.string cimport strncmp, strncpy
 from cpython cimport array
 from libc.stdlib cimport malloc, free
-import numpy as np
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -21,19 +35,35 @@ def say_hello_to(name):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
+def str_to_bytes(obj):
+    if isinstance(obj, str):
+        obj = bytes(obj, "utf-8")
+
+    return obj
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
 def iter_and_filter(fwf,
     int field1_startpos, bytes field1_start_value, int field1_endpos, bytes field1_end_value,
     int field2_startpos, bytes field2_start_value, int field2_endpos, bytes field2_end_value):
-    """This is an optimized effective date and period filter, that could also
-    be implemented in C/Cython for improved performance.
+    """This is an optimized effective date and period filter, that shows 10-15x 
+    performance improvements. Doesn't sound a lot but 2-3 secs vs 20-30 secs makes a 
+    big difference when developing software and you need to wait for it.
 
-    - Since it is working on the raw data, the values must be bytes.
+    The method has certain constraints:
+    - Since it is working on the raw data, the values must be bytes or strings.
     - If startpos respectively endpos == -1 it'll be ignored
     - startpos and endpos are relativ to line start
-    - the value length is determined by the length of the value (bytes)
+    - the field length is determined by the length of the value (bytes)
     - The comparison is pre-configured: start_value <= value <= end_value
     - Empty values in the line have predetermined meaning: beginning and end of time
     """
+
+    field1_start_value = str_to_bytes(field1_start_value)
+    field1_end_value = str_to_bytes(field1_end_value)
+    field2_start_value = str_to_bytes(field2_end_value)
+    field2_end_value = str_to_bytes(field2_end_value)
 
     cdef int field1_start_len = <int>(len(field1_start_value)) if field1_start_value else 0
     cdef int field1_start_stoppos = field1_startpos + field1_start_len
@@ -104,7 +134,7 @@ def iter_and_filter(fwf,
 # -----------------------------------------------------------------------------
 
 def get_field_data(fwf, field_name):
-    """Return a numpy array with all values in sequence read from the file"""
+    """Return a numpy array with all values in the sequence read from the file"""
     
     cdef long start_pos = fwf.start_pos
     cdef long fsize = fwf.fsize
@@ -136,6 +166,11 @@ def get_field_data(fwf, field_name):
 # -----------------------------------------------------------------------------
 
 def create_index(fwf, field_name):
+    """Leverage the speed of Cython (and C) which saturates the SDD when reading
+    the data and thus allows to do some minimal processing in between, such as 
+    updating the index. It's not perfect, it adds some delay (e.g. 6 sec), which 
+    is still much better then creating the index afterwards (14 secs).
+    """
 
     cdef long start_pos = fwf.start_pos
     cdef long fsize = fwf.fsize

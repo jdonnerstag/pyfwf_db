@@ -18,7 +18,7 @@ from fwf_db.fwf_unique_np_based import FWFUniqueNpBased
 from fwf_db.fwf_index_np_based import FWFIndexNumpyBased
 from fwf_db.fwf_operator import FWFOperator as op
 
-from fwf_db.cython import hello
+from fwf_db.cython import fwf_db_ext
 
 class CENT_PARTY:
 
@@ -249,7 +249,7 @@ def test_effective_date_region_filter_optmized():
 def test_cython_like_filter():
     """Still a python impl. but the interface is close"""
 
-    hello.say_hello_to("Susie")
+    fwf_db_ext.say_hello_to("Susie")
 
     fwf = FWFFile(CENT_PARTY)
 
@@ -276,7 +276,7 @@ def test_cython_like_filter():
 @pytest.mark.slow
 def test_cython_filter_ex():
 
-    hello.say_hello_to("Susie")
+    fwf_db_ext.say_hello_to("Susie")
 
     fwf = FWFFile(CENT_PARTY)
 
@@ -284,7 +284,7 @@ def test_cython_filter_ex():
         assert len(fd) == 5889278   
 
         t1 = time()
-        rtn = hello.iter_and_filter(fwf,
+        rtn = fwf_db_ext.iter_and_filter(fwf,
             fd.fields["BUSINESS_DATE"].start, b"20180120",
             -1, None, 
             fd.fields["VALID_FROM"].start, b"20130101",
@@ -302,7 +302,7 @@ def test_cython_filter_ex():
 @pytest.mark.slow
 def test_cython_get_field_data():
 
-    hello.say_hello_to("Susie")
+    fwf_db_ext.say_hello_to("Susie")
 
     fwf = FWFFile(CENT_PARTY)
 
@@ -310,7 +310,7 @@ def test_cython_get_field_data():
         assert len(fd) == 5889278   
 
         t1 = time()
-        rtn = hello.get_field_data(fwf, "PARTY_ID")
+        rtn = fwf_db_ext.get_field_data(fwf, "PARTY_ID")
 
         print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
 
@@ -328,7 +328,7 @@ def test_find_last():
     """This is an interesting test case as often we need the last record
     before the effective date, ...."""
 
-    hello.say_hello_to("Susie")
+    fwf_db_ext.say_hello_to("Susie")
 
     fwf = FWFFile(CENT_PARTY)
 
@@ -336,7 +336,7 @@ def test_find_last():
         assert len(fd) == 5889278   
 
         t1 = time()
-        rtn = hello.get_field_data(fwf, "PARTY_ID")
+        rtn = fwf_db_ext.get_field_data(fwf, "PARTY_ID")
         print(f'Elapsed time is {time() - t1} seconds.')
 
         indices = my_find_last(rtn)
@@ -369,7 +369,7 @@ def test_find_last():
 @pytest.mark.slow
 def test_numpy_sort():
 
-    hello.say_hello_to("Susie")
+    fwf_db_ext.say_hello_to("Susie")
 
     fwf = FWFFile(CENT_PARTY)
 
@@ -377,7 +377,7 @@ def test_numpy_sort():
         assert len(fd) == 5889278   
 
         t1 = time()
-        rtn = hello.get_field_data(fwf, "PARTY_ID")
+        rtn = fwf_db_ext.get_field_data(fwf, "PARTY_ID")
         print(f'Elapsed time is {time() - t1} seconds.')
 
         #rtn = np.argsort(rtn)
@@ -390,7 +390,7 @@ def test_numpy_sort():
 #@pytest.mark.slow
 def test_cython_create_index():
 
-    hello.say_hello_to("Susie")
+    fwf_db_ext.say_hello_to("Susie")
 
     fwf = FWFFile(CENT_PARTY)
 
@@ -399,7 +399,7 @@ def test_cython_create_index():
 
         """ """
         t1 = time()
-        rtn = hello.create_index(fwf, "PARTY_ID")
+        rtn = fwf_db_ext.create_index(fwf, "PARTY_ID")
 
         print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
 
@@ -409,7 +409,7 @@ def test_cython_create_index():
 
         """
         t1 = time()
-        rtn = hello.get_field_data(fwf, "PARTY_ID")
+        rtn = fwf_db_ext.get_field_data(fwf, "PARTY_ID")
         print(f'Elapsed time is {time() - t1} seconds.')
 
         values = defaultdict(list)
@@ -422,7 +422,7 @@ def test_cython_create_index():
 
         """
         t1 = time()
-        rtn = hello.get_field_data(fwf, "PARTY_ID")
+        rtn = fwf_db_ext.get_field_data(fwf, "PARTY_ID")
         rtn_hash = [hash(a) for a in rtn]
         print(f'Elapsed time is {time() - t1} seconds.')
 
