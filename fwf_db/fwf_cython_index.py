@@ -10,6 +10,10 @@ from .cython import fwf_db_ext
 from .fwf_simple_index import FWFSimpleIndex
 
 
+class FWFCythonIndexException(Exception):
+    pass
+
+
 class FWFCythonIndex(FWFIndexLike):
     """An index implementation, that leveraged Cython for performance 
     reasons. The larger the files, the larger are the performance 
@@ -25,6 +29,9 @@ class FWFCythonIndex(FWFIndexLike):
         self.fwfview = fwfview
         self.field = None   # The field name to build the index
         self.data = {}    # dict(value -> [lineno])
+
+        if getattr(self.fwfview, "mm", None) is None:
+            raise FWFCythonIndexException(f"Only FWFile parent are supported with {type(self)}")
 
 
     def index(self, field, func=None, log_progress=None):

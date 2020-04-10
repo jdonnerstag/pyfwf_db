@@ -154,11 +154,9 @@ def test_index_cython():
         # Index on a view
         # Cython index is only available on FWFile. It wouldn't be faster then
         # an ordinary Index.
-        """
         x = fwf[0:5]
-        rtn = FWFCythonIndex(x).index("state")
-        assert len(rtn) == 5
-        """
+        with pytest.raises(Exception):
+            rtn = FWFCythonIndex(x).index("state")
 
 
 def test_unique_index_cython():
@@ -198,11 +196,9 @@ def test_unique_index_cython():
         # Index on a view
         # Cython index is only available on FWFile. It wouldn't be faster then
         # an ordinary Index.
-        """
         x = fwf[0:5]
-        rtn = FWFCythonIndex(x).index("state")
-        assert len(rtn) == 5
-        """
+        with pytest.raises(Exception):
+            rtn = FWFCythonUniqueIndex(x).index("state")
 
 
 # Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":

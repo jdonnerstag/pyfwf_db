@@ -11,11 +11,18 @@ from .cython import fwf_db_ext
 from .fwf_simple_index import FWFSimpleIndex
 
 
+class FWFCythonUniqueIndexException(Exception):
+    pass
+
+
 class FWFCythonUniqueIndex(FWFIndexLike):
     """Performance can be further improved if we can assume that the PK
     is unique. Considering effective dates etc. there might still be
     multiple records with the same PK in the data set, but only the 
     last one is valid. 
+
+    The implementation does not check if the index is really unique. It
+    simple takes the last entry it can find.
     """
 
     def __init__(self, fwfview):
@@ -23,6 +30,9 @@ class FWFCythonUniqueIndex(FWFIndexLike):
         self.fwfview = fwfview
         self.field = None   # The field name to build the index
         self.data = {}    # dict(value -> lineno)
+
+        if getattr(self.fwfview, "mm", None) is None:
+            raise FWFCythonUniqueIndexException(f"Only FWFile parent are supported with {type(self)}")
 
 
     def index(self, field, func=None, log_progress=None):

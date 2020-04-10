@@ -17,6 +17,7 @@ import ctypes
 from fwf_db import FWFFile, FWFSimpleIndex, FWFMultiFile, FWFUnique
 from fwf_db.fwf_unique_np_based import FWFUniqueNpBased
 from fwf_db.fwf_index_np_based import FWFIndexNumpyBased
+from fwf_db.fwf_cython_unique_index import FWFCythonUniqueIndex
 from fwf_db.fwf_operator import FWFOperator as op
 
 from fwf_db.cython import fwf_db_ext
@@ -101,7 +102,7 @@ def test_perf_simple_index():
 
         print(f'Elapsed time is {time() - t1} seconds.')
 
-        # In run mode it takes: Create an index on PARTY_ID, using the optimized 
+        # run mode: Create an index on PARTY_ID, using the optimized 
         # field reader (no FWFLine object)
         # Elapsed time is 22.193581104278564 seconds.   # 10 - 15 secs to create the index
         # 
@@ -165,11 +166,12 @@ def test_perf_numpy_index():
 
         # In run mode it takes: Create an index on PARTY_ID, using the optimized 
         # field reader (no FWFLine object)
-        # Elapsed time is 20.20484495162964 seconds.   # as fast as reading line by line
+        # Elapsed time is 20.20484495162964 seconds.   # a tiny bit faster then simple index
         # 
         # and access lines randomly 1 mio times
         # Elapsed time is 5.6988043785095215 seconds.
         # That is pretty much the same result, that the simple python based index provides.
+        # Which makes sense, as both create dicts
 
 
 @pytest.mark.slow
@@ -188,7 +190,7 @@ def test_effective_date_simple_filter():
         print(f'Elapsed time is {time() - t1} seconds.')
 
         # In run mode: 
-        # 21.847846508026123     # Compared to 7 secs for simply bytes and 12 secs for FWFLines
+        # 21.847846508026123     # Compared to 7 secs for simple bytes and 12 secs for FWFLines
 
 
 @pytest.mark.slow
@@ -235,15 +237,13 @@ def test_effective_date_region_filter_optmized():
             return line[valid_until_slice] >= b"20131231"
 
         t1 = time()
-        # NOTE This does still not handle defaults in case of empty values
-        # NOTE An empty test might simply test the most right value and not the full string
         fd = fd.filter(region_filter)
         assert len(fd) == 1293435
 
         print(f'Elapsed time is {time() - t1} seconds.')
 
         # In run mode: 
-        # 18.807480335235596    # Even faster then single FWFOperator
+        # 18.807480335235596    # Faster then then FWFOperator !!
         # But still CPU bound.
 
 
@@ -338,15 +338,43 @@ def test_find_last():
         assert len(fd) == 5889278   
 
         t1 = time()
+        rtn = fwf_db_ext.create_unique_index(fwf, "PARTY_ID")
+        is_unique = len(rtn) == len(fd)
+        print(f'Elapsed time is {time() - t1} seconds. {len(rtn):,d} - {"unique" if is_unique else "not unique"} index')
+
+        # In run mode: 
+        # 5.535429954528809   # Ok
+
+        """
+        t1 = time()
         rtn = fwf_db_ext.get_field_data(fwf, "PARTY_ID")
         print(f'Elapsed time is {time() - t1} seconds.')
 
         indices = my_find_last(rtn)
         is_unique = len(indices) == len(fd)
         print(f'Elapsed time is {time() - t1} seconds. {len(indices):,d} - {"unique" if is_unique else "not unique"} index')
+        # Until here it is nice and really fast (4-5 secs), but ...
+        # either we convert it into a dict for search, which takes several secs.,
+        # because Numpy/Pandas based search on this specific data is really really slow.
+        # But if new need a dict for perf anyways, then we can create it right away 
+        # without the numpy array in between
+
+        df = pd.DataFrame(indices, columns=["values"])
+        df["index"] = df.index
+        df = df.set_index("values")
+
+        t1 = time()
+        for _ in range(int(1e6)):
+            key =  randrange(len(rtn))
+            key = df.iloc[key]
+            refs = df.loc[key]
+            assert refs is not None
+
+        print(f'Elapsed time is {time() - t1} seconds.')
 
         # In run mode: 
-        # 4.8622496128082275   # Nice ...
+        # 4.8622496128082275   # Nice, but search is teribly slow.
+        """
 
         """
         values = {value : i for i, value in enumerate(rtn)}
@@ -390,7 +418,7 @@ def test_numpy_sort():
         # 4.589160680770874   # just 2.2 secs to sort
 
 
-@pytest.mark.slow
+#@pytest.mark.slow
 def test_cython_create_index():
 
     fwf_db_ext.say_hello_to("Susie")
@@ -400,7 +428,7 @@ def test_cython_create_index():
     with fwf.open(FILE_1) as fd:
         assert len(fd) == 5889278   
 
-        """ """
+        """
         t1 = time()
         rtn = fwf_db_ext.create_index(fwf, "PARTY_ID")
 
@@ -408,7 +436,7 @@ def test_cython_create_index():
 
         # In run mode: 
         # 12.35611081123352    # A little better, but not much
-        """ """
+        """
 
         """
         t1 = time()
@@ -446,6 +474,32 @@ def test_cython_create_index():
         # 4.449473857879639 sec to prepare
         # 28.354421854019165 for 1 mio searches (compared ro 3 secs with a dict)
         """
+
+        """ """
+        t1 = time()
+        rtn = fwf_db_ext.get_field_data(fwf, "PARTY_ID")
+        print(f'Elapsed time is {time() - t1} seconds.')
+
+        rtn_sorted = np.argsort(rtn)
+        print(f'Elapsed time is {time() - t1} seconds.')
+
+        result = dict()
+        h1 = None
+        ar = None
+        for i in rtn_sorted:
+            h2 = rtn[i]
+            if h1 != h2:
+                h1 = h2
+                ar = [i]
+                result[h1] = ar
+            else:
+                ar.append(i)
+
+        print(f'Elapsed time is {time() - t1} seconds.')
+
+        # 4.449473857879639 sec to prepare
+        # 28.354421854019165 for 1 mio searches (compared ro 3 secs with a dict)
+        """ """
 
 
 # Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":

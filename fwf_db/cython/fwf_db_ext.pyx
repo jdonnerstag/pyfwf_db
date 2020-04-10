@@ -228,6 +228,8 @@ def create_unique_index(fwf, field_name):
     cdef const char* ptr = mm + start_pos + <int>field_slice.start
     while start_pos < fsize:
 
+        # This is Python and thus rather slow. But I also don't know how
+        # to optimize.
         values[ptr[0 : field_size]] = irow
 
         start_pos += fwidth
