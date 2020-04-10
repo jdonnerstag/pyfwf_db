@@ -7,9 +7,10 @@
 from setuptools import setup
 from distutils.extension import Extension
 from Cython.Build import cythonize
+import numpy
 
 ext_modules = [
-    Extension("fwf_db_ext", sources=["fwf_db_ext.pyx"]),
+    Extension("fwf_db_ext", sources=["fwf_db_ext.pyx"], include_dirs=[numpy.get_include()]),
 ]
 
 setup(

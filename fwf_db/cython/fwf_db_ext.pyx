@@ -21,7 +21,10 @@ VALID_FROM and VALID_UNTIL. Again a tight loop executed millions of times.
 import collections
 import ctypes
 import array
-import numpy as np
+
+import numpy
+cimport numpy
+
 from libc.string cimport strncmp, strncpy
 from cpython cimport array
 from libc.stdlib cimport malloc, free
@@ -83,8 +86,8 @@ def iter_and_filter(fwf,
     cdef long fsize = fwf.fsize
     cdef int fwidth = fwf.fwidth
 
-    cdef ptr_vdm = ctypes.c_uint.from_buffer(fwf.mm)
-    cdef const char* mm = <const char*><long long>ctypes.addressof(ptr_vdm)
+    cdef const unsigned char[:] mm_view = fwf.mm
+    cdef const char* mm = <const char*>&mm_view[0]
 
     cdef array.array result = array.array('i', [])
     array.resize(result, fwf.reclen + 1)
@@ -141,14 +144,13 @@ def get_field_data(fwf, field_name):
     cdef int fwidth = fwf.fwidth
     cdef int reclen = fwf.reclen
 
-    # Get the memory map virtual address
-    cdef ptr_vdm = ctypes.c_uint.from_buffer(fwf.mm)
-    cdef const char* mm = <const char*><long long>ctypes.addressof(ptr_vdm)
+    cdef const unsigned char[:] mm_view = fwf.mm
+    cdef const char* mm = <const char*>&mm_view[0]
 
     # Allocate memory for index data
     cdef field_slice = fwf.fields[field_name]
     cdef int field_size = field_slice.stop - field_slice.start
-    cdef values = np.empty(reclen, dtype=f"S{field_size}")
+    cdef numpy.ndarray values = numpy.empty(reclen, dtype=f"S{field_size}")
 
     cdef int irow = 0
     cdef const char* ptr = mm + start_pos + <int>field_slice.start
@@ -180,11 +182,47 @@ def create_index(fwf, field_name):
     cdef field_slice = fwf.fields[field_name]
     cdef int field_size = field_slice.stop - field_slice.start
 
-    # Get the memory map virtual address
-    cdef ptr_vdm = ctypes.c_uint.from_buffer(fwf.mm)
-    cdef const char* mm = <const char*><long long>ctypes.addressof(ptr_vdm)
+    cdef const unsigned char[:] mm_view = fwf.mm
+    cdef const char* mm = <const char*>&mm_view[0]
 
     cdef values = collections.defaultdict(list)
+
+    cdef int irow = 0
+    cdef const char* ptr = mm + start_pos + <int>field_slice.start
+    while start_pos < fsize:
+
+        values[ptr[0 : field_size]].append(irow)
+
+        start_pos += fwidth
+        ptr += fwidth
+        irow += 1
+
+    return values
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+def create_unique_index(fwf, field_name):
+    """For every PK find the last (sequence) entry.
+    
+    Leverage the speed of Cython (and C) which saturates the SDD when reading
+    the data and thus allows to do some minimal processing in between, such as 
+    updating the index. It's not perfect, it adds some delay (e.g. 6 sec), which 
+    is still much better then creating the index afterwards (14 secs).
+    """
+
+    cdef long start_pos = fwf.start_pos
+    cdef long fsize = fwf.fsize
+    cdef int fwidth = fwf.fwidth
+    cdef int reclen = fwf.reclen
+
+    cdef field_slice = fwf.fields[field_name]
+    cdef int field_size = field_slice.stop - field_slice.start
+
+    cdef const unsigned char[:] mm_view = fwf.mm
+    cdef const char* mm = <const char*>&mm_view[0]
+
+    cdef dict values = dict()
 
     cdef int irow = 0
     cdef const char* ptr = mm + start_pos + <int>field_slice.start
@@ -197,3 +235,5 @@ def create_index(fwf, field_name):
         irow += 1
 
     return values
+
+    # TODO Now we have 3 methods which only differ in a single function (more or less)

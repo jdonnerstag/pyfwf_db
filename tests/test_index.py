@@ -11,6 +11,8 @@ import numpy as np
 from fwf_db import FWFFile, FWFSimpleIndex, FWFMultiFile, FWFUnique
 from fwf_db.fwf_unique_np_based import FWFUniqueNpBased
 from fwf_db.fwf_index_np_based import FWFIndexNumpyBased
+from fwf_db.fwf_cython_index import FWFCythonIndex
+from fwf_db.fwf_cython_unique_index import FWFCythonUniqueIndex
 
 
 DATA = b"""# My comment test
@@ -115,6 +117,92 @@ def test_index_numpy_based():
         x = fwf[0:5]
         rtn = FWFIndexNumpyBased(x).index("state", dtype=(np.bytes_, 2))
         assert len(rtn) == 5
+
+
+def test_index_cython():
+    fwf = FWFFile(HumanFile)
+    with fwf.open(DATA):
+
+        rtn = FWFCythonIndex(fwf).index("state")
+        assert len(rtn) == 9
+
+        rtn = FWFCythonIndex(fwf).index("gender")
+        assert len(rtn) == 2
+
+        rtn = FWFCythonIndex(fwf).index("state", lambda x: x.decode())
+        assert "MI" in rtn
+        assert rtn["MI"]
+
+        rtn = FWFCythonIndex(fwf).index("gender", lambda x: x.decode())
+        assert len(rtn) == 2
+        assert "M" in rtn
+        assert "F" in rtn
+        assert rtn["M"]
+        assert rtn["F"]
+        assert not rtn["xxx"]
+
+        for rec in rtn["M"]:
+            assert rec.lineno in [1, 2, 4]
+
+        x = rtn["M"]
+        x = x[2]
+        assert rtn["M"][2].lineno == 4
+
+        rtn = FWFCythonIndex(fwf).index(1)  # Also works with integers == state
+        assert len(rtn) == 9
+
+        # Index on a view
+        # Cython index is only available on FWFile. It wouldn't be faster then
+        # an ordinary Index.
+        """
+        x = fwf[0:5]
+        rtn = FWFCythonIndex(x).index("state")
+        assert len(rtn) == 5
+        """
+
+
+def test_unique_index_cython():
+    fwf = FWFFile(HumanFile)
+    with fwf.open(DATA):
+
+        rtn = FWFCythonUniqueIndex(fwf).index("state")
+        assert len(rtn) == 9
+
+        rtn = FWFCythonUniqueIndex(fwf).index("gender")
+        assert len(rtn) == 2
+
+        rtn = FWFCythonUniqueIndex(fwf).index("state", lambda x: x.decode())
+        assert "MI" in rtn
+        assert rtn["MI"]
+
+        rtn = FWFCythonUniqueIndex(fwf).index("gender", lambda x: x.decode())
+        assert len(rtn) == 2
+        assert "M" in rtn
+        assert "F" in rtn
+        assert rtn["M"]
+        assert rtn["F"]
+        assert not rtn["xxx"]
+
+        # A Unique index doesn't return a list but the single record
+        # for rec in rtn["M"]:
+        #    assert rec.lineno in [1, 2, 4]
+
+        # x = rtn["M"]
+        # x = x[2]
+        # assert rtn["M"][2].lineno == 4
+        assert rtn["M"].lineno == 4
+
+        rtn = FWFCythonUniqueIndex(fwf).index(1)  # Also works with integers == state
+        assert len(rtn) == 9
+
+        # Index on a view
+        # Cython index is only available on FWFile. It wouldn't be faster then
+        # an ordinary Index.
+        """
+        x = fwf[0:5]
+        rtn = FWFCythonIndex(x).index("state")
+        assert len(rtn) == 5
+        """
 
 
 # Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":

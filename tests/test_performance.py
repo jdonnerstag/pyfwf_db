@@ -3,6 +3,7 @@
 
 import pytest
 
+import abc
 import os
 import sys
 import io
@@ -135,6 +136,7 @@ def test_numpy_samples():
         value = bytes(f"{value:>10}", "utf-8")
 
         rec = data.get(value, None)
+        assert rec is not None
 
     print(f'Elapsed time is {time() - t1} seconds.')
 
@@ -387,7 +389,8 @@ def test_numpy_sort():
         # In run mode: 
         # 4.589160680770874   # just 2.2 secs to sort
 
-#@pytest.mark.slow
+
+@pytest.mark.slow
 def test_cython_create_index():
 
     fwf_db_ext.say_hello_to("Susie")
@@ -404,7 +407,7 @@ def test_cython_create_index():
         print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
 
         # In run mode: 
-        # 6.236589670181274    # That is so far the fasted approach
+        # 12.35611081123352    # A little better, but not much
         """ """
 
         """
