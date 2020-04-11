@@ -306,3 +306,123 @@ def create_int_index(fwf, field_name):
         irow += 1
 
     return values
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+def fwf_cython(fwf, 
+    int field1_startpos, bytes field1_start_value, int field1_endpos, bytes field1_end_value,
+    int field2_startpos, bytes field2_start_value, int field2_endpos, bytes field2_end_value,
+    index=None, unique_index=False, integer_index=False):
+
+    cdef int create_index = index is not None
+    cdef int create_unique_index = unique_index is True
+    cdef int create_integer_index = integer_index is True
+
+    cdef index_slice
+    cdef int index_start
+    cdef int index_stop
+    if index is not None:
+        index_slice = fwf.fields[index]
+        index_start = index_slice.start
+        index_stop = index_slice.stop
+
+    field1_start_value = str_to_bytes(field1_start_value)
+    field1_end_value = str_to_bytes(field1_end_value)
+    field2_start_value = str_to_bytes(field2_start_value)
+    field2_end_value = str_to_bytes(field2_end_value)
+
+    cdef int field1_start_len = <int>(len(field1_start_value)) if field1_start_value else 0
+    cdef int field1_start_stoppos = field1_startpos + field1_start_len
+
+    cdef int field1_end_len = <int>(len(field1_end_value)) if field1_end_value else 0
+    cdef int field1_end_stoppos = field1_endpos + field1_end_len
+    cdef int field1_end_lastpos = field1_end_stoppos - 1
+
+    cdef int field2_start_len = <int>(len(field2_start_value)) if field2_start_value else 0
+    cdef int field2_start_stoppos = field2_startpos + field2_start_len
+
+    cdef int field2_end_len = <int>(len(field2_end_value)) if field2_end_value else 0
+    cdef int field2_end_stoppos = field2_endpos + field2_end_len
+    cdef int field2_end_lastpos = field2_end_stoppos - 1
+
+    cdef long start_pos = fwf.start_pos
+    cdef long fsize = fwf.fsize
+    cdef int fwidth = fwf.fwidth
+
+    cdef const unsigned char[:] mm_view = fwf.mm
+    cdef const char* mm = <const char*>&mm_view[0]
+
+    cdef array.array result
+    cdef int* result_ptr
+
+    if not create_index:
+        result = array.array('i', [])
+        array.resize(result, fwf.reclen + 1)
+        result_ptr = result.data.as_ints
+
+    cdef values
+    cdef bytes v_bytes
+    cdef int v_int
+
+    if index is not None:
+        if create_unique_index:
+            values = dict()
+        else:
+            values = collections.defaultdict(list)
+
+    cdef int count = 0
+    cdef int irow = 0
+    cdef const char* line 
+
+    while start_pos < fsize:
+        line = mm + start_pos
+
+        if (
+            (field1_startpos >= 0) and 
+            (strncmp(field1_start_value, line + field1_startpos, field1_start_len) < 0)
+            ):
+            pass # print(f"{irow} - 1 - False")
+        elif (
+            (field1_endpos >= 0) and 
+            (line[field1_end_lastpos] != 32) and
+            (strncmp(field1_end_value, line + field1_endpos, field1_end_len) > 0)
+            ):
+            pass # print(f"{irow} - 2 - False")
+        elif (
+            (field2_startpos >= 0) and
+            (strncmp(field2_start_value, line + field2_startpos, field2_start_len) < 0)
+            ):
+            pass # print(f"{irow} - 3 - False")
+        elif (
+            (field2_endpos >= 0) and 
+            (line[field2_end_lastpos] != 32) and
+            (strncmp(field2_end_value, line + field2_endpos, field2_end_len) > 0)
+            ):
+            pass # print(f"{irow} - 4 - False")
+        else:
+            if not create_index:
+                result_ptr[count] = irow
+                count += 1
+            else:
+                v_bytes = line[index_start : index_stop]
+                if create_int_index:
+                    v_int = atoi(v_bytes)
+                    if create_unique_index:
+                        values[v_int] = irow
+                    else:
+                        values[v_int].append(irow)
+                else:
+                    if create_unique_index:
+                        values[v_bytes] = irow
+                    else:
+                        values[v_bytes].append(irow)
+
+        start_pos += fwidth
+        irow += 1
+
+    if not create_index:
+        array.resize(result, count)    
+        return result
+
+    return values

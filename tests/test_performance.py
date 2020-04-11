@@ -512,6 +512,104 @@ def test_int_index():
         """ """
 
 
+@pytest.mark.slow
+def test_fwf_cython():
+
+    fwf_db_ext.say_hello_to("Susie")
+
+    fwf = FWFFile(CENT_PARTY)
+
+    with fwf.open(FILE_1) as fd:
+        assert len(fd) == 5889278   
+
+        t1 = time()
+        rtn = fwf_db_ext.fwf_cython(fwf, 
+            -1, None, -1, None,
+            -1, None, -1, None,
+            index=None, 
+            unique_index=False, 
+            integer_index=False
+        )
+        print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
+        assert len(fd) == len(rtn)
+
+        # In run mode: 
+        # 0.05099773406982422 
+
+        rtn = fwf_db_ext.fwf_cython(fwf,
+            fd.fields["BUSINESS_DATE"].start, b"20180118",
+            -1, None, 
+            fd.fields["VALID_FROM"].start, b"20130101",
+            fd.fields["VALID_UNTIL"].start, b"20131231",
+            index=None, 
+            unique_index=False, 
+            integer_index=False
+        )
+
+        rlen = rtn.buffer_info()[1]
+        print(f'Elapsed time is {time() - t1} seconds.    {rlen}')
+        assert rlen == 1293435
+
+        # In run mode: 
+        # 1.989365816116333
+
+        t1 = time()
+        rtn = fwf_db_ext.fwf_cython(fwf, 
+            -1, None, -1, None,
+            -1, None, -1, None,
+            index="PARTY_ID", 
+            unique_index=False, 
+            integer_index=False
+        )
+        print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
+        assert len(fd) == len(rtn)
+
+        # In run mode: 
+        # 11.820953607559204
+
+        t1 = time()
+        rtn = fwf_db_ext.fwf_cython(fwf, 
+            -1, None, -1, None,
+            -1, None, -1, None,
+            index="PARTY_ID", 
+            unique_index=True, 
+            integer_index=False
+        )
+        print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
+        assert len(fd) == len(rtn)
+
+        # In run mode: 
+        # 4.296884775161743
+
+        t1 = time()
+        rtn = fwf_db_ext.fwf_cython(fwf, 
+            -1, None, -1, None,
+            -1, None, -1, None,
+            index="PARTY_ID", 
+            unique_index=True, 
+            integer_index=True
+        )
+        print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
+        assert len(fd) == len(rtn)
+
+        # In run mode: 
+        # 3.4603333473205566
+
+        t1 = time()
+        rtn = fwf_db_ext.fwf_cython(fwf, 
+            -1, None, -1, None,
+            -1, None, -1, None,
+            index="PARTY_ID", 
+            unique_index=False, 
+            integer_index=True
+        )
+        print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
+        assert len(fd) == len(rtn)
+
+        # In run mode: 
+        # 10.110804796218872
+
+
 # Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":
 if __name__ == '__main__':
 
@@ -523,9 +621,10 @@ if __name__ == '__main__':
     # test_effective_date_simple_filter()
     # test_effective_date_region_filter()
     # test_effective_date_region_filter_optmized()
-    test_cython_filter()
+    # test_cython_filter()
     # test_cython_create_index()
     # test_cython_get_field_data()
     # test_find_last()
     # test_numpy_sort()
     # test_int_index()
+    test_fwf_cython()
