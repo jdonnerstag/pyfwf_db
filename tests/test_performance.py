@@ -19,7 +19,7 @@ from fwf_db.fwf_unique_np_based import FWFUniqueNpBased
 from fwf_db.fwf_index_np_based import FWFIndexNumpyBased
 from fwf_db.fwf_cython_unique_index import FWFCythonUniqueIndex
 from fwf_db.fwf_operator import FWFOperator as op
-
+from fwf_db.fwf_cython_filter import FWFCythonFilter
 from fwf_db.cython import fwf_db_ext
 
 class CENT_PARTY:
@@ -248,8 +248,7 @@ def test_effective_date_region_filter_optmized():
 
 
 @pytest.mark.slow
-def test_cython_like_filter():
-    """Still a python impl. but the interface is close"""
+def test_cython_filter():
 
     fwf_db_ext.say_hello_to("Susie")
 
@@ -258,48 +257,33 @@ def test_cython_like_filter():
     with fwf.open(FILE_1) as fd:
         assert len(fd) == 5889278   
 
-        region_filter = fwf.iter_and_filter(
-            fd.fields["BUSINESS_DATE"].start, b"20180120",
-            -1, None, 
-            fd.fields["VALID_FROM"].start, b"20130101",
-            fd.fields["VALID_UNTIL"].start, b"20131231",
-        )
-
-        t1 = time()
-        fd = fd.filter(region_filter)
-        assert len(fd) == 1293435
-
-        print(f'Elapsed time is {time() - t1} seconds.')
-
-        # In run mode: 
-        # 29.85299563407898    # Rather slow. It shows that every single python
-        #                      # instructions adds on top.
-
-@pytest.mark.slow
-def test_cython_filter_ex():
-
-    fwf_db_ext.say_hello_to("Susie")
-
-    fwf = FWFFile(CENT_PARTY)
-
-    with fwf.open(FILE_1) as fd:
-        assert len(fd) == 5889278   
-
+        """
         t1 = time()
         rtn = fwf_db_ext.iter_and_filter(fwf,
-            fd.fields["BUSINESS_DATE"].start, b"20180120",
+            fd.fields["BUSINESS_DATE"].start, b"20180118",
             -1, None, 
             fd.fields["VALID_FROM"].start, b"20130101",
             fd.fields["VALID_UNTIL"].start, b"20131231",
         )
 
         rlen = rtn.buffer_info()[1]
-        assert rlen == 1293435
         print(f'Elapsed time is {time() - t1} seconds.    {rlen}')
-
+        assert rlen == 1293435
+        
         # In run mode: 
         # 2.1357336044311523   # Yes !!!!
+        """
 
+        t1 = time()
+        rtn = FWFCythonFilter(fd).filter(
+            "BUSINESS_DATE", b"20180120",
+            ["VALID_FROM", "VALID_UNTIL"], [b"20130101", b"20131231"],
+        )
+        print(f'Elapsed time is {time() - t1} seconds.    {len(rtn)}')
+        assert len(rtn) == 1293435
+
+        # In run mode: 
+        # 1.9844927787780762   # Yes !!!!
 
 @pytest.mark.slow
 def test_cython_get_field_data():
@@ -418,7 +402,7 @@ def test_numpy_sort():
         # 4.589160680770874   # just 2.2 secs to sort
 
 
-#@pytest.mark.slow
+@pytest.mark.slow
 def test_cython_create_index():
 
     fwf_db_ext.say_hello_to("Susie")
@@ -428,7 +412,7 @@ def test_cython_create_index():
     with fwf.open(FILE_1) as fd:
         assert len(fd) == 5889278   
 
-        """
+        """ """
         t1 = time()
         rtn = fwf_db_ext.create_index(fwf, "PARTY_ID")
 
@@ -436,9 +420,9 @@ def test_cython_create_index():
 
         # In run mode: 
         # 12.35611081123352    # A little better, but not much
-        """
+        """ """
 
-        """
+        """ 
         t1 = time()
         rtn = fwf_db_ext.get_field_data(fwf, "PARTY_ID")
         print(f'Elapsed time is {time() - t1} seconds.')
@@ -475,30 +459,56 @@ def test_cython_create_index():
         # 28.354421854019165 for 1 mio searches (compared ro 3 secs with a dict)
         """
 
+@pytest.mark.slow
+def test_int_index():
+    # Let's assume we know the PK field are integers only
+
+    fwf_db_ext.say_hello_to("Susie")
+
+    fwf = FWFFile(CENT_PARTY)
+
+    with fwf.open(FILE_1) as fd:
+        assert len(fd) == 5889278   
+
+        """
+        t1 = time()
+        rtn = fwf_db_ext.create_index(fwf, "PARTY_ID")
+
+        print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
+
+        # In run mode: 
+        # 12.35611081123352    # A little better, but not much
+        """
+
+        """
+        t1 = time()
+        rtn = fwf_db_ext.get_int_field_data(fwf, "PARTY_ID")
+        print(f'Elapsed time is {time() - t1} seconds.')
+
+        #t1 = time()
+        #for _ in range(int(1e6)):
+        #    key =  randrange(len(rtn))
+        #    key = rtn[key]
+        #    refs = np.argwhere(rtn == key)
+        #    assert refs is not None
+        # print(f'Elapsed time is {time() - t1} seconds.')
+
+        values = defaultdict(list)
+        all(values[value].append(i) or True for i, value in enumerate(rtn))
+        print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
+
+        # 2.6446585655212402    # Converting bytes into int64 makes almost no 
+        #                       # difference in reading the field data
+        # Searching int an int64 numpy array is still sloooww
+        # 13.195310354232788    # Creating a dict with int is slightly faster
+        """
+
         """ """
         t1 = time()
-        rtn = fwf_db_ext.get_field_data(fwf, "PARTY_ID")
+        rtn = fwf_db_ext.create_int_index(fwf, "PARTY_ID")
         print(f'Elapsed time is {time() - t1} seconds.')
 
-        rtn_sorted = np.argsort(rtn)
-        print(f'Elapsed time is {time() - t1} seconds.')
-
-        result = dict()
-        h1 = None
-        ar = None
-        for i in rtn_sorted:
-            h2 = rtn[i]
-            if h1 != h2:
-                h1 = h2
-                ar = [i]
-                result[h1] = ar
-            else:
-                ar.append(i)
-
-        print(f'Elapsed time is {time() - t1} seconds.')
-
-        # 4.449473857879639 sec to prepare
-        # 28.354421854019165 for 1 mio searches (compared ro 3 secs with a dict)
+        # 11.042781352996826 secs   # marginably faster
         """ """
 
 
@@ -513,9 +523,9 @@ if __name__ == '__main__':
     # test_effective_date_simple_filter()
     # test_effective_date_region_filter()
     # test_effective_date_region_filter_optmized()
-    # test_cython_like_filter()
-    # test_cython_filter_ex()
-    test_cython_create_index()
+    test_cython_filter()
+    # test_cython_create_index()
     # test_cython_get_field_data()
     # test_find_last()
     # test_numpy_sort()
+    # test_int_index()

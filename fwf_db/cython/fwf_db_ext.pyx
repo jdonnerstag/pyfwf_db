@@ -27,7 +27,7 @@ cimport numpy
 
 from libc.string cimport strncmp, strncpy
 from cpython cimport array
-from libc.stdlib cimport malloc, free
+from libc.stdlib cimport atoi
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -65,7 +65,7 @@ def iter_and_filter(fwf,
 
     field1_start_value = str_to_bytes(field1_start_value)
     field1_end_value = str_to_bytes(field1_end_value)
-    field2_start_value = str_to_bytes(field2_end_value)
+    field2_start_value = str_to_bytes(field2_start_value)
     field2_end_value = str_to_bytes(field2_end_value)
 
     cdef int field1_start_len = <int>(len(field1_start_value)) if field1_start_value else 0
@@ -107,7 +107,7 @@ def iter_and_filter(fwf,
             pass # print(f"{irow} - 1 - False")
         elif (
             (field1_endpos >= 0) and 
-            (line[field1_end_lastpos] > 32) and
+            (line[field1_end_lastpos] != 32) and
             (strncmp(field1_end_value, line + field1_endpos, field1_end_len) > 0)
             ):
             pass # print(f"{irow} - 2 - False")
@@ -118,12 +118,11 @@ def iter_and_filter(fwf,
             pass # print(f"{irow} - 3 - False")
         elif (
             (field2_endpos >= 0) and 
-            (line[field2_end_lastpos] > 32) and
+            (line[field2_end_lastpos] != 32) and
             (strncmp(field2_end_value, line + field2_endpos, field2_end_len) > 0)
             ):
             pass # print(f"{irow} - 4 - False")
         else:
-            pass # print(f"{irow} True")
             result_ptr[count] = irow
             count += 1
 
@@ -239,3 +238,71 @@ def create_unique_index(fwf, field_name):
     return values
 
     # TODO Now we have 3 methods which only differ in a single function (more or less)
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+def get_int_field_data(fwf, field_name):
+    """Return a numpy array with all values in the sequence read from the file"""
+    
+    cdef long start_pos = fwf.start_pos
+    cdef long fsize = fwf.fsize
+    cdef int fwidth = fwf.fwidth
+    cdef int reclen = fwf.reclen
+
+    cdef const unsigned char[:] mm_view = fwf.mm
+    cdef const char* mm = <const char*>&mm_view[0]
+
+    # Allocate memory for index data
+    cdef field_slice = fwf.fields[field_name]
+    cdef int field_size = field_slice.stop - field_slice.start
+    cdef numpy.ndarray[numpy.int64_t, ndim=1] values = numpy.empty(reclen, dtype=numpy.int64)
+
+    cdef int irow = 0
+    cdef const char* ptr = mm + start_pos + <int>field_slice.start
+    while start_pos < fsize:
+
+        values[irow] = atoi(ptr[0 : field_size])
+
+        start_pos += fwidth
+        ptr += fwidth
+        irow += 1
+
+    return values
+
+    
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+def create_int_index(fwf, field_name):
+    """Leverage the speed of Cython (and C) which saturates the SDD when reading
+    the data and thus allows to do some minimal processing in between, such as 
+    updating the index. It's not perfect, it adds some delay (e.g. 6 sec), which 
+    is still much better then creating the index afterwards (14 secs).
+    """
+
+    cdef long start_pos = fwf.start_pos
+    cdef long fsize = fwf.fsize
+    cdef int fwidth = fwf.fwidth
+    cdef int reclen = fwf.reclen
+
+    cdef field_slice = fwf.fields[field_name]
+    cdef int field_size = field_slice.stop - field_slice.start
+
+    cdef const unsigned char[:] mm_view = fwf.mm
+    cdef const char* mm = <const char*>&mm_view[0]
+
+    cdef values = collections.defaultdict(list)
+    cdef int v 
+    cdef int irow = 0
+    cdef const char* ptr = mm + start_pos + <int>field_slice.start
+    while start_pos < fsize:
+
+        v = atoi(ptr[0 : field_size])
+        values[v].append(irow)
+
+        start_pos += fwidth
+        ptr += fwidth
+        irow += 1
+
+    return values
