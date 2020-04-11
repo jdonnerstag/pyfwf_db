@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-
 from .fwf_subset import FWFSubset
 from .cython import fwf_db_ext 
+
+from fwf_db.fwf_simple_index import FWFSimpleIndex
+from fwf_db.fwf_cython_unique_index import FWFCythonUniqueIndex
 
 
 class FWFCythonFilterException(Exception):
@@ -46,7 +48,8 @@ class FWFCythonFilter(object):
             return values if idx == 0 else None
 
 
-    def filter(self, field1_names, field1_values, field2_names, field2_values):
+    def filter(self, field1_names, field1_values, field2_names, field2_values,
+        index=None, unique_index=True, integer_index=False):
 
         field1_start_value = self.get_value(field1_values, 0)
         field1_stop_value = self.get_value(field1_values, 1)
@@ -60,11 +63,25 @@ class FWFCythonFilter(object):
         field2_start_pos = self.get_start_pos(field2_names, 0, field2_start_value)
         field2_stop_pos = self.get_start_pos(field2_names, 1, field2_stop_value)
 
-        rtn = fwf_db_ext.iter_and_filter(self.fwffile,
+        rtn = fwf_db_ext.fwf_cython(self.fwffile,
             field1_start_pos, field1_start_value,
             field1_stop_pos, field1_stop_value,
             field2_start_pos, field2_start_value,
             field2_stop_pos, field2_stop_value,
+            index=index,
+            unique_index=unique_index,
+            integer_index=integer_index
         )
 
-        return FWFSubset(self.fwffile, list(rtn), self.fwffile.fields)
+        if index is None:
+            return FWFSubset(self.fwffile, list(rtn), self.fwffile.fields)
+        elif unique_index is False:
+            idx = FWFSimpleIndex(self.fwffile)
+            idx.field = index
+            idx.data = rtn
+            return idx
+        else:
+            idx = FWFCythonUniqueIndex(self.fwffile)
+            idx.field = index
+            idx.data = rtn
+            return idx
