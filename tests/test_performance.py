@@ -19,7 +19,7 @@ from fwf_db.fwf_unique_np_based import FWFUniqueNpBased
 from fwf_db.fwf_index_np_based import FWFIndexNumpyBased
 from fwf_db.fwf_cython_unique_index import FWFCythonUniqueIndex
 from fwf_db.fwf_operator import FWFOperator as op
-from fwf_db.fwf_cython_filter import FWFCythonFilter
+from fwf_db.fwf_cython import FWFCython
 from fwf_db.cython import fwf_db_ext
 
 class CENT_PARTY:
@@ -275,7 +275,7 @@ def test_cython_filter():
         """
 
         t1 = time()
-        rtn = FWFCythonFilter(fd).filter(
+        rtn = FWFCython(fd).apply(
             "BUSINESS_DATE", b"20180120",
             ["VALID_FROM", "VALID_UNTIL"], [b"20130101", b"20131231"],
         )

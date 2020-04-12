@@ -524,7 +524,7 @@ def fwf_cython(fwf,
                 v_bytes = line[index_start : index_stop]
 
                 # If an int index is requested ...
-                if create_int_index:
+                if create_integer_index:
                     # Convert the field value into an int
                     v_int = atoi(v_bytes)
                     if create_unique_index:

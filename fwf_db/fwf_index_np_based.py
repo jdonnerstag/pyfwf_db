@@ -93,7 +93,7 @@ class FWFIndexNumpyBased(FWFIndexLike):
 
     def __iter__(self):
         """Iterate over all index keys"""
-        iter(self.data.items())
+        return iter(self.data.keys())
 
 
     def keys(self):
@@ -102,9 +102,8 @@ class FWFIndexNumpyBased(FWFIndexLike):
 
     def fwf_subset(self, fwffile, key, fields):
         """Create a view with the indices associated with the index key provided"""
-        rtn = self.data[key]
-        if rtn is not None:
-            return FWFSubset(fwffile, rtn, fields)
+        if key in self.data:
+            return FWFSubset(fwffile, self.data[key], fields)
 
 
     def __contains__(self, param):

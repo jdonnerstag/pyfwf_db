@@ -5,21 +5,31 @@ from .fwf_subset import FWFSubset
 from .cython import fwf_db_ext 
 
 from fwf_db.fwf_simple_index import FWFSimpleIndex
-from fwf_db.fwf_cython_unique_index import FWFCythonUniqueIndex
+from fwf_db.fwf_simple_unique_index import FWFSimpleUniqueIndex
 
 
-class FWFCythonFilterException(Exception):
+class FWFCythonException(Exception):
     pass
 
 
-class FWFCythonFilter(object):
-    """Filter file data based on an effective date and period provided."""
+class FWFCython(object):
+    """Python is really nice, but for tight loops that must be executed million
+    times, it's interpreted nature become apparent. This is the python frontend
+    for a small Cython component that speeds up few tasks needed when processing
+    fixed width files (fwf).
+    
+    - Effecient filter records on effective data and a period
+    - Create an index on top of a (single) field
+    - Create an unique index which contains only the last index (in sequence of 
+      the lines read from the the file)
+    - Create an integer index where the field value has been converted into an int.
+    """
     
     def __init__(self, fwffile):
         self.fwffile = fwffile
 
         if getattr(fwffile, "mm", None) is None:
-            raise FWFCythonFilterException(
+            raise FWFCythonException(
                 f"Parameter 'fwfile' must be of type FWFFile: {type(fwffile)}")
 
 
@@ -34,7 +44,7 @@ class FWFCythonFilter(object):
             if names:
                 return self.fwffile.fields[names].start
         else:
-            raise FWFCythonFilterException(f"Invalid parameter 'names: {names}")
+            raise FWFCythonException(f"Invalid parameter 'names: {names}")
 
         return -1
 
@@ -48,8 +58,11 @@ class FWFCythonFilter(object):
             return values if idx == 0 else None
 
 
-    def filter(self, field1_names, field1_values, field2_names, field2_values,
-        index=None, unique_index=True, integer_index=False):
+    def apply(self, 
+        field1_names=None, field1_values=None, 
+        field2_names=None, field2_values=None,
+        index=None, unique_index=False, integer_index=False,
+        func=None):
 
         field1_start_value = self.get_value(field1_values, 0)
         field1_stop_value = self.get_value(field1_values, 1)
@@ -63,6 +76,9 @@ class FWFCythonFilter(object):
         field2_start_pos = self.get_start_pos(field2_names, 0, field2_start_value)
         field2_stop_pos = self.get_start_pos(field2_names, 1, field2_stop_value)
 
+        if index is not None:
+            index = self.fwffile.field_from_index(index)
+
         rtn = fwf_db_ext.fwf_cython(self.fwffile,
             field1_start_pos, field1_start_value,
             field1_stop_pos, field1_stop_value,
@@ -73,6 +89,9 @@ class FWFCythonFilter(object):
             integer_index=integer_index
         )
 
+        if (func is not None) and isinstance(rtn, dict):
+            rtn = {func(k) : v for k, v in rtn.items()}
+
         if index is None:
             return FWFSubset(self.fwffile, list(rtn), self.fwffile.fields)
         elif unique_index is False:
@@ -81,7 +100,7 @@ class FWFCythonFilter(object):
             idx.data = rtn
             return idx
         else:
-            idx = FWFCythonUniqueIndex(self.fwffile)
+            idx = FWFSimpleUniqueIndex(self.fwffile)
             idx.field = index
             idx.data = rtn
             return idx
