@@ -41,6 +41,28 @@ class HumanFile(object):
     ]
 
 
+def test_open():
+    
+    # We need both option: 
+    # 1) using a with statement and automatically close again
+    # 2) manually open and close it
+    
+    fwf = FWFFile(HumanFile)
+    with fwf.open(DATA) as fd:
+        assert fd.mm is not None
+
+    assert fd.mm is None
+    assert fwf.mm is None
+
+    fd = fwf.open(DATA)
+    assert fd is not None
+    assert fd is fwf
+    assert fd.mm is not None
+
+    fd.close()
+    assert fd.mm is None
+    assert fwf.mm is None
+
 def test_bytes_input():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):

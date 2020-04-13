@@ -138,7 +138,28 @@ class FWFFile(FWFViewLike):
         return max(x.stop for x in fields.values())
 
 
-    @contextmanager
+    def __enter__(self):
+        """Make this class a context manager. What is enables is to use
+        this class and open() in a with clause, and alternatively open
+        and close the file manually. 
+
+        1) 
+        with FWFFile(HumanFile).open(DATA) as fd:
+            assert fd.mm is not None
+
+        2)
+        fd = fwf.open(DATA)
+        ...
+        fd.close()
+        """
+
+        return self
+
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
+
     def open(self, file):
         """Initialize the fwf table with a file"""        
 
@@ -160,9 +181,7 @@ class FWFFile(FWFViewLike):
 
         self.init_view_like(slice(0, self.reclen), self.fields)
 
-        yield self
-
-        self.close()
+        return self
 
 
     def close(self):
