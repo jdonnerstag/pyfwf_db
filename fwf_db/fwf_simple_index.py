@@ -8,6 +8,10 @@ from .fwf_index_like import FWFIndexLike
 from .fwf_subset import FWFSubset
 
 
+class FWFSimpleIndexException(Exception):
+    pass
+
+
 class FWFSimpleIndex(FWFIndexLike):
     """A simple index implementation, based on pure python"""
 

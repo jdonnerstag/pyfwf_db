@@ -40,6 +40,8 @@ class FWFMultiFile(FWFViewLike):
         # Re-initialize the view
         self.init_view_like(self.lines, self.fields)
 
+        return fwf_view_like
+
 
     def remove_file(self, fwf_view):
         """Remove a file"""

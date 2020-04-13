@@ -8,23 +8,37 @@ from .fwf_index_like import FWFIndexLike
 from .fwf_line import FWFLine
 
 
-class FWFSimpleUniqueIndexException(Exception):
+class FWFMergeUniqueIndexException(Exception):
     pass
 
 
-class FWFSimpleUniqueIndex(FWFIndexLike):
-    """A simple unique index implementation, based on pure python"""
+class FWFMergeUniqueIndex(FWFIndexLike):
 
-    def __init__(self, fwfview):
+    def __init__(self):
 
-        self.fwfview = fwfview
         self.field = None   # The field name to build the index
-        self.data = None    # dict(value -> (last) lineno)
+        self.indices = []
+        self.data = dict()
+
+
+    def merge(self, index):
+
+        idx = len(self.indices)
+
+        if getattr(index, "data", None) is None:
+            raise FWFMergeUniqueIndexException(
+                f"'index' must be of type by an Index with 'data' attribute")
+
+        self.indices.append(index)
+
+        for k, v in index.data.items():
+            self.data[k] = (idx, v)
+
+        return self
 
 
     def _index2(self, gen):
-        # Create the index
-        self.data = {value : i for i, value in gen}
+        pass
 
 
     def __len__(self):
