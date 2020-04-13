@@ -32,27 +32,24 @@ class FWFIndexLike(FWFBaseMixin, abc.ABC):
         return self
 
 
-    @abc.abstractmethod
     def _index2(self, gen):
         """Create the index"""
+        pass
 
 
     @abc.abstractmethod
     def __len__(self):
         """Provide the number of entries in the index"""
-        pass
 
 
     @abc.abstractmethod
     def __iter__(self):
         """Iterate over all rows in the index"""
-        pass
 
 
     @abc.abstractmethod
     def fwf_subset(self, fwffile, key, fields):
         """Create a new view based on range (slice) provided"""
-        pass
 
 
     def __getitem__(self, key):

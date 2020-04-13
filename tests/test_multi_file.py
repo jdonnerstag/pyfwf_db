@@ -15,6 +15,7 @@ from fwf_db.fwf_operator import FWFOperator as op
 from fwf_db.fwf_cython import FWFCython
 from fwf_db.fwf_merge_index import FWFMergeIndex
 from fwf_db.fwf_merge_unique_index import FWFMergeUniqueIndex
+from fwf_db.fwf_line import FWFLine
 
 
 DATA_1 = b"""#
@@ -231,6 +232,18 @@ def test_cython_index():
         mi.merge(cf2)
 
         assert len(mi) == 11
+        assert len(mi.indices) == 2
+
+        for key in mi:
+            recs = mi[key]
+            for l in recs:
+                assert isinstance(l, FWFLine)
+
+            for l, line in recs.iter_lines():
+                assert isinstance(line, bytes)
+
+        assert len(mi[b"2    "]) == 1
+        assert len(mi[b"22   "]) == 1
 
 
 def test_cython_unique_index():
@@ -249,6 +262,14 @@ def test_cython_unique_index():
         mi.merge(cf2)
 
         assert len(mi) == 11
+        assert len(mi.indices) == 2
+
+        for key in mi:
+            line = mi[key]
+            assert isinstance(line, FWFLine)
+
+        assert mi.data[b"2    "] == (0, 1)
+        assert mi.data[b"22   "] == (1, 1)
 
 
 

@@ -16,6 +16,7 @@ class FWFMergeUniqueIndex(FWFIndexLike):
 
     def __init__(self):
 
+        self.fwfview = None
         self.field = None   # The field name to build the index
         self.indices = []
         self.data = dict()
@@ -30,15 +31,14 @@ class FWFMergeUniqueIndex(FWFIndexLike):
                 f"'index' must be of type by an Index with 'data' attribute")
 
         self.indices.append(index)
+        
+        if not self.fwfview:
+            self.fwfview = index.fwfview
 
         for k, v in index.data.items():
             self.data[k] = (idx, v)
 
         return self
-
-
-    def _index2(self, gen):
-        pass
 
 
     def __len__(self):
@@ -53,7 +53,8 @@ class FWFMergeUniqueIndex(FWFIndexLike):
 
     def fwf_subset(self, fwfview, key, fields):
         if key in self.data:
-            lineno = self.data[key]
+            pos, lineno = self.data[key]
+            fwfview = self.indices[pos].fwfview
             return FWFLine(fwfview, lineno, fwfview.line_at(lineno))
 
 
