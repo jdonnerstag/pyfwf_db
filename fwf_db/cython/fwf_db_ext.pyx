@@ -393,7 +393,7 @@ def create_int_index(fwf, field_name):
 def fwf_cython(fwf, 
     int field1_startpos, bytes field1_start_value, int field1_endpos, bytes field1_end_value,
     int field2_startpos, bytes field2_start_value, int field2_endpos, bytes field2_end_value,
-    index=None, unique_index=False, integer_index=False):
+    index=None, unique_index=False, integer_index=False, index_dict=None, index_tuple=None):
     """Putting it all together: Filter the fwf file on an effective data and a
     period, and optionally create an index on a 'field'. The index can be optionally 
     be made unique and the field value can be converted into an int.
@@ -415,6 +415,15 @@ def fwf_cython(fwf,
     - the field length is determined by the length of the value (bytes)
     - The comparison is pre-configured: start_value <= value <= end_value
     - Empty values in the line have predetermined meaning: beginning and end of time
+
+    If index is a field and 'index_dict' is provided (must be a subclass of dict), then this
+    dict is updated rather then a new one generated. This is useful when creating a
+    single index over multiple files. Be careful to provide the correct dict type, 
+    depending on whether a unique or normal index is requested.
+
+    If index is a field and 'index_tuple' is not None (usually it is an int), then a tuple will
+    be added to the dict, rather then only the index. The index will be the 2nd value
+    in the tuple. This is useful when creating a single index over multiple files.
     """
 
     # Some constants which will be tested millions of times
@@ -473,13 +482,18 @@ def fwf_cython(fwf,
     # If an index is requested, create an respective dict that 
     # eventually will contain the index.
     cdef values
-    cdef bytes v_bytes
-    cdef int v_int
+    cdef key
+    cdef value
     if index is not None:
-        if create_unique_index:
-            values = dict()
+        if index_dict is not None:
+            values = index_dict
         else:
-            values = collections.defaultdict(list)
+            if create_unique_index:
+                values = dict()
+            else:
+                values = collections.defaultdict(list)
+
+    cdef int create_tuple = index_tuple is not None
 
     # Iterate over all the lines in the file
     cdef int count = 0      # The index in array to add the next index
@@ -521,26 +535,18 @@ def fwf_cython(fwf,
                 count += 1
             else:
                 # Get the field data (as bytes)
-                v_bytes = line[index_start : index_stop]
-
-                # If an int index is requested ...
+                key = line[index_start : index_stop]
                 if create_integer_index:
-                    # Convert the field value into an int
-                    v_int = atoi(v_bytes)
-                    if create_unique_index:
-                        # Unique index: just keep the last index
-                        values[v_int] = irow
-                    else:
-                        # Add the index to potentially already existing indices
-                        values[v_int].append(irow)
+                    key = atoi(key)
+
+                value = (index_tuple, irow) if create_tuple else irow
+
+                if create_unique_index:
+                    # Unique index: just keep the last index
+                    values[key] = value
                 else:
-                    # Use the field value "as is" for the index
-                    if create_unique_index:
-                        # Unique index: just keep the last index
-                        values[v_bytes] = irow
-                    else:
-                        # Add the index to potentially already existing indices
-                        values[v_bytes].append(irow)
+                    # Add the index to potentially already existing indices
+                    values[key].append(value)
 
         start_pos += fwidth
         irow += 1

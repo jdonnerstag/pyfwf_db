@@ -15,13 +15,12 @@ class FWFMergeIndexException(Exception):
     pass
 
 
-class FWFMergeIndex(FWFIndexLike, FWFMultiFileMixin):
+class FWFMergeIndex(FWFMultiFileMixin, FWFIndexLike):
 
     def __init__(self, filespec=None):
 
         self.fwfview = None
         self.field = None   # The field name to build the index
-        self.indices = []
         self.data = defaultdict(list)    # dict(value -> [lineno])
 
         self.init_multi_file_mixin(filespec)
@@ -30,30 +29,21 @@ class FWFMergeIndex(FWFIndexLike, FWFMultiFileMixin):
     def open(self, file, index):
         fwf = FWFFile(self.filespec)
         fd = fwf.open(file)
+
+        FWFCython(fd).apply(
+            index=index, 
+            unique_index=False, 
+            index_dict=self.data,       # Update this dict
+            index_tuple=len(self.files)
+        )
+
         self.files.append(fd)
 
-        cf = FWFCython(fd).apply(index=index, unique_index=False)
-        self.merge(cf)
-        return cf
-
-
-    def merge(self, index):
-
-        idx = len(self.indices)
-
-        if getattr(index, "data", None) is None:
-            raise FWFMergeIndexException(
-                f"'index' must be of type by an Index with 'data' attribute")
-
-        self.indices.append(index)
-        
-        if not self.fwfview:
-            self.fwfview = index.fwfview
-
-        for k, v in index.data.items():
-            all(self.data[k].append((idx, x)) or True for x in v)
-
-        return self
+        # No need to "manually" merge. Our little cython component 
+        # has done that already
+        # self.merge(cf)
+       
+        return self.data
 
 
     def __len__(self):
@@ -66,13 +56,10 @@ class FWFMergeIndex(FWFIndexLike, FWFMultiFileMixin):
         return iter(self.data.keys())
 
 
-    def fwf_subset(self, fwfview, key, fields):
-        """Create a view based on the indices associated with the index key provided""" 
-        
-        # self.data is a defaultdict(list) and thus requesting an entry that
-        # does not exist would create a new entry. We don't want that ...
+    def get(self, key):
+        """Create a new view with all rows matching the index key"""
         if key in self.data:
-            return FWFMultiSubset(self.indices, self.data[key])
+            return FWFMultiSubset(self.files, self.data[key])
 
 
     def __contains__(self, param):

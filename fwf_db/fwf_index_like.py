@@ -47,14 +47,14 @@ class FWFIndexLike(FWFBaseMixin, abc.ABC):
         """Iterate over all rows in the index"""
 
 
-    @abc.abstractmethod
     def fwf_subset(self, fwffile, key, fields):
         """Create a new view based on range (slice) provided"""
-
+        pass
+    
 
     def __getitem__(self, key):
         """Create a new view with all rows matching the index key"""
-        return self.fwf_subset(self.fwfview, key, self.fwfview.fields)
+        return self.get(key)
 
 
     def get(self, key):

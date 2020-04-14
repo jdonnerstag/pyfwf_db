@@ -44,12 +44,12 @@ class FWFMultiSubset(FWFViewLike):
         """Create a line based on the index and raw line data provided."""
         pos, idx = self.lines(idx)
         fwfview = self.fwfviews[pos]
-        return FWFLine(fwfview.fwffile, idx, fwfview.line_at[idx])
+        return FWFLine(fwfview, idx, fwfview.line_at[idx])
 
 
     def iter(self):
         for pos, idx in self.lines:
-            fwfview = self.fwfviews[pos].fwfview
+            fwfview = self.fwfviews[pos]
             line = fwfview[idx]
             yield line
 
@@ -59,6 +59,6 @@ class FWFMultiSubset(FWFViewLike):
 
         for i, idx in enumerate(self.lines):
             pos, idx = idx
-            fwfview = self.fwfviews[pos].fwfview
+            fwfview = self.fwfviews[pos]
             line = fwfview.line_at(idx)
             yield i, line

@@ -224,7 +224,7 @@ def test_cython_index():
         mi.open(DATA_2, index="ID")
 
         assert len(mi) == 11
-        assert len(mi.indices) == 2
+        assert len(mi.files) == 2
 
         for key in mi:
             recs = mi[key]
@@ -246,7 +246,7 @@ def test_cython_unique_index():
         mi.open(DATA_2, index="ID")
 
         assert len(mi) == 11
-        assert len(mi.indices) == 2
+        assert len(mi.files) == 2
 
         for key in mi:
             line = mi[key]

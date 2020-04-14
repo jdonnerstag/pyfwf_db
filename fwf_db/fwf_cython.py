@@ -62,6 +62,7 @@ class FWFCython(object):
         field1_names=None, field1_values=None, 
         field2_names=None, field2_values=None,
         index=None, unique_index=False, integer_index=False,
+        index_dict=None, index_tuple=None,
         func=None):
 
         field1_start_value = self.get_value(field1_values, 0)
@@ -86,7 +87,9 @@ class FWFCython(object):
             field2_stop_pos, field2_stop_value,
             index=index,
             unique_index=unique_index,
-            integer_index=integer_index
+            integer_index=integer_index,
+            index_dict=index_dict,
+            index_tuple=index_tuple
         )
 
         if (func is not None) and isinstance(rtn, dict):

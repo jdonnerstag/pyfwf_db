@@ -547,7 +547,7 @@ def test_fwf_cython():
         )
 
         rlen = rtn.buffer_info()[1]
-        print(f'Elapsed time is {time() - t1} seconds.    {rlen}')
+        print(f'Elapsed time is {time() - t1} seconds.    {rlen:,d}')
         assert rlen == 1293435
 
         # In run mode: 
