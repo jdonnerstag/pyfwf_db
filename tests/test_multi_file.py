@@ -182,8 +182,8 @@ def test_cython_filter():
         mf = FWFMultiFile()
 
         # FWFCython only works on FWFile yet (TODO)
-        cf1 = FWFCython(fd1).apply(DATA_1)
-        cf2 = FWFCython(fd2).apply(DATA_2)
+        cf1 = FWFCython(fd1).apply()
+        cf2 = FWFCython(fd2).apply()
 
         mf.add_file(cf1)
         mf.add_file(cf2)
@@ -217,19 +217,11 @@ def test_cython_filter():
 
 
 def test_cython_index():
+    
+    with FWFMergeIndex(DataFile) as mi:
 
-    fwf1 = FWFFile(DataFile)
-    fwf2 = FWFFile(DataFile)
-
-    with fwf1.open(DATA_1) as fd1, fwf2.open(DATA_2) as fd2:
-
-        # FWFCython only works on FWFile yet (TODO)
-        cf1 = FWFCython(fd1).apply(DATA_1, index="ID")
-        cf2 = FWFCython(fd2).apply(DATA_2, index="ID")
-
-        mi = FWFMergeIndex()
-        mi.merge(cf1)
-        mi.merge(cf2)
+        mi.open(DATA_1, index="ID")
+        mi.open(DATA_2, index="ID")
 
         assert len(mi) == 11
         assert len(mi.indices) == 2
@@ -248,18 +240,10 @@ def test_cython_index():
 
 def test_cython_unique_index():
 
-    fwf1 = FWFFile(DataFile)
-    fwf2 = FWFFile(DataFile)
+    with FWFMergeUniqueIndex(DataFile) as mi:
 
-    with fwf1.open(DATA_1) as fd1, fwf2.open(DATA_2) as fd2:
-
-        # FWFCython only works on FWFile yet (TODO)
-        cf1 = FWFCython(fd1).apply(DATA_1, index="ID", unique_index=True)
-        cf2 = FWFCython(fd2).apply(DATA_2, index="ID", unique_index=True)
-
-        mi = FWFMergeUniqueIndex()
-        mi.merge(cf1)
-        mi.merge(cf2)
+        mi.open(DATA_1, index="ID")
+        mi.open(DATA_2, index="ID")
 
         assert len(mi) == 11
         assert len(mi.indices) == 2
@@ -272,6 +256,61 @@ def test_cython_unique_index():
         assert mi.data[b"22   "] == (1, 1)
 
 
+def test_with_statement():
+
+    with FWFMultiFile() as mf:
+        fwf1 = FWFFile(DataFile)
+        fwf2 = FWFFile(DataFile)
+        
+        fd1 = fwf1.open(DATA_1)
+        fd2 = fwf2.open(DATA_2)
+
+        mf.add_file(fd1)
+        mf.add_file(fd2)
+
+        assert len(mf) == 20
+        assert len(mf.files) == 2
+        assert mf.lines == slice(0, 20)
+
+        assert fwf1.mm is not None
+        assert fwf2.mm is not None
+
+    assert fwf1.mm is None
+    assert fwf2.mm is None
+
+
+def test_open():
+
+    with FWFMultiFile(DataFile) as mf:
+
+        fd1 = mf.open(DATA_1)
+        fd2 = mf.open(DATA_2)
+
+        assert len(mf) == 20
+        assert len(mf.files) == 2
+        assert mf.lines == slice(0, 20)
+
+        assert fd1.mm is not None
+        assert fd2.mm is not None
+
+    assert fd1.mm is None
+    assert fd2.mm is None
+
+
+    with FWFMultiFile(DataFile) as mf:
+
+        fd1 = mf.open(DATA_1, cython=True)
+        fd2 = mf.open(DATA_2, cython=True)
+
+        assert len(mf) == 20
+        assert len(mf.files) == 2
+        assert mf.lines == slice(0, 20)
+
+        assert fd1.fwffile.mm is not None
+        assert fd2.fwffile.mm is not None
+
+    assert fd1.fwffile.mm is None
+    assert fd2.fwffile.mm is None
 
 # Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":
 if __name__ == '__main__':

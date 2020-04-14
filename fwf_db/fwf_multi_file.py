@@ -2,12 +2,36 @@
 # encoding: utf-8
 
 from .fwf_view_like import FWFViewLike
+from .fwf_file import FWFFile
 from .fwf_line import FWFLine
 from .fwf_region import FWFRegion
 from .fwf_subset import FWFSubset
+from .fwf_cython import FWFCython
 
 
-class FWFMultiFile(FWFViewLike):
+class FWFMultiFileMixin(object):
+
+    def init_multi_file_mixin(self, filespec):
+
+        self.filespec = filespec
+        self.files = []        # view-like 
+
+
+    def __enter__(self):
+        return self
+
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+
+    def close(self):
+        for f in self.files:
+            f.close()
+
+
+
+class FWFMultiFile(FWFViewLike, FWFMultiFileMixin):
     """Create a view over multiple files and allow them to be treated
     as one file. 
     
@@ -16,11 +40,22 @@ class FWFMultiFile(FWFViewLike):
     to concat the files first.
     """
 
-    def __init__(self):
+    def __init__(self, filespec=None):
 
-        self.files = []        # view-like 
         self.lines = None      # slice(0, <overall number of records>)
         self.fields = None     # Dict(field name -> slice)
+
+        self.init_multi_file_mixin(filespec)
+
+
+    def open(self, file, cython=False):
+        fwf = FWFFile(self.filespec)
+        fd = fwf.open(file)
+
+        if cython:
+            fd = FWFCython(fd).apply()
+
+        return self.add_file(fd)
 
 
     def add_file(self, fwf_view_like):

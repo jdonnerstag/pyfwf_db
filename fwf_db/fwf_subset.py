@@ -50,3 +50,7 @@ class FWFSubset(FWFViewLike):
         for i, idx in enumerate(self.lines):
             line = self.fwffile.line_at(idx)
             yield i, line
+
+    def close(self):
+        self.fwffile.close()
+        

@@ -6,20 +6,35 @@ from itertools import islice
 
 from .fwf_index_like import FWFIndexLike
 from .fwf_line import FWFLine
+from .fwf_file import FWFFile
+from .fwf_cython import FWFCython
+from .fwf_multi_file import FWFMultiFileMixin
 
 
 class FWFMergeUniqueIndexException(Exception):
     pass
 
 
-class FWFMergeUniqueIndex(FWFIndexLike):
+class FWFMergeUniqueIndex(FWFIndexLike, FWFMultiFileMixin):
 
-    def __init__(self):
+    def __init__(self, filespec=None):
 
         self.fwfview = None
         self.field = None   # The field name to build the index
         self.indices = []
         self.data = dict()
+
+        self.init_multi_file_mixin(filespec)
+
+
+    def open(self, file, index):
+        fwf = FWFFile(self.filespec)
+        fd = fwf.open(file)
+        self.files.append(fd)
+
+        cf = FWFCython(fd).apply(index=index, unique_index=True)
+        self.merge(cf)
+        return cf
 
 
     def merge(self, index):
