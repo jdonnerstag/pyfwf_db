@@ -10,6 +10,7 @@ import numpy as np
 
 from fwf_db import FWFFile
 from fwf_db.fwf_pandas import FWFPandas
+from fwf_db.fwf_cython import FWFCython
 
 
 DATA = b"""# My comment test
@@ -48,6 +49,39 @@ def test_pandas():
         assert len(df.index) == 10
         assert len(df.columns) == 8
         assert list(df.columns) == list(fwf.fields.keys())
+
+
+def exec_pandas_empty(data):
+    fwf = FWFFile(HumanFile)
+    with fwf.open(data):
+
+        df = FWFPandas(fwf).to_pandas()
+        assert len(df.index) == 0
+
+
+def test_pandas_empty():
+
+    exec_pandas_empty(b"")
+    exec_pandas_empty(b"#")
+    exec_pandas_empty(b"# Empty")
+    exec_pandas_empty(b"# empty\n")
+
+
+def exec_cython_empty(data):
+    fwf = FWFFile(HumanFile)
+    with fwf.open(data) as fd:
+        data = FWFCython(fd).apply()
+        df = FWFPandas(data).to_pandas()
+
+    assert len(df.index) == 0
+
+
+def test_pandas_empty_cython():
+
+    exec_cython_empty(b"")
+    exec_cython_empty(b"#")
+    exec_cython_empty(b"# Empty")
+    exec_cython_empty(b"# empty\n")
 
 
 # Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":
