@@ -304,6 +304,35 @@ def test_view_of_a_view():
 
 
 
+def exec_empty_data(data):
+
+    fwf = FWFFile(HumanFile)
+    with fwf.open(data):
+        assert len(fwf) == 0
+ 
+        for rec in fwf:
+            raise Exception("Should be empty")
+
+        for rec in fwf.iter_lines():
+            raise Exception("Should be empty")
+
+        with pytest.raises(Exception):
+            rtn = fwf[0:-1]
+
+        rtn = fwf.filter_by_field("gender", b'F')
+        assert len(rtn) == 0
+
+
+def test_empty_data():
+
+    with pytest.raises(Exception):
+        exec_empty_data(None)
+    
+    exec_empty_data(b"")
+    exec_empty_data(b"# Empty")
+    exec_empty_data(b"# Empty\n")
+
+
 # Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":
 if __name__ == '__main__':
 

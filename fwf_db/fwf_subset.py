@@ -10,7 +10,7 @@ class FWFSubset(FWFViewLike):
     """A view based on a list of individual indices"""
 
     def __init__(self, fwffile, lines, fields):
-        assert fwffile
+        assert fwffile is not None
         self.fwffile = fwffile
 
         # Lines is a list of integer holding the indices

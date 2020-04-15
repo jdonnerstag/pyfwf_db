@@ -13,6 +13,10 @@ from .fwf_region import FWFRegion
 from .fwf_subset import FWFSubset
 
 
+class FWFFileException(Exception):
+    pass
+
+
 class FWFFile(FWFViewLike):
     """A wrapper around fixed-width files.
 
@@ -91,17 +95,19 @@ class FWFFile(FWFViewLike):
     def skip_comment_line(self, mm, comment_char):
         """Find the first line that is not a comment line and return its position."""
 
-        comment_char = ord(comment_char)
-        pos = 0
-        next_line = (mm[pos] == comment_char)
-        while next_line and (pos < 2000):
-            pos += 1
-            if self.is_newline(mm[pos]):
+        def skip_line(data, pos):
+            while pos < len(data):
+                if self.is_newline(data[pos]):
+                    return pos + self.number_of_newline_bytes
+                
                 pos += 1
-                if self.is_newline(mm[pos]):
-                    pos += 1
 
-                next_line = (mm[pos] == comment_char)
+            return pos
+
+        pos = 0
+        comment_char = ord(comment_char)
+        while (pos < len(mm)) and (mm[pos] == comment_char):
+            pos = skip_line(mm, pos)
 
         return pos
 
@@ -113,7 +119,7 @@ class FWFFile(FWFViewLike):
         """
 
         fsize = len(mm)
-        if self.is_newline(mm[fsize - 1]):
+        if (fsize > 0) and self.is_newline(mm[fsize - 1]):
             return fsize
         
         return fsize + self.number_of_newline_bytes
@@ -127,9 +133,16 @@ class FWFFile(FWFViewLike):
         while pos < maxlen:
             if self.is_newline(mm[pos]):
                 pos += 1
-                return 2 if self.is_newline(mm[pos]) else 1
+                if pos < len(mm):
+                    return 2 if self.is_newline(mm[pos]) else 1
+                else:
+                    return 1
 
             pos += 1
+
+        if pos == len(mm):
+            # File has only 1 line and no newline
+            return 1
 
         raise Exception(f"Failed to find newlines in date")
 
@@ -162,6 +175,9 @@ class FWFFile(FWFViewLike):
 
     def open(self, file):
         """Initialize the fwf table with a file"""        
+
+        if file is None:
+            raise FWFFileException(f"'file' must not be None")
 
         if isinstance(file, str):
             self.file = file
@@ -242,12 +258,13 @@ class FWFFile(FWFViewLike):
         end_pos = self.fsize
         fwidth = self.fwidth
         irow = 0
-        while start_pos < end_pos:
-            end = start_pos + fwidth
+        end = start_pos + fwidth
+        while end <= end_pos:
             # rtn = memoryview(self.mm[start_pos : end])  # It is not getting faster
             rtn = self.mm[start_pos : end]  # This is where python copies the memory
             yield irow, rtn
             start_pos = end
+            end = start_pos + fwidth
             irow += 1
 
 
