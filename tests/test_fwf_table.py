@@ -316,6 +316,8 @@ def exec_empty_data(data):
         for rec in fwf.iter_lines():
             raise Exception("Should be empty")
 
+        assert list(x for x in fwf) == []
+        
         with pytest.raises(Exception):
             rtn = fwf[0:-1]
 

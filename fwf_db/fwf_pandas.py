@@ -38,7 +38,6 @@ class FWFPandas(FWFBaseMixin):
         names = dtype.keys()
         strs = [ftype in ["str", "string"] for ftype in dtype.items()]
 
-        df = pd.DataFrame(index=None)
         gen = (line.to_list(names) for line in self.fwffile)
         gen = ([line[i].decode("utf-8") if strs[i] else line[i] for i in range(len(strs))] for line in gen)
 

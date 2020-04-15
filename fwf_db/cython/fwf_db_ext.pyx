@@ -500,7 +500,7 @@ def fwf_cython(fwf,
     cdef int irow = 0       # Current line number
     cdef const char* line   # Line data
 
-    while start_pos < fsize:
+    while (start_pos + fwidth) <= fsize:
         line = mm + start_pos
 
         # Execute the effective data and period filters
