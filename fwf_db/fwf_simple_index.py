@@ -4,7 +4,7 @@
 from collections import defaultdict
 from itertools import islice
 
-from .fwf_index_like import FWFIndexLike
+from .fwf_index_like import FWFDictIndexLike
 from .fwf_subset import FWFSubset
 
 
@@ -12,12 +12,13 @@ class FWFSimpleIndexException(Exception):
     pass
 
 
-class FWFSimpleIndex(FWFIndexLike):
+class FWFSimpleIndex(FWFDictIndexLike):
     """A simple index implementation, based on pure python"""
 
     def __init__(self, fwfview):
 
-        self.fwfview = fwfview
+        self.init_dict_index_like(fwfview)
+
         self.field = None   # The field name to build the index
         self.data = {}    # dict(value -> [lineno])
 
@@ -28,24 +29,10 @@ class FWFSimpleIndex(FWFIndexLike):
         all(values[value].append(i) or True for i, value in gen)
 
 
-    def __len__(self):
-        """The number of index keys"""
-        return len(self.data.keys())
-
-
-    def __iter__(self):
-        """Iterate over the index keys"""
-        return iter(self.data.keys())
-
-
     def fwf_subset(self, fwfview, key, fields):
         """Create a view based on the indices associated with the index key provided""" 
         if key in self.data:
             return FWFSubset(fwfview, self.data[key], fields)
-
-
-    def __contains__(self, param):
-        return param in self.data
         
 
     def delevel(self):

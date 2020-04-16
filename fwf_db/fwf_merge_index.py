@@ -4,7 +4,7 @@
 from collections import defaultdict
 from itertools import islice
 
-from .fwf_index_like import FWFIndexLike
+from .fwf_index_like import FWFDictIndexLike
 from .fwf_multi_subset import FWFMultiSubset
 from .fwf_file import FWFFile
 from .fwf_cython import FWFCython
@@ -15,24 +15,28 @@ class FWFMergeIndexException(Exception):
     pass
 
 
-class FWFMergeIndex(FWFMultiFileMixin, FWFIndexLike):
+class FWFMergeIndex(FWFMultiFileMixin, FWFDictIndexLike):
 
-    def __init__(self, filespec=None):
-
-        self.fwfview = None
-        self.field = None   # The field name to build the index
-        self.data = defaultdict(list)    # dict(value -> [lineno])
+    def __init__(self, filespec=None, index=None, integer_index=False):
 
         self.init_multi_file_mixin(filespec)
+        self.init_dict_index_like(None)
+
+        self.index = index
+        self.integer_index = integer_index
+
+        self.field = None               # The field name to build the index
+        self.data = defaultdict(list)   # dict(value -> [lineno])
 
 
-    def open(self, file, index):
+    def open(self, file, index=None):
         fwf = FWFFile(self.filespec)
         fd = fwf.open(file)
 
         FWFCython(fd).apply(
-            index=index, 
+            index=index or self.index, 
             unique_index=False, 
+            integer_index=self.integer_index,
             index_dict=self.data,       # Update this dict
             index_tuple=len(self.files)
         )
@@ -46,14 +50,9 @@ class FWFMergeIndex(FWFMultiFileMixin, FWFIndexLike):
         return self.data
 
 
-    def __len__(self):
-        """The number of index keys"""
-        return len(self.data.keys())
-
-
-    def __iter__(self):
-        """Iterate over the index keys"""
-        return iter(self.data.keys())
+    def items(self):
+        for key, value in self.data.items():
+            yield key, FWFMultiSubset(self.files, value)
 
 
     def get(self, key):
@@ -62,5 +61,11 @@ class FWFMergeIndex(FWFMultiFileMixin, FWFIndexLike):
             return FWFMultiSubset(self.files, self.data[key])
 
 
-    def __contains__(self, param):
-        return param in self.data
+    def fwf_subset(self, fwffile, key, fields):
+        return self.get(key)
+
+
+    def iloc(self, idx):
+        for i, (_, data) in enumerate(self.data.items()):
+            if i >= idx:
+                return FWFMultiSubset(self.files, data)

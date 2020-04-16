@@ -67,9 +67,10 @@ def test_simple_index():
         assert rtn["F"]
         assert not rtn["xxx"]
 
-        for key in rtn:
+        for key, value in rtn:
             assert key in ["F", "M"]
             rec = rtn[key]
+            assert rec.lines == value.lines
             assert len(rec) == 3 or len(rec) == 7
 
         for rec in rtn["M"]:
@@ -110,7 +111,7 @@ def test_index_numpy_based():
         assert rtn["F"]
         assert not rtn["xxx"]
 
-        for key in rtn:
+        for key, value in rtn:
             assert key in ["F", "M"]
             rec = rtn[key]
             assert len(rec) == 3 or len(rec) == 7
@@ -153,7 +154,7 @@ def test_index_cython():
         assert rtn["F"]
         assert not rtn["xxx"]
 
-        for key in rtn:
+        for key, value in rtn:
             assert key in ["F", "M"]
             rec = rtn[key]
             assert len(rec) == 3 or len(rec) == 7

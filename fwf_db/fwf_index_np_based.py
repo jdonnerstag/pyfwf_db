@@ -6,11 +6,11 @@ import pandas as pd
 from itertools import islice
 from collections import defaultdict
 
-from .fwf_index_like import FWFIndexLike
+from .fwf_index_like import FWFDictIndexLike
 from .fwf_subset import FWFSubset
 
 
-class FWFIndexNumpyBased(FWFIndexLike):
+class FWFIndexNumpyBased(FWFDictIndexLike):
     """A Numpy and Pandas based Index
     
     Especially with large files with millions of records in the index, 
@@ -18,10 +18,11 @@ class FWFIndexNumpyBased(FWFIndexLike):
     """ 
 
     def __init__(self, fwfview):
-        self.fwfview = fwfview
+
+        self.init_dict_index_like(fwfview)
         self.field = None   # The field to use for the index
         self.dtype = None
-        self.data = None    # The Pandas groupby result
+        self.data = None    # defaultdict key -> [<indices>]
 
 
     def index(self, field, dtype=None, func=None, log_progress=None, cleanup_df=None):
@@ -84,27 +85,9 @@ class FWFIndexNumpyBased(FWFIndexLike):
         data = defaultdict(list)
         all(data[value].append(i) or True for i, value in enumerate(values))
         return data
-
-
-    def __len__(self):
-        """The number entries (unique values) in the index"""
-        return len(self.data)
-
-
-    def __iter__(self):
-        """Iterate over all index keys"""
-        return iter(self.data.keys())
-
-
-    def keys(self):
-        return self.data.keys()
         
 
     def fwf_subset(self, fwffile, key, fields):
         """Create a view with the indices associated with the index key provided"""
         if key in self.data:
             return FWFSubset(fwffile, self.data[key], fields)
-
-
-    def __contains__(self, param):
-        return param in self.data

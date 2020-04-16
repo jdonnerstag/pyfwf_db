@@ -183,10 +183,12 @@ class FWFFile(FWFViewLike):
             self.file = file
             fd = self.fd = open(file, "rb")
             self.mm = mmap.mmap(fd.fileno(), 0, access=mmap.ACCESS_COPY)
-        else:
+        elif isinstance(file, bytes):
             # Support data already loaded in whatever way. Nice for testing.
             self.file = id(file)
             self.mm = file
+        else:
+            raise FWFFileException(f"Invalid 'file' argument. Must be of type str or bytes: {file}")
 
         self.number_of_newline_bytes = self._number_of_newline_bytes(self.mm)
         # The length of each line

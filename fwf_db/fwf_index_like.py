@@ -47,9 +47,9 @@ class FWFIndexLike(FWFBaseMixin, abc.ABC):
         """Iterate over all rows in the index"""
 
 
+    @abc.abstractmethod
     def fwf_subset(self, fwffile, key, fields):
         """Create a new view based on range (slice) provided"""
-        pass
     
 
     def __getitem__(self, key):
@@ -65,3 +65,41 @@ class FWFIndexLike(FWFBaseMixin, abc.ABC):
     @abc.abstractmethod
     def __contains__(self, param):
         """True if param is a key in the index"""
+
+# ---------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------
+
+class FWFDictIndexLike(FWFIndexLike):
+    """An abstract base class defining the minimum methods and
+    required core functionalities of a dict like index class
+    """
+
+    def init_dict_index_like(self, fwfview):
+        """Initialize the mixin"""
+
+        self.init_index_like(fwfview)
+        self.data = {}
+
+
+    def __len__(self):
+        """The number of index keys"""
+        return len(self.data.keys())
+
+
+    def keys(self):
+        return self.data.keys()
+
+
+    def __iter__(self):
+        """Iterate over the index keys"""
+        yield from self.items()
+
+
+    def items(self):
+        for key in self.data.keys():
+            data = self.fwf_subset(self.fwfview, key, self.fwfview.fields)
+            yield key, data
+
+
+    def __contains__(self, param):
+        return param in self.data

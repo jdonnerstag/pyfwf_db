@@ -4,7 +4,7 @@
 from collections import defaultdict
 from itertools import islice
 
-from .fwf_index_like import FWFIndexLike
+from .fwf_index_like import FWFDictIndexLike
 from .fwf_subset import FWFSubset
 from .cython import fwf_db_ext
 from .fwf_simple_index import FWFSimpleIndex
@@ -14,8 +14,8 @@ class FWFCythonIndexException(Exception):
     pass
 
 
-class FWFCythonIndex(FWFIndexLike):
-    """An index implementation, that leveraged Cython for performance 
+class FWFCythonIndex(FWFDictIndexLike):
+    """An index implementation, that leverages Cython for performance 
     reasons. The larger the files, the larger are the performance 
     improvements.
 
@@ -26,9 +26,9 @@ class FWFCythonIndex(FWFIndexLike):
 
     def __init__(self, fwfview):
 
-        self.fwfview = fwfview
+        self.init_dict_index_like(fwfview)
         self.field = None   # The field name to build the index
-        self.data = {}    # dict(value -> [lineno])
+        self.data = {}      # dict(value -> [lineno])
 
         if getattr(self.fwfview, "mm", None) is None:
             raise FWFCythonIndexException(f"Only FWFile parent are supported with {type(self)}")
@@ -48,28 +48,11 @@ class FWFCythonIndex(FWFIndexLike):
         return self
 
 
-    def _index2(self, gen):
-        raise Exception("Method not implemented / required in this class. Do not invoke it")        
-
-
-    def __len__(self):
-        """The number of index keys"""
-        return len(self.data.keys())
-
-
-    def __iter__(self):
-        """Iterate over the index keys"""
-        return iter(self.data.keys())
-
-
     def fwf_subset(self, fwfview, key, fields):
         """Create a view based on the indices associated with the index key provided""" 
         if key in self.data:
             return FWFSubset(fwfview, self.data[key], fields)
-
-    def __contains__(self, param):
-        return param in self.data
-        
+       
 
     def delevel(self):
         """In case the index has been created on top of a view, then it is 

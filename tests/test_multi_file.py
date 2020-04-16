@@ -114,8 +114,7 @@ def test_index():
 
         index = FWFSimpleIndex(mf).index("ID")
         assert len(index) == 11
-        for key in index:
-            refs = index[key]
+        for key, refs in index:
             assert 1 <= len(refs) <= 3
 
 
@@ -143,8 +142,7 @@ def test_effective_date():
         # And now create an index
         index = FWFSimpleIndex(filtered).index("ID")
         assert len(index) == 6
-        for key in index:
-            refs = index[key]
+        for key, refs in index:
             assert 1 <= len(refs) <= 3
 
             line = refs[0]
@@ -160,8 +158,7 @@ def test_effective_date():
         # TODO delevel is currently only available in SimpleIndex and not yet very flexible
         index = index.delevel()
         assert len(index) == 6
-        for key in index:
-            refs = index[key]
+        for key, refs in index:
             assert 1 <= len(refs) <= 3
 
             line = refs[0]
@@ -226,8 +223,7 @@ def test_cython_index():
         assert len(mi) == 11
         assert len(mi.files) == 2
 
-        for key in mi:
-            recs = mi[key]
+        for key, recs in mi:
             for l in recs:
                 assert isinstance(l, FWFLine)
 
@@ -248,8 +244,7 @@ def test_cython_unique_index():
         assert len(mi) == 11
         assert len(mi.files) == 2
 
-        for key in mi:
-            line = mi[key]
+        for _, line in mi:
             assert isinstance(line, FWFLine)
 
         assert mi.data[b"2    "] == (0, 1)
