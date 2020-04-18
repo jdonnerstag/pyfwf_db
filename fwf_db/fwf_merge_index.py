@@ -27,7 +27,7 @@ class FWFMergeIndex(FWFMultiFileMixin, FWFDictIndexLike):
         self.integer_index = integer_index
 
         self.field = None               # The field name to build the index
-        self.data = BytesDictWithIntListValues(0, unique=False)  # defaultdict(list)   # dict(value -> [lineno])
+        self.data = BytesDictWithIntListValues(0)  # defaultdict(list)   # dict(value -> [lineno])
 
 
     def open(self, file, index=None):

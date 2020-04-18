@@ -34,21 +34,6 @@ def test_add():
     assert "222" in data
 
 
-def test_add_unique():
-
-    data = BytesDictWithIntListValues(1000, unique=True)
-    assert len(data) == 0
-
-    data["111"] = 1
-    data["222"] = (2, 22)
-    data["111"] = 11
-    data["111"] = 111
-
-    assert len(data) == 2
-    assert "111" in data
-    assert "222" in data
-
-
 def test_get():
 
     data = BytesDictWithIntListValues(1000)
@@ -62,19 +47,6 @@ def test_get():
     assert data["111"] == [(0, 1), (0, 11)]
     assert data.get("111") == [(0, 1), (0, 11)]
 
-
-def test_get_unique():
-
-    data = BytesDictWithIntListValues(1000, unique=True)
-    with pytest.raises(Exception):
-        data["xxx"]
-
-    data["111"] = 1
-    assert data["111"] == (0, 1)
-
-    data["111"] = 11
-    assert data["111"] == (0, 11)
-    assert data.get("111") == (0, 11)
 
 
 def test_large():
