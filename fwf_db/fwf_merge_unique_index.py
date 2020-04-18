@@ -9,6 +9,7 @@ from .fwf_line import FWFLine
 from .fwf_file import FWFFile
 from .fwf_cython import FWFCython
 from .fwf_multi_file import FWFMultiFileMixin
+from .fwf_mem_optimized_index import BytesDictWithIntListValues
 
 
 class FWFMergeUniqueIndexException(Exception):
@@ -26,12 +27,15 @@ class FWFMergeUniqueIndex(FWFMultiFileMixin, FWFDictIndexLike):
         self.integer_index = integer_index
 
         self.field = None   # The field name to build the index
-        self.data = dict()  # dict: key -> lineno
+        self.data = BytesDictWithIntListValues(0, unique=True)  # dict()  # dict: key -> lineno
 
 
     def open(self, file, index=None):
         fwf = FWFFile(self.filespec)
         fd = fwf.open(file)
+
+        # Grow the underlying arrays of our specialised dict
+        self.data.resize(len(fd))
 
         FWFCython(fd).apply(
             index=index or self.index, 

@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-from .fwf_subset import FWFSubset
 from .cython import fwf_db_ext 
-
-from fwf_db.fwf_simple_index import FWFSimpleIndex
-from fwf_db.fwf_simple_unique_index import FWFSimpleUniqueIndex
+from .fwf_subset import FWFSubset
+from .fwf_simple_index import FWFSimpleIndex
+from .fwf_simple_unique_index import FWFSimpleUniqueIndex
 
 
 class FWFCythonException(Exception):
