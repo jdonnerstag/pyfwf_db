@@ -21,6 +21,9 @@ from fwf_db.fwf_cython_unique_index import FWFCythonUniqueIndex
 from fwf_db.fwf_operator import FWFOperator as op
 from fwf_db.fwf_cython import FWFCython
 from fwf_db.cython import fwf_db_ext
+from fwf_db.fwf_merge_index import FWFMergeIndex
+from fwf_db.fwf_mem_optimized_index import BytesDictWithIntListValues
+
 
 class CENT_PARTY:
 
@@ -610,6 +613,72 @@ def test_fwf_cython():
         # 10.110804796218872
 
 
+#@pytest.mark.slow
+def test_merge_index():
+
+    fwf_db_ext.say_hello_to("Susie")
+
+    fwf = FWFFile(CENT_PARTY)
+
+    with fwf.open(FILE_1) as fd:
+        assert len(fd) == 5889278   
+
+        data = defaultdict(list)
+
+        t1 = time()
+        rtn = fwf_db_ext.fwf_cython(fwf, 
+            -1, None, -1, None,
+            -1, None, -1, None,
+            index="PARTY_ID", 
+            unique_index=False, 
+            integer_index=False,
+            index_dict=data,
+            index_tuple=None
+        )
+        print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
+        assert len(fd) == len(rtn)
+
+        # Non-unique index with defaultdict 
+        # 14.49066162109375 seconds
+
+        data = dict()
+
+        t1 = time()
+        rtn = fwf_db_ext.fwf_cython(fwf, 
+            -1, None, -1, None,
+            -1, None, -1, None,
+            index="PARTY_ID", 
+            unique_index=True, 
+            integer_index=False,
+            index_dict=data,
+            index_tuple=None
+        )
+        print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
+        assert len(fd) == len(rtn)
+
+        # Unique index with plain dict
+        # 5.222317934036255 seconds
+
+        data = BytesDictWithIntListValues(len(fd))
+
+        t1 = time()
+        rtn = fwf_db_ext.fwf_cython(fwf, 
+            -1, None, -1, None,
+            -1, None, -1, None,
+            index="PARTY_ID", 
+            unique_index=False, 
+            integer_index=False,
+            index_dict=data,
+            index_tuple=None
+        )
+        print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
+        assert len(fd) == len(rtn)
+
+        # non-unique index with mem optimized dict
+        # 6.351483106613159 seconds   # only little overhead, and faster then defaultdict :)
+        # TODO this is a unique-key comparison. Need one where the data are not unique
+
+
 # Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":
 if __name__ == '__main__':
 
@@ -627,4 +696,5 @@ if __name__ == '__main__':
     # test_find_last()
     # test_numpy_sort()
     # test_int_index()
-    test_fwf_cython()
+    # test_fwf_cython()
+    test_merge_index()

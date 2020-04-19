@@ -26,8 +26,10 @@ class FWFMergeIndex(FWFMultiFileMixin, FWFDictIndexLike):
         self.index = index
         self.integer_index = integer_index
 
-        self.field = None               # The field name to build the index
-        self.data = BytesDictWithIntListValues(0)  # defaultdict(list)   # dict(value -> [lineno])
+        self.field = None   # The field name to build the index
+
+        self.data = BytesDictWithIntListValues(0)  # # dict(value -> [lineno])
+        # self.data = defaultdict(list)   # dict(value -> [lineno])
 
 
     def open(self, file, index=None):
@@ -35,11 +37,12 @@ class FWFMergeIndex(FWFMultiFileMixin, FWFDictIndexLike):
         fd = fwf.open(file)
 
         # Grow the underlying arrays of our specialised dict
-        self.data.resize(len(fd))
+        if isinstance(self.data, BytesDictWithIntListValues):
+            self.data.resize(len(fd))
 
         FWFCython(fd).apply(
             index=index or self.index, 
-            unique_index=True,  # False,   because of BytesDictWithIntListValues
+            unique_index=False,
             integer_index=self.integer_index,
             index_dict=self.data,       # Update this dict
             index_tuple=len(self.files)
@@ -47,10 +50,6 @@ class FWFMergeIndex(FWFMultiFileMixin, FWFDictIndexLike):
 
         self.files.append(fd)
 
-        # No need to "manually" merge. Our little cython component 
-        # has done that already
-        # self.merge(cf)
-       
         return self.data
 
 

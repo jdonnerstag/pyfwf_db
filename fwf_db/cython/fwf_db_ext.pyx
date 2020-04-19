@@ -33,6 +33,8 @@ from libc.string cimport strncmp, strncpy
 from cpython cimport array
 from libc.stdlib cimport atoi
 
+from ..fwf_mem_optimized_index import BytesDictWithIntListValues
+
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
@@ -390,6 +392,17 @@ def create_int_index(fwf, field_name):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
+cdef int last_pos(numpy.ndarray next_ar, int inext):
+    cdef int last = inext
+    while inext > 0:
+        last = inext
+        inext = next_ar[inext]
+
+    return last
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
 def fwf_cython(fwf, 
     int field1_startpos, bytes field1_start_value, int field1_endpos, bytes field1_end_value,
     int field2_startpos, bytes field2_start_value, int field2_endpos, bytes field2_end_value,
@@ -495,6 +508,23 @@ def fwf_cython(fwf,
 
     cdef int create_tuple = index_tuple is not None
 
+    # Enable optimizations of our memory efficient index (dict)
+    cdef int is_mem_optimized_dict = isinstance(index_dict, BytesDictWithIntListValues)
+    cdef int mem_dict_last
+    cdef dict mem_dict_dict
+    cdef numpy.ndarray mem_dict_next
+    cdef numpy.ndarray mem_dict_file
+    cdef numpy.ndarray mem_dict_lineno
+    cdef int index_tuple_int
+
+    if is_mem_optimized_dict:
+        mem_dict_last = index_dict.last
+        mem_dict_dict = index_dict.index
+        mem_dict_next = index_dict.next
+        mem_dict_file = index_dict.file
+        mem_dict_lineno = index_dict.lineno
+        index_tuple_int = 0 if index_tuple is None else int(index_tuple)
+
     # Iterate over all the lines in the file
     cdef int count = 0      # The index in array to add the next index
     cdef int irow = 0       # Current line number
@@ -539,13 +569,30 @@ def fwf_cython(fwf,
                 if create_integer_index:
                     key = atoi(key)
 
-                value = (index_tuple, irow) if create_tuple else irow
+                if is_mem_optimized_dict:
+                    # Cython is all about performance and this little bit of 
+                    # code specific to the memory optimized dict for indices,
+                    # allows Cython to apply it's magic.
 
-                if create_unique_index:
+                    mem_dict_last += 1
+                    if key not in mem_dict_dict:
+                        inext = mem_dict_last
+                        mem_dict_dict[key] = inext
+                    else:
+                        inext = last_pos(mem_dict_next, mem_dict_dict[key])
+                        mem_dict_next[inext] = mem_dict_last
+                        inext = mem_dict_last
+
+                    mem_dict_file[inext] = index_tuple_int
+                    mem_dict_lineno[inext] = irow
+
+                elif create_unique_index:
                     # Unique index: just keep the last index
+                    value = (index_tuple, irow) if create_tuple else irow
                     values[key] = value
                 else:
                     # Add the index to potentially already existing indices
+                    value = (index_tuple, irow) if create_tuple else irow
                     values[key].append(value)
 
         start_pos += fwidth
@@ -556,6 +603,9 @@ def fwf_cython(fwf,
     if not create_index:
         array.resize(result, count)    
         return result
+
+    if is_mem_optimized_dict:
+        values.last = mem_dict_last
 
     # Else, return the index
     return values

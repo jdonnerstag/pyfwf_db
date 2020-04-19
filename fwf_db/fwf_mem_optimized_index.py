@@ -36,6 +36,10 @@ class BytesDictWithIntListValues(collections.abc.Mapping):
         """Create the dict. Maxsize does not refer to the number of 
         keys in the dict, but to the number of integers across
         all the lists associated with all the keys.
+
+        NOTE: Please be careful with changes to this class, due to the 
+        dependency with our Cython module. That Cython module assumes
+        that certain variables exists and have specific meanings.
         """
         self.index = dict() # key -> start_pos
 
@@ -171,3 +175,11 @@ class BytesDictWithIntListValues(collections.abc.Mapping):
         self.file[inext] = file
         self.lineno[inext] = lineno
 
+
+    def is_unique(self):
+        """Determine if all index entries refer to only 1 line. If that is
+        the case, then the index is unique. Unique indices do not benefit 
+        from the mem optimized index: performance is worse and memory
+        is wasted. For unique indices prefer a plan python dict.
+        """
+        return np.count_nonzero(self.next) == 0
