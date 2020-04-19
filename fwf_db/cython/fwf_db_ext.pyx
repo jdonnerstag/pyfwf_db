@@ -26,6 +26,8 @@ import collections
 import ctypes
 import array
 
+cimport cython
+
 import numpy
 cimport numpy
 
@@ -392,7 +394,9 @@ def create_int_index(fwf, field_name):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-cdef int last_pos(numpy.ndarray next_ar, int inext):
+## @cython.boundscheck(False)  # Deactivate bounds checking
+## @cython.wraparound(False)   # Deactivate negative indexing.
+cdef inline int last_pos(int [:] next_ar, int inext):
     cdef int last = inext
     while inext > 0:
         last = inext
@@ -403,6 +407,8 @@ cdef int last_pos(numpy.ndarray next_ar, int inext):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
+## @cython.boundscheck(False)  # Deactivate bounds checking
+## @cython.wraparound(False)   # Deactivate negative indexing.
 def fwf_cython(fwf, 
     int field1_startpos, bytes field1_start_value, int field1_endpos, bytes field1_end_value,
     int field2_startpos, bytes field2_start_value, int field2_endpos, bytes field2_end_value,
@@ -512,18 +518,23 @@ def fwf_cython(fwf,
     cdef int is_mem_optimized_dict = isinstance(index_dict, BytesDictWithIntListValues)
     cdef int mem_dict_last
     cdef dict mem_dict_dict
-    cdef numpy.ndarray mem_dict_next
-    cdef numpy.ndarray mem_dict_file
-    cdef numpy.ndarray mem_dict_lineno
+    cdef int [:] mem_dict_next
+    cdef int [:] mem_dict_end
+    cdef signed char [:] mem_dict_file
+    cdef int [:] mem_dict_lineno
     cdef int index_tuple_int
+    cdef int inext
+    cdef int iend
 
     if is_mem_optimized_dict:
         mem_dict_last = index_dict.last
         mem_dict_dict = index_dict.index
         mem_dict_next = index_dict.next
+        mem_dict_end = index_dict.end
         mem_dict_file = index_dict.file
         mem_dict_lineno = index_dict.lineno
         index_tuple_int = 0 if index_tuple is None else int(index_tuple)
+
 
     # Iterate over all the lines in the file
     cdef int count = 0      # The index in array to add the next index
@@ -575,12 +586,16 @@ def fwf_cython(fwf,
                     # allows Cython to apply it's magic.
 
                     mem_dict_last += 1
-                    if key not in mem_dict_dict:
+                    value = mem_dict_dict.get(key, None)
+                    if value is None:
                         inext = mem_dict_last
                         mem_dict_dict[key] = inext
+                        mem_dict_end[inext] = inext
                     else:
-                        inext = last_pos(mem_dict_next, mem_dict_dict[key])
+                        iend = value
+                        inext = mem_dict_end[iend]
                         mem_dict_next[inext] = mem_dict_last
+                        mem_dict_end[iend] = mem_dict_last
                         inext = mem_dict_last
 
                     mem_dict_file[inext] = index_tuple_int

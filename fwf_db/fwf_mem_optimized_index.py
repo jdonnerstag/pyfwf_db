@@ -47,6 +47,7 @@ class BytesDictWithIntListValues(collections.abc.Mapping):
 
         # Linked list: position of the next node. 0 for end-of-list
         self.next = np.zeros(maxsize, dtype="int32")
+        self.end = np.zeros(maxsize, dtype="int32")    # Can be released when done
 
         # Every list entry is a tuple of 2 integers: file-id and lineno
         self.file = np.zeros(maxsize, dtype="int8")
@@ -54,6 +55,13 @@ class BytesDictWithIntListValues(collections.abc.Mapping):
 
         # The position in the arrays where to add the next values
         self.last = 0
+
+
+    def finish(self):
+        """Once all all data have been added to the dict, it is possible to
+        release some memory that is only needed for fast appends.
+        """
+        self.end = None
 
 
     def resize_array(self, data, newsize):
@@ -67,6 +75,7 @@ class BytesDictWithIntListValues(collections.abc.Mapping):
 
         if newlen > len(self.next):
             self.next = self.resize_array(self.next, newlen)
+            self.end = self.resize_array(self.end, newlen)
             self.file = self.resize_array(self.file, newlen)
             self.lineno = self.resize_array(self.lineno, newlen)
 

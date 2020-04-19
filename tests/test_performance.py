@@ -46,14 +46,37 @@ class CENT_PARTY:
     ]
 
 
+class CENT_SALES_ASSIGNMENT:
+
+    FILE_PATTERN = r"ANO_DWH..DWH_TO_PIL_CENT_SALES_ASSIGNMENT(_(VTAG|FULL|DELTA))?"
+
+    FIELDSPECS = [
+        {"name": "TRANCODE",            "len": 1, "dtype": "category", "regex": r" |A|M|D|X|N"},
+        {"name": "SALES_LOCATION_ID",   "len": 10},
+        {"name": "CONTRACT_HOLDER_ID",  "len": 10},
+        {"name": "BAN",                 "len": 10},
+        {"name": "MARKET_CODE",         "len": 3, "dtype": "category"},
+        {"name": "CUSTOMER_NUMBER",     "len": 12},
+        {"name": "CONTRACT_NUMBER",     "len": 12},
+        {"name": "PRODUCT_COMMITMENT_NUMBER", "len": 12},
+        {"name": "SALES_FORCE_ID",      "len": 8},
+        {"name": "SALES_ORG_NUMBER",    "len": 22},
+        {"name": "VALID_FROM",          "len": 8, "dtype": "int32", "default": 0},
+        {"name": "VALID_UNTIL",         "len": 8, "dtype": "int32", "default": 21991231},
+        {"name": "BUSINESS_DATE",       "len": 8, "dtype": "int32"},
+    ]
+
+    INDEX = "SALES_LOCATION_ID"
+
 DIR = "../PIL-data-2/11_input_crlf_fixed/"
-FILE_1 = DIR + "ANO_DWH..DWH_TO_PIL_CENT_PARTY_VTAG.20180119104659.A901"
+FILE_CENT_PARTY = DIR + "ANO_DWH..DWH_TO_PIL_CENT_PARTY_VTAG.20180119104659.A901"
+FILE_SALES_ASSIGNMENT = DIR + "ANO_DWH..DWH_TO_PIL_CENT_SALES_ASSIGNMENT_VTAG.20180119115137.A901"
 
 @pytest.mark.slow
 def test_perf_iter_lines():
     fwf = FWFFile(CENT_PARTY)
 
-    with fwf.open(FILE_1) as fd:
+    with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5889278   # The file is 2GB and has 5.8 mio records
 
         t1 = time()
@@ -71,7 +94,7 @@ def test_perf_iter_lines():
 def test_perf_iter_fwfline():
     fwf = FWFFile(CENT_PARTY)
 
-    with fwf.open(FILE_1) as fd:
+    with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5889278
 
         t1 = time()
@@ -88,7 +111,7 @@ def test_perf_iter_fwfline():
 def test_perf_simple_index():
     fwf = FWFFile(CENT_PARTY)
 
-    with fwf.open(FILE_1) as fd:
+    with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5889278   
         t1 = time()
         index = FWFSimpleIndex(fd).index("PARTY_ID")  
@@ -150,7 +173,7 @@ def test_perf_numpy_index():
 
     fwf = FWFFile(CENT_PARTY)
 
-    with fwf.open(FILE_1) as fd:
+    with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5889278   
         t1 = time()
         index = FWFIndexNumpyBased(fd).index("PARTY_ID")  
@@ -182,7 +205,7 @@ def test_effective_date_simple_filter():
 
     fwf = FWFFile(CENT_PARTY)
 
-    with fwf.open(FILE_1) as fd:
+    with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5889278   
 
         t1 = time()
@@ -201,7 +224,7 @@ def test_effective_date_region_filter():
 
     fwf = FWFFile(CENT_PARTY)
 
-    with fwf.open(FILE_1) as fd:
+    with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5889278   
 
         t1 = time()
@@ -221,7 +244,7 @@ def test_effective_date_region_filter_optmized():
 
     fwf = FWFFile(CENT_PARTY)
 
-    with fwf.open(FILE_1) as fd:
+    with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5889278   
 
         valid_from_slice = fd.fields["VALID_FROM"]
@@ -257,7 +280,7 @@ def test_cython_filter():
 
     fwf = FWFFile(CENT_PARTY)
 
-    with fwf.open(FILE_1) as fd:
+    with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5889278   
 
         """
@@ -295,7 +318,7 @@ def test_cython_get_field_data():
 
     fwf = FWFFile(CENT_PARTY)
 
-    with fwf.open(FILE_1) as fd:
+    with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5889278   
 
         t1 = time()
@@ -321,7 +344,7 @@ def test_find_last():
 
     fwf = FWFFile(CENT_PARTY)
 
-    with fwf.open(FILE_1) as fd:
+    with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5889278   
 
         t1 = time()
@@ -390,7 +413,7 @@ def test_numpy_sort():
 
     fwf = FWFFile(CENT_PARTY)
 
-    with fwf.open(FILE_1) as fd:
+    with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5889278   
 
         t1 = time()
@@ -412,7 +435,7 @@ def test_cython_create_index():
 
     fwf = FWFFile(CENT_PARTY)
 
-    with fwf.open(FILE_1) as fd:
+    with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5889278   
 
         """ """
@@ -470,7 +493,7 @@ def test_int_index():
 
     fwf = FWFFile(CENT_PARTY)
 
-    with fwf.open(FILE_1) as fd:
+    with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5889278   
 
         """
@@ -522,7 +545,7 @@ def test_fwf_cython():
 
     fwf = FWFFile(CENT_PARTY)
 
-    with fwf.open(FILE_1) as fd:
+    with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5889278   
 
         t1 = time()
@@ -613,14 +636,14 @@ def test_fwf_cython():
         # 10.110804796218872
 
 
-#@pytest.mark.slow
-def test_merge_index():
+@pytest.mark.slow
+def test_merge_unique_index():
 
     fwf_db_ext.say_hello_to("Susie")
 
     fwf = FWFFile(CENT_PARTY)
 
-    with fwf.open(FILE_1) as fd:
+    with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5889278   
 
         data = defaultdict(list)
@@ -676,11 +699,59 @@ def test_merge_index():
 
         # non-unique index with mem optimized dict
         # 6.351483106613159 seconds   # only little overhead, and faster then defaultdict :)
-        # TODO this is a unique-key comparison. Need one where the data are not unique
+
+
+@pytest.mark.slow
+def test_merge_non_unique_index():
+
+    fwf_db_ext.say_hello_to("Susie")
+
+    fwf = FWFFile(CENT_SALES_ASSIGNMENT)
+
+    with fwf.open(FILE_SALES_ASSIGNMENT) as fd:
+        assert len(fd) == 10363608   
+
+        data = defaultdict(list)
+
+        t1 = time()
+        rtn = fwf_db_ext.fwf_cython(fwf, 
+            -1, None, -1, None,
+            -1, None, -1, None,
+            index="SALES_LOCATION_ID", 
+            unique_index=False, 
+            integer_index=False,
+            index_dict=data,
+            index_tuple=None
+        )
+        print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
+        assert len(rtn) == 3152698
+
+        # Non-unique index with defaultdict 
+        # 18.443543195724487 seconds
+
+        data = BytesDictWithIntListValues(len(fd))
+
+        t1 = time()
+        rtn = fwf_db_ext.fwf_cython(fwf, 
+            -1, None, -1, None,
+            -1, None, -1, None,
+            index="SALES_LOCATION_ID", 
+            unique_index=False, 
+            integer_index=False,
+            index_dict=data,
+            index_tuple=None
+        )
+        print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
+        assert len(rtn) == 3152698
+
+        # non-unique index with mem optimized dict
+        # 11.132811546325684 seconds   # Not bad. Faster then defaultdict.
 
 
 # Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":
 if __name__ == '__main__':
+
+    # pytest.main(["-v", "./tests"])
 
     # test_perf_iter_lines()
     # test_perf_iter_fwfline()
@@ -697,4 +768,5 @@ if __name__ == '__main__':
     # test_numpy_sort()
     # test_int_index()
     # test_fwf_cython()
-    test_merge_index()
+    # test_merge_unique_index()
+    test_merge_non_unique_index()
