@@ -1,18 +1,19 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-"""I'm quite happy with the performance and usability the module so far, 
-but the dict generated for an Index quickly grows large and consume all 
+"""I'm quite happy with the performance and usability of the fwf module so 
+far, but the dict generated for an Index quickly grows large and consume all 
 my 24 GB memory. Just summing up the raw bytes, the ints and addresses, it 
-should theoretically be possible to consume much less (factor 10 I would guess).
-I assume that Python's generic approach to variables is causing that, 
-assuming 15 mio keys in the dict and multiple tuples of (file-ID, lineno).
+should theoretically be possible to consume much less. I assume that Python's 
+generic approach to variables is causing that. Just consider 15 mio keys in the 
+dict and multiple tuples of (file-ID, lineno). This specialised dict reduced
+my memory consumption by 7 GB !!!
 
 This class is an attempt to overcome the challenge. Lets assume for now 
 Python dicts are great and we possibly gain more by optimizing the list 
 of ints associated with each index key.
 
-Instead of a list we the dict value is an integer pointing at a position
+Instead of a list, the dict value is an integer pointing at a position
 within an array like dict(index, index-start-pos). 
 
 The array is a memory efficient numpy integer array. The array consists 
