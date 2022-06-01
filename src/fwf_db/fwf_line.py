@@ -5,16 +5,16 @@ import sys
 from datetime import datetime
 
 
-class FWFLine(object):
-    """A dictory like convinience class to access the fields within a 
+class FWFLine:
+    """A dictory like convinience class to access the fields within a
     line. Access is similar to dict() with get(), [], keys, in, ...
-    """ 
+    """
 
     def __init__(self, fwf_file_like, lineno, line):
         assert fwf_file_like is not None
         #assert isinstance(lineno, int)     Numpy provides a int-like object
 
-        self.fwf_file_like = fwf_file_like     
+        self.fwf_file_like = fwf_file_like
         self.lineno = lineno
         self.line = line
 
@@ -35,17 +35,17 @@ class FWFLine(object):
 
 
     def get(self, field, default=None):
-        """Get the binary data for the field""" 
+        """Get the binary data for the field"""
         field = self.fwf_file_like.fields[field]
         rtn = self.line[field]
         if rtn:
             return rtn
 
         return default
-            
+
 
     def str(self, field, encoding=None):
-        """Get the data for the field converted into a string, optionally 
+        """Get the data for the field converted into a string, optionally
         applying an encoding
         """
         encoding = encoding or sys.getdefaultencoding()
@@ -57,12 +57,12 @@ class FWFLine(object):
         return int(self.get(field))
 
 
-    def date(self, field, format="%Y%m%d"):
+    def date(self, field, fmt="%Y%m%d"):
         """Get the data for the field converted into an datetime object
         applying the 'format'
         """
         rtn = self.str(field, None)
-        rtn = datetime.strptime(rtn, format)
+        rtn = datetime.strptime(rtn, fmt)
         return rtn
 
 
@@ -71,7 +71,7 @@ class FWFLine(object):
         return key in self.fwf_file_like.fields
 
 
-    def keys(self): 
+    def keys(self):
         """Like dict's keys() method, return all field names"""
         return self.fwf_file_like.fields.keys()
 
@@ -84,7 +84,7 @@ class FWFLine(object):
 
 
     def to_dict(self):
-        """Provide the line as dict""" 
+        """Provide the line as dict"""
         return {k: v for k, v in self.items()}
 
 

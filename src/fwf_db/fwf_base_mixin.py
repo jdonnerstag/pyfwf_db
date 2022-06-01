@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-
-class FWFBaseMixin(object):
-    """Implements re-usable methods required in views, indexes, 
+# pylint: disable=too-few-public-methods
+class FWFBaseMixin:
+    """Implements re-usable methods required in views, indexes,
     uniques, to_pandas, ...
     """
 
+    # pylint: disable=no-self-use
     def _index1(self, parent, field, func=None):
 
         field = parent.field_from_index(field)

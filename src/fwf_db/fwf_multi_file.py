@@ -9,12 +9,12 @@ from .fwf_subset import FWFSubset
 from .fwf_cython import FWFCython
 
 
-class FWFMultiFileMixin(object):
+class FWFMultiFileMixin:
 
     def init_multi_file_mixin(self, filespec):
 
         self.filespec = filespec
-        self.files = []        # view-like 
+        self.files = []        # view-like
 
 
     def __enter__(self):
@@ -33,8 +33,8 @@ class FWFMultiFileMixin(object):
 
 class FWFMultiFile(FWFViewLike, FWFMultiFileMixin):
     """Create a view over multiple files and allow them to be treated
-    as one file. 
-    
+    as one file.
+
     Regularly we receive new files every day, but must process the files
     from the a past period. With multi-file support it is not necessary
     to concat the files first.
@@ -81,7 +81,7 @@ class FWFMultiFile(FWFViewLike, FWFMultiFileMixin):
     def remove_file(self, fwf_view):
         """Remove a file"""
         if fwf_view is None:
-            return 
+            return
 
         self.files = self.files.remove(fwf_view)
 
@@ -125,7 +125,7 @@ class FWFMultiFile(FWFViewLike, FWFMultiFileMixin):
 
 
     def determine_fwf_table_index(self, index):
-        """Translate the index provided into the file and index 
+        """Translate the index provided into the file and index
         within the file required to access the line.
         """
         start_pos = 0

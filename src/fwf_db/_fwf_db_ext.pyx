@@ -1,25 +1,22 @@
-#!/usr/bin/env python
-# encoding: utf-8
-
-"""fwf_db is about accessing large fixed width files almost like a 
+"""fwf_db is about accessing large fixed width files almost like a
 (read-only) database.
 
 Large files may have hundred millions of records and might be too large
-to be loaded into memory. Hence fwf_db map them into memory.
+to be loaded into memory. Hence fwf_db maps them into memory.
 
-This Cython module is not a complete standalone module. It just contains 
-few extension methods for fwf_db which have proved worth while.
+This Cython module is not a complete standalone module. It just contains
+few extension methods for fwf_db which have proved worthwhile.
 
 fwf_db is not a replacement for an RDBMS or analytics engine, but must
-be able to handled efficiently millions of millions of lookups. To achieve 
-reasonable performance an (in-memory) index is needed. Creating the index 
-requires processing millions of records, and as validated by test cases, 
-Cython is useful in these tight loops of millions of iterations. 
+be able to handled efficiently millions of millions of lookups. To achieve
+reasonable performance an (in-memory) index is needed. Creating the index
+requires processing millions of records, and as validated by test cases,
+Cython is useful in these tight loops of millions of iterations.
 
 Similarly we had the requirement to filter certain events, e.g. records
 which were provided / updated after a certain (effective) date. Or records
-which are valid during a specific period determined by table fields such as 
-VALID_FROM and VALID_UNTIL. Again a tight loop executed millions of times.
+which are valid during a specific period determined by table fields such as
+VALID_FROM and VALID_UNTIL. Again a tight loop executing millions of times.
 """
 
 import collections
@@ -31,7 +28,8 @@ cimport cython
 import numpy
 cimport numpy
 
-from libc.string cimport strncmp, strncpy
+from libc.string cimport strncmp, strncpy, memcpy
+from libc.stdint cimport uint32_t
 from cpython cimport array
 from libc.stdlib cimport atoi
 
@@ -59,6 +57,17 @@ def str_to_bytes(obj):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
+cdef uint32_t load32(const char *p):  # char*  is allowed to alias anything
+    """
+    See https://stackoverflow.com/questions/548164/mis-aligned-pointers-on-x86
+    """
+    cdef uint32_t tmp
+    memcpy(&tmp, p, sizeof(tmp))
+    return tmp
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
 cdef const char* get_virtual_address(mm):
     """Determine the virtual memory address of a (read-only) mmap region"""
 
@@ -70,6 +79,7 @@ cdef const char* get_virtual_address(mm):
 # -----------------------------------------------------------------------------
 
 cdef int get_field_size(fwf, field_name):
+    """For field 'field_name' determine its size (number of bytes) in the fixed-width files"""
     cdef field_slice = fwf.fields[field_name]
     cdef int field_size = field_slice.stop - field_slice.start
     return field_size
@@ -80,8 +90,8 @@ cdef int get_field_size(fwf, field_name):
 def iter_and_filter(fwf,
     int field1_startpos, bytes field1_start_value, int field1_endpos, bytes field1_end_value,
     int field2_startpos, bytes field2_start_value, int field2_endpos, bytes field2_end_value):
-    """This is an optimized effective date and period filter, that shows 10-15x 
-    performance improvements. Doesn't sound a lot but 2-3 secs vs 20-30 secs makes a 
+    """This is an optimized effective date and period filter, that shows 10-15x
+    performance improvements. Doesn't sound a lot but 2-3 secs vs 20-30 secs makes a
     big difference when developing software and you need to wait for it.
 
     The method has certain (sensible) requirements:
@@ -125,7 +135,7 @@ def iter_and_filter(fwf,
     # Provide access to the (read-only) memory map
     cdef const char* mm = get_virtual_address(fwf.mm)
 
-    # The result array of indices (int). We pre-allocate the memory 
+    # The result array of indices (int). We pre-allocate the memory
     # and shrink it later (once) if needed.
     cdef array.array result = array.array('i', [])
     array.resize(result, fwf.reclen + 1)
@@ -140,12 +150,12 @@ def iter_and_filter(fwf,
 
         # Execute the effective data and period filters
         if (
-            (field1_startpos >= 0) and 
+            (field1_startpos >= 0) and
             (strncmp(field1_start_value, line + field1_startpos, field1_start_len) < 0)
             ):
             pass # print(f"{irow} - 1 - False")
         elif (
-            (field1_endpos >= 0) and 
+            (field1_endpos >= 0) and
             (line[field1_end_lastpos] != 32) and
             (strncmp(field1_end_value, line + field1_endpos, field1_end_len) > 0)
             ):
@@ -156,7 +166,7 @@ def iter_and_filter(fwf,
             ):
             pass # print(f"{irow} - 3 - False")
         elif (
-            (field2_endpos >= 0) and 
+            (field2_endpos >= 0) and
             (line[field2_end_lastpos] != 32) and
             (strncmp(field2_end_value, line + field2_endpos, field2_end_len) > 0)
             ):
@@ -171,23 +181,23 @@ def iter_and_filter(fwf,
         irow += 1
 
     # Shrink the array to the actually needed size
-    array.resize(result, count)    
+    array.resize(result, count)
     return result
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
 def get_field_data(fwf, field_name):
-    """Return a numpy array with the data from the 'field', in the 
+    """Return a numpy array with the data from the 'field', in the
     sequence read from the file.
-    
-    array has not array of bytes or string, just numeric primitives. And I 
-    didn't want to build another access layer. Additionally we thought that 
+
+    numpy has no array of bytes or string, just numeric primitives. And I
+    didn't want to build another access layer. Additionally we thought that
     Numpy and Pandas certainly have additional nice cool features that will
     help us processing the data.
     """
 
-    # Some constants needed further down    
+    # Some constants needed further down
     cdef long start_pos = fwf.start_pos
     cdef long fsize = fwf.fsize
     cdef int fwidth = fwf.fwidth
@@ -222,14 +232,14 @@ def get_field_data(fwf, field_name):
 # -----------------------------------------------------------------------------
 
 def create_index(fwf, field_name):
-    """Create an index (dict: values -> [indices]) for 'field'
-    
+    """Create an index (dict: values -> [line number]) for 'field'
+
     Leverage the speed of Cython (and C) which saturates the SDD when reading
-    the data and thus allows to do some minimal processing in between, such as 
-    updating the index. It's not perfect, it adds some delay (e.g. 6 sec),  
+    the data and thus allows to do some minimal processing in between, such as
+    updating the index. It's not perfect, it adds some delay (e.g. 6 sec),
     however it is still much better then creating the index afterwards (14 secs).
 
-    Return: a dict mapping values to one or more lines indices
+    Return: a dict which maps values to one or more lines (line number)
     """
 
     # Some constants
@@ -266,12 +276,12 @@ def create_index(fwf, field_name):
 # -----------------------------------------------------------------------------
 
 def create_unique_index(fwf, field_name):
-    """Create an unique index (dict: value -> index) for 'field'.
-    
-    Note: in case the same field value is found multiple times, then the 
-    last will replace any previous value. This is by purpose, as in our 
-    use case we often need to find the last change before a certain date 
-    or within a specific period of time, and this is the fastest way of 
+    """Create an unique index (dict: value -> line number) for 'field'.
+
+    Note: in case the same field value is found multiple times, then the
+    last will replace any previous value. This is by purpose, as in our
+    use case we often need to find the last change before a certain date
+    or within a specific period of time, and this is the fastest way of
     doing it.
 
     Return: a dict mapping the value to its last index
@@ -297,7 +307,7 @@ def create_unique_index(fwf, field_name):
     cdef const char* ptr = mm + start_pos + <int>field_slice.start
     while start_pos < fsize:
 
-        # Update the index. This is Python and thus rather slow. But I 
+        # Update the index. This is Python and thus rather slow. But I
         # also don't know how to further optimize.
         values[ptr[0 : field_size]] = irow
 
@@ -305,7 +315,7 @@ def create_unique_index(fwf, field_name):
         ptr += fwidth
         irow += 1
 
-    # Return the index 
+    # Return the index
     return values
 
 # -----------------------------------------------------------------------------
@@ -314,14 +324,14 @@ def create_unique_index(fwf, field_name):
 def get_int_field_data(fwf, field_name):
     """Read the data for 'field', convert them into a int and store them in a
     numpy array
-    
+
     Doing that millions times is a nice use case for Cython. It add's no
     measurable delay.
 
-    Return: Numpy int64 ndarray 
+    Return: Numpy int64 ndarray
     """
 
-    # Some constants    
+    # Some constants
     cdef long start_pos = fwf.start_pos
     cdef long fsize = fwf.fsize
     cdef int fwidth = fwf.fwidth
@@ -349,7 +359,7 @@ def get_int_field_data(fwf, field_name):
     # Array of int values
     return values
 
-    
+
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
@@ -375,7 +385,7 @@ def create_int_index(fwf, field_name):
     # The result dict: int(value) -> [indices]
     cdef values = collections.defaultdict(list)
 
-    cdef int v 
+    cdef int v
     cdef int irow = 0
     cdef const char* ptr = mm + start_pos + <int>field_slice.start
     while start_pos < fsize:
@@ -409,22 +419,22 @@ cdef inline int last_pos(int [:] next_ar, int inext):
 
 ## @cython.boundscheck(False)  # Deactivate bounds checking
 ## @cython.wraparound(False)   # Deactivate negative indexing.
-def fwf_cython(fwf, 
+def fwf_cython(fwf,
     int field1_startpos, bytes field1_start_value, int field1_endpos, bytes field1_end_value,
     int field2_startpos, bytes field2_start_value, int field2_endpos, bytes field2_end_value,
     index=None, unique_index=False, integer_index=False, index_dict=None, index_tuple=None):
-    """Putting it all together: Filter the fwf file on an effective data and a
-    period, and optionally create an index on a 'field'. The index can be optionally 
+    """Putting it all together: Filter the fwf file on an effective date and a
+    period, and optionally create an index on a 'field'. The index can optionally
     be made unique and the field value can be converted into an int.
-    
-    If index is None, the indices of the filtered lines are return in an array.
+
+    If index is None, the indices of the filtered lines are returned in an array.
     If index is a field name and unique_index is false => dict: value -> [indices].
     If index is a field name and unique_index is true => dict: value -> last index.
     If index is a field name and integer_index is true, then convert the field value
     into an int.
 
-    This is an optimized effective date and period filter, that shows 10-15x 
-    performance improvements. Doesn't sound a lot but 2-3 secs vs 20-30 secs makes a 
+    This is an optimized effective date and period filter, that shows 10-15x
+    performance improvements. Doesn't sound a lot but 2-3 secs vs 20-30 secs makes a
     big difference when developing software and you need to wait for it.
 
     The method has certain (sensible) requirements:
@@ -437,7 +447,7 @@ def fwf_cython(fwf,
 
     If index is a field and 'index_dict' is provided (must be a subclass of dict), then this
     dict is updated rather then a new one generated. This is useful when creating a
-    single index over multiple files. Be careful to provide the correct dict type, 
+    single index over multiple files. Be careful to provide the correct dict type,
     depending on whether a unique or normal index is requested.
 
     If index is a field and 'index_tuple' is not None (usually it is an int), then a tuple will
@@ -486,10 +496,10 @@ def fwf_cython(fwf,
     cdef long fsize = fwf.fsize
     cdef int fwidth = fwf.fwidth
 
-    # The result dict: int(value) -> [indices]
+    # Get the memory address for the (memory-mapped) file
     cdef const char* mm = get_virtual_address(fwf.mm)
 
-    # Pre-allocate memory of the result arrary, if no indexing 
+    # Pre-allocate memory of the result arrary, if no indexing
     # is required
     cdef array.array result
     cdef int* result_ptr
@@ -498,7 +508,7 @@ def fwf_cython(fwf,
         array.resize(result, fwf.reclen + 1)
         result_ptr = result.data.as_ints
 
-    # If an index is requested, create an respective dict that 
+    # If an index is requested, create an respective dict that
     # eventually will contain the index.
     cdef values
     cdef key
@@ -535,7 +545,6 @@ def fwf_cython(fwf,
         mem_dict_lineno = index_dict.lineno
         index_tuple_int = 0 if index_tuple is None else int(index_tuple)
 
-
     # Iterate over all the lines in the file
     cdef int count = 0      # The index in array to add the next index
     cdef int irow = 0       # Current line number
@@ -546,12 +555,12 @@ def fwf_cython(fwf,
 
         # Execute the effective data and period filters
         if (
-            (field1_startpos >= 0) and 
+            (field1_startpos >= 0) and
             (strncmp(field1_start_value, line + field1_startpos, field1_start_len) < 0)
             ):
             pass # print(f"{irow} - 1 - False")
         elif (
-            (field1_endpos >= 0) and 
+            (field1_endpos >= 0) and
             (line[field1_end_lastpos] != 32) and
             (strncmp(field1_end_value, line + field1_endpos, field1_end_len) > 0)
             ):
@@ -562,7 +571,7 @@ def fwf_cython(fwf,
             ):
             pass # print(f"{irow} - 3 - False")
         elif (
-            (field2_endpos >= 0) and 
+            (field2_endpos >= 0) and
             (line[field2_end_lastpos] != 32) and
             (strncmp(field2_end_value, line + field2_endpos, field2_end_len) > 0)
             ):
@@ -570,7 +579,7 @@ def fwf_cython(fwf,
         else:
             # The line passed all the filters
 
-            # If no index, then added the index to the result array 
+            # If no index, then added the index to the result array
             if not create_index:
                 result_ptr[count] = irow
                 count += 1
@@ -581,7 +590,7 @@ def fwf_cython(fwf,
                     key = atoi(key)
 
                 if is_mem_optimized_dict:
-                    # Cython is all about performance and this little bit of 
+                    # Cython is all about performance and this little bit of
                     # code specific to the memory optimized dict for indices,
                     # allows Cython to apply it's magic.
 
@@ -616,7 +625,7 @@ def fwf_cython(fwf,
     # If only filters are provided but no index is requested, then return
     # the array with the line indices.
     if not create_index:
-        array.resize(result, count)    
+        array.resize(result, count)
         return result
 
     if is_mem_optimized_dict:

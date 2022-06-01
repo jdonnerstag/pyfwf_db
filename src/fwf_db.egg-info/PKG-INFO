@@ -1,30 +1,61 @@
+Metadata-Version: 2.1
+Name: fwf-db
+Version: 0.1.0
+Summary: Fixed-width-fields File Format DB-like access
+Home-page: https://github.com/jdonnerstag/pyfwf_db
+Author: Juergen Donnerstag
+Author-email: juergen.donnerstag@gmail.com
+License: MIT License
+Project-URL: Source, https://github.com/jdonnerstag/pyfwf_db
+Project-URL: Tracker, https://github.com/jdonnerstag/pyfwf_db/issues
+Keywords: fixed width,file,database,read-only
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Natural Language :: English
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Utilities
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3 :: Only
+Requires-Python: >=3.7, <4
+Description-Content-Type: text/markdown
+Provides-Extra: dev
+Provides-Extra: test
+License-File: LICENSE.txt
+
 FWF - Fixed-Width-Field File Format parser and tools
 =======================================================
 
 A lib to help you handle fixed-width files that join all data relying only on
-the length of each field. This lib is especially targetted to users that 
+the length of each field. This lib is especially targetted to users that
 
-- don't want to wait anymore for whatever ingest or import job to finish    
+- don't want to wait anymore for whatever ingest or import job to finish
 - need to handle data sets which are too large to fit into memory
-- receive new files of the same kind regulary and need to access them 
+- receive new files of the same kind regulary and need to access them
   as if it were one large file.
-- need to lookup rows within a single virtual table and across multiple 
-  virtual tables of different kind. But no analytics, reporting or 
-  number crunching. You can though export filtered subsets into specialised 
+- need to lookup rows within a single virtual table and across multiple
+  virtual tables of different kind. But no analytics, reporting or
+  number crunching. You can though export filtered subsets into specialised
   libs and tools if needed.
-- want indexes for speedy access because executing large number of lookups 
+- want indexes for speedy access because executing large number of lookups
   against these data sets are your main concern
-- want to filter the data because you don't need them all, and you want 
+- want to filter the data because you don't need them all, and you want
   to index just the filtered data
-- need group-by etc. to prepare your index. E.g. just keep the lastest 
+- need group-by etc. to prepare your index. E.g. just keep the lastest
   entry from each group
 - want to persist the indexes easily and quickly to avoid always rebuilding
-  them. 
-- want casts and transformations to convert only the bytes needed to 
+  them.
+- want casts and transformations to convert only the bytes needed to
   strings, ints or dates
-- occassionally need to process files that don't have standard line endings, 
+- occassionally need to process files that don't have standard line endings,
   but \x00 or similar
-- are ok with the constraint that the files must be in a file-system (rather 
+- are ok with the constraint that the files must be in a file-system (rather
   then object store or similar) or fit into memory. File from a file system
   can be much larger then memory, because the lib memory maps the file. Files
   which are compressed or from an object store can still be processed, but
@@ -35,32 +66,32 @@ the length of each field. This lib is especially targetted to users that
 
 How did we get here? Building this lib wasn't our first thought:
 - We need lots of lookups across multiple tables. We are using traditional
-  RDBMS systems a lot and have really experienced people. But ingesting and 
-  preparing (staging) the data took "ages". We applied partitioning, and all kind
-  of tricks to speed up ingest and lookups, but it remained painful, slow and 
+  RDBMS systems a lot and have really experienced people. But ingesting and
+  preparing (staging) the data took ages. We applied partitioning, and all kind
+  of tricks to speed up ingest and lookups, but it remained painful, slow and
   also comparatively expensive. We've tested it on-premise and in public clouds,
   including rather big boxes with sufficient I/O and network bandwidth.
-- We tried NoSql but following best pratices, it is adviced to create a 
+- We tried NoSql but following best pratices, it is adviced to create a
   schema that matches your queries best. Hence more complexity in the ingest
-  layer. This and because network latency for queries don't go away, did not 
+  layer. This and because network latency for queries don't go away, did not
   make us happy.
 - Several of us have laptops with 24GB RAM and we initially started with
   a 5GB data set in uncompressed fixed-width files. We tried to load them with
   Pandas, but quickly run into out-of-memory exceptions, even with in-stream
-  filtering of records upon ingest. There are several blogs alluding to a 
-  factor 5 between raw data and memory consumption. Once loaded, the 
+  filtering of records upon ingest. There are several blogs alluding to a
+  factor 5 between raw data and memory consumption. Once loaded, the
   performance was perfect.
-- With our little lib, 
-  - we completely avoid any load or ingest job. We can start using new 
-    files as soon as they arrive. 
-  - A full index scan, takes less then 2 mins on our standard business 
-    laptops (with SDD). Multiple times faster than the other 
+- With our little lib,
+  - we completely avoid any load or ingest job. We can start using new
+    files as soon as they arrive.
+  - A full index scan, takes less then 2 mins on our standard business
+    laptops (with SDD). Multiple times faster than the other
     options, and on low-cost hardware (vs big boxes and high-speed networks)
   - With Pandas based indexes it is very fast to identify the line, but
-    potentially loading it from disc and converting the line and required 
+    potentially loading it from disc and converting the line and required
     fields / columns from bytes into consumable data types, is a bit slower
-    compared to in-memory preprocessed Pandas dataframes. But we need to do 
-    millions of lookups and it is working well for us. 
+    compared to in-memory preprocessed Pandas dataframes. But we need to do
+    millions of lookups and it is working well for us.
  - We've tested it with 100GB data sets, slowly approach memory limits
    for full table (in-memory) indexes. Obviously depending on the number
    of rows and size of the index key.
@@ -125,8 +156,8 @@ Why should I use this?
 ----------------------
 
 Even though parsing this kind of file is pretty easy you may want to
-filter some of its data. Also this lib helps you to visualize you data
-and play with it directly on python shell. So that file will easily
+filter some of its data. Also this lib helps you to visualize your data
+and play with it directly on python shell. So that the file will easily
 become this:
 
 ::
@@ -187,9 +218,9 @@ as example. Here its first line:
     'US       AR19570526Fbe56008be36eDianne Mcintosh         Whatever    Medic        \n'
 
 By testing, splitting, trying or whatever I know that: - First 9
-characters are reserved for that person location - Next 2 characters are
-for her state - Next 8 are her birthday - Next 1 is her gender - Next 12
-I dont have a clue and I dont care - Next 24 are her name
+characters are the location - Next 2 characters are the state - Next 8 are the
+birthday - Next 1 is the gender - Next 12 I dont have a clue and I dont
+care - Next 24 are the name
 
 and so on. But I only want name, birthday and gender so let's write it's
 model
@@ -197,7 +228,6 @@ model
 .. code:: python
 
     from fwf import BaseLineParser
-
 
     class Human(BaseLineParser):
         """Parser for each line of that humans.txt file."""
@@ -212,7 +242,7 @@ going to use it with the file parser.
 
 .. code:: python
 
-    from pytwt3 import BaseFileParser
+    from pyfwf import BaseFileParser
 
     parsed = BaseFileParser.open("examples/humans.txt", line_parser=Human)
 
@@ -221,7 +251,6 @@ That's it. Your file is parsed and now usable but let's put it together:
 .. code:: python
 
     from fwf import BaseLineParser, BaseFileParser
-
 
     class Human(BaseLineParser):
         """Parser for each line of that humans.txt file."""
@@ -238,7 +267,6 @@ or even
 .. code:: python
 
     from fwf import BaseLineParser, BaseFileParser
-
 
     class Human(BaseLineParser):
         """Parser for each line of that humans.txt file."""
@@ -261,7 +289,7 @@ Queryset
 --------
 
 With your parsed file as a BaseFileParser instance you have all objects
-stored as a Queryset instance in ".objects" attribute. So:
+stored as a Queryset instance in the "objects" attribute. So:
 
 .. code:: pycon
 
@@ -301,14 +329,14 @@ stored as a Queryset instance in ".objects" attribute. So:
 -------------------
 
 Here is where the magic happens. A filtered queryset will always return
-a new queryset that can be filtered too and so and so
+a new queryset that can be filtered too and so on
 
 .. code:: pycon
 
     >>> parsed = HumanFileParser.open("examples/humans.txt")
     >>> first5 = parsed.objects[:5]
     >>> # 'first5' is a Queryset instance just as 'parsed.objects' but with only a few objects
-    >>> firts5
+    >>> first5
     +------------------+----------+--------+
     | name             | birthday | gender |
     +------------------+----------+--------+
@@ -327,7 +355,7 @@ a new queryset that can be filtered too and so and so
     | Georgia Frank    | 20110508 | F      |
     +------------------+----------+--------+
     >>> # with multiple keywords arguments
-    >>> firts5.filter(gender="M", birthday__gte="19900101")
+    >>> first5.filter(gender="M", birthday__gte="19900101")
     +------------------+----------+--------+
     | name             | birthday | gender |
     +------------------+----------+--------+
@@ -335,7 +363,7 @@ a new queryset that can be filtered too and so and so
     | Virginia Lambert | 19930404 | M      |
     +------------------+----------+--------+
     >>> # or chained filters
-    >>> firts5.filter(name__endswith="k").filter(gender=F)
+    >>> first5.filter(name__endswith="k").filter(gender=F)
     +------------------+----------+--------+
     | name             | birthday | gender |
     +------------------+----------+--------+
@@ -442,7 +470,6 @@ use complete line parser for that humans.txt file
     from collections import OrderedDict
     from fwf import BaseLineParser, BaseFileParser
 
-
     class CompleteHuman(BaseLineParser):
         """Complete line parser for humans.txt example file."""
 
@@ -457,7 +484,6 @@ use complete line parser for that humans.txt file
                 ("profession", slice(68, 81)),
             ]
         )
-
 
     class CompleteHumanFileParser(BaseFileParser):
         """Complete file parser for humans.txt example file."""
@@ -511,12 +537,12 @@ Return how many objects are there on that queryset
 .values(\*fields)
 -----------------
 
-This method should be used to actually return data from a queryset. Will
-return the specified fields only or all of them if none is specified.
+This method should be used to actually return data from a queryset. It
+returns the specified fields only or all of them if none is specified.
 
 Returns a **ValuesList** instance which is in fact a extended **list**
 object with overwriten **\_\_repr\_\_** method just to look like a table
-on shell, so on every other aspect it is a list. May be a list o tuples,
+on shell, so on every other aspect it is a list. May be a list of tuples,
 if more the one column is returned, or a simple list if only one field
 was specified
 
@@ -576,7 +602,7 @@ was specified
      ('Virginia Lambert', 'M', '19930404', 'US', 'PA', 'Whatever', 'Shark tammer')]
     >>> # Note that you dont need to slice the result with '[:]'. I am only doing it to show the response structure behind the table representation
 
-There is also 2 hidden fields that may be used, if needed:
+There are also 2 hidden fields that may be used, if needed:
 
 - \_line\_number: The line number on the original file, counting even if some line is skipped during parsing
 - \_unparsed\_line: The unchanged and unparsed original line, with original line breakers at the end
@@ -636,9 +662,9 @@ Models
 fwf.BaseLineParser
 ---------------------
 
-This is the class responsible for the actual parsing and have to be
-extended to set its parsing map, as explained on `Setting up your
-parser <#setting-up-your-parser>`__. It also responsible for all the
+This is the class responsible for the actual parsing which has to be
+extended to set its parsing map, as explained in `Setting up your
+parser <#setting-up-your-parser>`__. It's also responsible for all the
 magic before and after parsing by the use of
 `\_before\_parse() <#_before_parse>`__ and
 `\_after\_parse() <#_after_parse>`__ methods
@@ -646,7 +672,7 @@ magic before and after parsing by the use of
 \_before\_parse()
 -----------------
 
-This method is called before the line is parsed. At this point **self** have:
+This method is called before the line is parsed. At this point **self** has:
 
 - self.\_unparsed\_line: Original unchanged line
 - self.\_parsable\_line: Line to be parsed. If None given self.\_unparsed\_line wil be used
@@ -688,8 +714,7 @@ Ex:
                 raise InvalidLineError()
 
             # As I know that the first characters are reserved for location I will
-            # pre-filter any person that are not from U.S.A (Trumping) even before
-            # parsing it
+            # pre-filter any person that are not from US even before parsing it
             if not self._unparsed_line.startswith("US"):
                 raise InvalidLineError()
 
@@ -724,7 +749,9 @@ Then use it as you like
 \_after\_parse()
 ----------------
 
-This method is called after the line is parsed. At this point you have a already parsed line and now you may create new fields, alter some existing or combine those. You still may filter some objects.
+This method is called after the line is parsed. At this point you have a already parsed line
+and now you may create new fields, alter some existing or combine those. You still may filter
+some objects.
 
 Ex:
 
@@ -846,7 +873,7 @@ Then just use as you like
 fwf.BaseFileParser
 ---------------------
 
-This class will center all file data and needs a line parser to do the
+This class will read all file data and needs a line parser to do the
 actual parsing. So you will need a class extended from
 `BaseLineParser <#fwfbaselineparser>`__. I'll consider that you
 already have your CustomLineParser class so:
@@ -899,18 +926,18 @@ Now you just
 .open(filename, line\_parser=None)
 ----------------------------------
 
-This class method actually open the given file, parse it, close it and
-return a parsed file instance. Pretty much every example here is using
+This class method opens the given file, parses it, closes it and
+returns a parsed file instance. Pretty much every example here is using
 **.open()**
 
-You may define your line parser class here, if you what, but for
+You may define your line parser class here, if you want, but for
 semantics sake I recommend that you extend BaseFileParser to set you
 line parser there.
 
 Parse an already opened file
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You also may parse a already opened file, StringIO, downloaded file or
+You also may parse an already opened file, StringIO, downloaded file or
 any IO instance that you have. For that just create an instance directly
 
 .. code:: pycon
@@ -935,134 +962,7 @@ any IO instance that you have. For that just create an instance directly
 **.objects** attribute
 ----------------------
 
-Your parsed file have a **.objects** attribute. Thats your complete parsed
+Your parsed file have a **.objects** attribute. That is your complete parsed
 `queryset <#queryset>`__
 
-TODOs:
-------
 
--  Handle files with no break lines
--  Recursive special filters like: birthday\_\_year\_\_lt
--  Filter with same line like: .filter(start\_day=L("end\_day"))
--  Multi-column order like: .order\_by("-age", "name")
--  Values using special fields like: .values("name\_\_len")
--  Order using special fields like: .order\_by("birthday\_\_year")
--  Export methods like: .sqlite file or .sql file
--  Write a fixed-width field file (?)(why would someone write those
-   files?)
-
-
-
-
-
-   
-This little module is suitable for the following use cases:
-    - The fixed width file is too large to be loaded into memory (e.g. Pandas
-      requires about 5 x the raw data size). 
-    - Filters and lookups are your common use cases
-    - The file is locally available and can be mapped into memory
-
-Examples:
-
-    # 'reader' is a class defining the fixed width file characterstics
-    fwf = FWFTable(reader)
-
-    # Open the file and skip any leading comment lines, which can be 
-    # of arbitrary length.
-    with fwf.open(file):
-
-        # Iterate over all rows in the file
-        for rec in fwf:
-            pass
-
-        # Create a view onto the data with only the first row
-        rec = fwf[0]
-
-        # Create a view onto the data with containing line 0..4
-        rec = fwf[0:5]
-
-        # Create a view just containing the rows and cols requested 
-        rec = fwf[0, "TRANCODE"]
-        rec = fwf[0, ["TRANCODE", "BUSINESS_DATE"]]
-        rec = fwf[0:5, ["TRANCODE", "BUSINESS_DATE"]]
-
-        # Iterate over all rows inthe view
-        for rec in fwf[0].iter():
-            # Trying to avoid unncessary copies, we're leveraging memoryview.
-            # For the same reason, we convert as late as possible, and thus
-            # hopefully only when really needed.
-            rec = [x.tobytes() for x in rec]
-
-        # Iterate over the first 5 rows
-        for rec in fwf[0:5].iter():
-            pass
-
-        # Iterate over the first row
-        for rec in fwf[0]:
-            pass
-
-        # Iterate over the first 2 rows
-        for rec in fwf[0:2]:
-            pass
-
-        # Iterate over the last 5 rows
-        for rec in fwf[-5:]:
-            pass
-
-        # Iterate over the last 5 rows just containing the fields provided
-        for rec in fwf[0:5, ["TRANCODE", "BUSINESS_DATE"]]:
-            pass
-
-        # Iterate over every line in the view and filter specific rows.
-        # Note: The line is the originally data from the file, and thus 
-        # contains all fields. Hence filters can be on any fields, always.
-        # This example shows that a single memoryview "byte" is in fact 
-        # an int, and not a byte or string. 
-        rtn = fwf[0:5, ["TRANCODE", "BUSINESS_DATE"]].filter_by_line(lambda l: l[0] == ord('M'))
-        for rec in rtn:
-            pass
-
-        # Same example but now comparing multiple chars. In which case 
-        # memoryview returns a byte array.
-        rtn = fwf[0:5, ["TRANCODE", "BUSINESS_DATE"]].filter_by_line(lambda l: l[0:5] == b'M072Z')
-        for rec in rtn:
-            pass
-
-        # A little helper to simplify filtering on a specific column. The 
-        # column must be in the view.
-        rtn = fwf[0:5, ["TRANCODE", "BUSINESS_DATE"]].filter_by_field("TRANCODE", lambda x: x == b'M')
-        for rec in rtn:
-            pass
-
-        # Tests for equality can be expressed even simpler, without any lambda.
-        rtn = fwf[0:5, ["TRANCODE", "BUSINESS_DATE"]].filter_by_field("TRANCODE", b'M')
-        for rec in rtn:
-            pass
-
-        # Filters create list of rows that match the condition. That list can
-        # potentially be large. Create more "complex" filters that reduce the 
-        # number of rows down to a smaller amount.
-        slice_TRANCODE = fwf.columns["TRANCODE"]
-        slice_BUSINESS_DATE = fwf.columns["BUSINESS_DATE"]
-        def my_complex_test(line):
-            a = line[slice_TRANCODE] == ord(b'M')
-            b = line[slice_BUSINESS_DATE].tobytes().startswith(b'M072Z')
-            return a and b
-
-        rtn = fwf[0:5, ["TRANCODE", "BUSINESS_DATE"]].filter_by_line(my_complex_test)
-        for rec in rtn:
-            pass
-
-        # It is possibly to determine all distinct values of a column 
-        # It's also possible to modify the value before comparing it.
-        rtn = fwf[0:5].unique("CONTROLLER_ID", lambda x: x.tobytes().decode().lower())
-
-        # It is possible to create an index (in memory). The index value 
-        # is the line number.
-        rtn = fwf[0:5].index("CONTROLLER_ID")
-
-        # Functions are also supported when creating the index
-        rtn = fwf[0:5].index("CONTROLLER_ID", lambda x: x.tobytes().decode())
-
-        # You can export the data to Pandas for more speed.
-        rtn = fwf[0:5].to_pandas()

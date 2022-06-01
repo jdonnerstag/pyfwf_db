@@ -1,29 +1,29 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-from .cython import fwf_db_ext 
+from .cython import fwf_db_ext
 from .fwf_subset import FWFSubset
 from .fwf_simple_index import FWFSimpleIndex
 from .fwf_simple_unique_index import FWFSimpleUniqueIndex
 
 
 class FWFCythonException(Exception):
-    pass
+    ''' FWFCythonException '''
 
 
-class FWFCython(object):
+class FWFCython:
     """Python is really nice, but for tight loops that must be executed million
     times, it's interpreted nature become apparent. This is the python frontend
     for a small Cython component that speeds up few tasks needed when processing
     fixed width files (fwf).
-    
+
     - Effecient filter records on effective data and a period
     - Create an index on top of a (single) field
-    - Create an unique index which contains only the last index (in sequence of 
+    - Create an unique index which contains only the last index (in sequence of
       the lines read from the the file)
     - Create an integer index where the field value has been converted into an int.
     """
-    
+
     def __init__(self, fwffile):
         self.fwffile = fwffile
 
@@ -33,6 +33,8 @@ class FWFCython(object):
 
 
     def get_start_pos(self, names, idx, value):
+        """ get_start_pos """
+
         if names is None or value is None:
             return -1
         elif isinstance(names, str):
@@ -49,6 +51,8 @@ class FWFCython(object):
 
 
     def get_value(self, values, idx):
+        """ get_value """
+
         if values is None:
             return None
         elif isinstance(values, list) and len(values) == 2:
@@ -57,12 +61,13 @@ class FWFCython(object):
             return values if idx == 0 else None
 
 
-    def apply(self, 
-        field1_names=None, field1_values=None, 
+    def apply(self,
+        field1_names=None, field1_values=None,
         field2_names=None, field2_values=None,
         index=None, unique_index=False, integer_index=False,
         index_dict=None, index_tuple=None,
         func=None):
+        """ apply """
 
         field1_start_value = self.get_value(field1_values, 0)
         field1_stop_value = self.get_value(field1_values, 1)
@@ -96,13 +101,14 @@ class FWFCython(object):
 
         if index is None:
             return FWFSubset(self.fwffile, list(rtn), self.fwffile.fields)
-        elif unique_index is False:
+
+        if unique_index is False:
             idx = FWFSimpleIndex(self.fwffile)
             idx.field = index
             idx.data = rtn
             return idx
-        else:
-            idx = FWFSimpleUniqueIndex(self.fwffile)
-            idx.field = index
-            idx.data = rtn
-            return idx
+
+        idx = FWFSimpleUniqueIndex(self.fwffile)
+        idx.field = index
+        idx.data = rtn
+        return idx

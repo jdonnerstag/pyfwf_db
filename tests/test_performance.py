@@ -22,7 +22,7 @@ from fwf_db.fwf_operator import FWFOperator as op
 from fwf_db.fwf_cython import FWFCython
 from fwf_db.cython import fwf_db_ext
 from fwf_db.fwf_merge_index import FWFMergeIndex
-from fwf_db.fwf_mem_optimized_index import BytesDictWithIntListValues
+from fwf_db.fwf_mem_optimized_index import BytesDictWithIntListValues, MyIndexDict
 
 
 class CENT_PARTY:
@@ -71,6 +71,13 @@ class CENT_SALES_ASSIGNMENT:
 DIR = "../PIL-data-2/11_input_crlf_fixed/"
 FILE_CENT_PARTY = DIR + "ANO_DWH..DWH_TO_PIL_CENT_PARTY_VTAG.20180119104659.A901"
 FILE_SALES_ASSIGNMENT = DIR + "ANO_DWH..DWH_TO_PIL_CENT_SALES_ASSIGNMENT_VTAG.20180119115137.A901"
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers", """slow: marks tests as slow (deselect with '-m "not slow"')"""
+    )
+
 
 @pytest.mark.slow
 def test_perf_iter_lines():
@@ -748,6 +755,48 @@ def test_merge_non_unique_index():
         # 11.132811546325684 seconds   # Not bad. Faster then defaultdict.
 
 
+# @pytest.mark.slow
+# TODO This test is not yet implemented
+def test_MyIndexDict_get():
+
+    print("Test started")
+    fwf = FWFFile(CENT_PARTY)
+    with fwf.open(FILE_CENT_PARTY) as fd:
+        rec_size = len(fd)
+        assert rec_size == 5889278   
+
+        field_pos = fd.fields["PARTY_ID"].start
+        field_len = fd.fields["PARTY_ID"].stop - fd.fields["PARTY_ID"].start
+
+        data = MyIndexDict(size=rec_size, mm=fd.mm, reclen=fd.reclen, field_pos=field_pos, field_len=field_len, align="right")
+        assert data
+
+        # Get list of keys and timeit
+        t1 = time()
+        gen = ((i, line[fd.fields["PARTY_ID"]]) for i, line in fd.iter_lines())
+        for i, key in gen:
+            pass
+        print(f'1. Elapsed time is {time() - t1} seconds.')
+
+        # Put the keys into the index
+        t1 = time()
+        gen = ((i, line[fd.fields["PARTY_ID"]]) for i, line in fd.iter_lines())
+        for i, key in gen:
+            data.put(key, i)
+        percentage_filled, buckets_by_length, max_length, buckets_length = data.analyze()
+        print(f"precentage filled: {percentage_filled}, max_length: {max_length}, distibution: {buckets_by_length}")
+        print(f'2. Elapsed time is {time() - t1} seconds.')
+
+        # TODO randomly pick value from list for 1 mio get() and timeit.
+
+        # TODO 1 mio get() with "key not found"
+
+        # TODO randomly pick key and every 10th is not-found
+
+        # TODO Play with "capacity" and compare performance results
+
+        # TODO if possible compare key length < 8 bytes, == 8 bytes and > 8 bytes
+
 # Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":
 if __name__ == '__main__':
 
@@ -769,4 +818,5 @@ if __name__ == '__main__':
     # test_int_index()
     # test_fwf_cython()
     # test_merge_unique_index()
-    test_merge_non_unique_index()
+    # test_merge_non_unique_index()
+    test_MyIndexDict_get()

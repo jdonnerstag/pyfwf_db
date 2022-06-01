@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-import numpy as np
-import pandas as pd 
-from itertools import islice
 from collections import defaultdict
+import numpy as np
 
 from .fwf_index_like import FWFDictIndexLike
 from .fwf_subset import FWFSubset
@@ -12,10 +10,10 @@ from .fwf_subset import FWFSubset
 
 class FWFIndexNumpyBased(FWFDictIndexLike):
     """A Numpy and Pandas based Index
-    
-    Especially with large files with millions of records in the index, 
-    a Pandas based index is (much) faster compared to pure python based on. 
-    """ 
+
+    Especially with large files with millions of records in the index,
+    a Pandas based index is (much) faster compared to pure python based on.
+    """
 
     def __init__(self, fwfview):
 
@@ -38,12 +36,12 @@ class FWFIndexNumpyBased(FWFDictIndexLike):
 
     def _index2(self, gen):
         """Create the Index
-        
+
         The 'field' to base the index upon
         'np_type' is the Numpy dtype used to create the array that initially
         holds the index data.
-        'func' to process the field data before adding it to the index, e.g. 
-        lower, upper, str, int, etc.. 
+        'func' to process the field data before adding it to the index, e.g.
+        lower, upper, str, int, etc..
         """
 
         values = self._index2a(gen)
@@ -61,11 +59,11 @@ class FWFIndexNumpyBased(FWFDictIndexLike):
         The 'field' to base the index upon
         'np_type' is the Numpy dtype used to create the array that initially
         holds the index data.
-        'func' to process the field data before adding it to the index, e.g. 
-        lower, upper, str, int, etc.. 
+        'func' to process the field data before adding it to the index, e.g.
+        lower, upper, str, int, etc..
         """
 
-        # Create the full size index all at once => number of records        
+        # Create the full size index all at once => number of records
         reclen = len(self.fwfview)
         values = np.empty(reclen, dtype=self.dtype)
 
@@ -79,13 +77,13 @@ class FWFIndexNumpyBased(FWFDictIndexLike):
         # I tested all sort of numpy and pandas ways, but nothing was as
         # fast as python generators. Any test needs to consider (a) how
         # long it takes to create the "index" and (b) how long it takes
-        # to lookup values. For any meaningful performance indication, (a) 
-        # the array must have at least 10 mio entries and (b) you must 
+        # to lookup values. For any meaningful performance indication, (a)
+        # the array must have at least 10 mio entries and (b) you must
         # execute at least 1 mio lookups against the 10 mio entties.
         data = defaultdict(list)
         all(data[value].append(i) or True for i, value in enumerate(values))
         return data
-        
+
 
     def fwf_subset(self, fwffile, key, fields):
         """Create a view with the indices associated with the index key provided"""

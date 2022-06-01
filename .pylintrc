@@ -1,0 +1,10 @@
+[MASTER]
+extension-pkg-allow-list=fwf_db.cython.fwf_db_ext
+
+[FORMAT]
+max-line-length=120
+
+[MESSAGES CONTROL]
+
+# Remove before releasing source code
+disable=fixme

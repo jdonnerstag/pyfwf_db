@@ -4,12 +4,12 @@
 import sys
 
 
-class FWFOperator(object):
+class FWFOperator:
 
     def __init__(self, name, func=None):
         self.name = name
         self.func = func
-        
+
         if func is None:
             self.func = lambda x: x
 
@@ -18,16 +18,16 @@ class FWFOperator(object):
 
     def __eq__(self, other):
         return lambda line: self.get(line) == other
-    
+
     def __ne__(self, other):
         return lambda line: self.get(line) != other
-    
+
     def __gt__(self, other):
         return lambda line: self.get(line) > other
-    
+
     def __lt__(self, other):
         return lambda line: self.get(line) < other
-    
+
     def __ge__(self, other):
         return lambda line: self.get(line) >= other
 

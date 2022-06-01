@@ -9,3 +9,7 @@
 *.pyd
 *.html
 *.obj
+.tox
+.cache
+.venv/
+build/

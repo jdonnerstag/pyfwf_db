@@ -26,7 +26,7 @@ class FWFIndexLike(FWFBaseMixin, abc.ABC):
             view = self.fwfview
             view.progress_count = 0
             gen = (log_progress(view, i) or (i, v) for i, v in gen)
-                
+
         self._index2(gen)
 
         return self
@@ -34,7 +34,6 @@ class FWFIndexLike(FWFBaseMixin, abc.ABC):
 
     def _index2(self, gen):
         """Create the index"""
-        pass
 
 
     @abc.abstractmethod
@@ -50,7 +49,7 @@ class FWFIndexLike(FWFBaseMixin, abc.ABC):
     @abc.abstractmethod
     def fwf_subset(self, fwffile, key, fields):
         """Create a new view based on range (slice) provided"""
-    
+
 
     def __getitem__(self, key):
         """Create a new view with all rows matching the index key"""

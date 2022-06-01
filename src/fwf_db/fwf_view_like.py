@@ -3,6 +3,7 @@
 
 import abc 
 from itertools import islice
+from typing import Iterable, List, Optional, Tuple
 
 from .fwf_base_mixin import FWFBaseMixin
 
@@ -22,12 +23,12 @@ class FWFViewLike(FWFBaseMixin, abc.ABC):
 
 
     @abc.abstractmethod
-    def __len__(self):
+    def __len__(self) -> int:
         """Varies depending on the view implementation"""
 
 
     @abc.abstractmethod
-    def line_at(self, index):
+    def line_at(self, index) -> str:
         """Get the raw line data for the line with the index"""
 
 
@@ -47,7 +48,7 @@ class FWFViewLike(FWFBaseMixin, abc.ABC):
 
 
     def field_from_index(self, idx):
-        """Determine the field namd from the index"""
+        """Determine the field named from the index"""
         fields = self.fields
         if isinstance(idx, int):
             return next(islice(fields.keys(), idx, None))
@@ -136,10 +137,10 @@ class FWFViewLike(FWFBaseMixin, abc.ABC):
 
 
     @abc.abstractmethod
-    def iter_lines(self):
+    def iter_lines(self) -> Iterable[Tuple[Optional[int], Optional[List[int]]]]:
         """Iterate over all lines in the file, returning raw line data"""
 
-        return (None, None)     # (Index, line)
+        return [] # (Index, line)
 
 
     def filter(self, arg1, arg2=None):
