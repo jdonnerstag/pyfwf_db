@@ -1,2 +1,0 @@
-fwf_db
-fwf_db_ext
