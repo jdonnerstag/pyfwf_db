@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-from .cython import fwf_db_ext
 from .fwf_subset import FWFSubset
 from .fwf_simple_index import FWFSimpleIndex
 from .fwf_simple_unique_index import FWFSimpleUniqueIndex
+from ._cython.fwf_db_cython import fwf_cython
 
 
 class FWFCythonException(Exception):
@@ -84,11 +84,11 @@ class FWFCython:
         if index is not None:
             index = self.fwffile.field_from_index(index)
 
-        rtn = fwf_db_ext.fwf_cython(self.fwffile,
-            field1_start_pos, field1_start_value,
-            field1_stop_pos, field1_stop_value,
-            field2_start_pos, field2_start_value,
-            field2_stop_pos, field2_stop_value,
+        rtn = fwf_cython(self.fwffile,
+            field1_start_pos, field1_stop_pos,
+            field2_start_pos, field2_stop_pos,
+            field1_start_value, field1_stop_value,
+            field2_start_value, field2_stop_value,
             index=index,
             unique_index=unique_index,
             integer_index=integer_index,

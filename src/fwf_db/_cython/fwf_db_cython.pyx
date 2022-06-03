@@ -33,20 +33,18 @@ from libc.stdint cimport uint32_t
 from cpython cimport array
 from libc.stdlib cimport atoi
 
-from ..fwf_mem_optimized_index import BytesDictWithIntListValues
-
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
 def say_hello_to(name):
     """Health check"""
 
-    print(f"Hello {name}!")
+    return f"Hello {name}!"
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def str_to_bytes(obj):
+cdef str_to_bytes(obj):
     """Convert string to bytes using utf-8 encoding"""
 
     if isinstance(obj, str):
@@ -71,8 +69,14 @@ cdef uint32_t load32(const char *p):  # char*  is allowed to alias anything
 cdef const char* get_virtual_address(mm):
     """Determine the virtual memory address of a (read-only) mmap region"""
 
+    cdef const char* addr
+
+    if isinstance(mm, (str, bytes)):
+        addr = mm
+        return addr
+
     cdef const unsigned char[:] mm_view = mm
-    cdef const char* addr = <const char*>&mm_view[0]
+    addr = <const char*>&mm_view[0]
     return addr
 
 # -----------------------------------------------------------------------------
@@ -81,120 +85,14 @@ cdef const char* get_virtual_address(mm):
 cdef int get_field_size(fwf, field_name):
     """For field 'field_name' determine its size (number of bytes) in the fixed-width files"""
     cdef field_slice = fwf.fields[field_name]
-    cdef int field_size = field_slice.stop - field_slice.start
-    return field_size
-
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-
-def iter_and_filter(fwf,
-    int field1_startpos, bytes field1_start_value, int field1_endpos, bytes field1_end_value,
-    int field2_startpos, bytes field2_start_value, int field2_endpos, bytes field2_end_value):
-    """This is an optimized effective date and period filter, that shows 10-15x
-    performance improvements. Doesn't sound a lot but 2-3 secs vs 20-30 secs makes a
-    big difference when developing software and you need to wait for it.
-
-    The method has certain (sensible) requirements:
-    - Since it is working on the raw data, the values must be bytes or strings.
-    - If startpos respectively endpos == -1 it'll be ignored
-    - startpos and endpos are relativ to line start
-    - the field length is determined by the length of the value (bytes)
-    - The comparison is pre-configured: start_value <= value <= end_value
-    - Empty values in the line have predetermined meaning: beginning and end of time
-
-    Return: an array with the line indices that passed the filters
-    """
-
-    # Convert Strings to Bytes
-    field1_start_value = str_to_bytes(field1_start_value)
-    field1_end_value = str_to_bytes(field1_end_value)
-    field2_start_value = str_to_bytes(field2_start_value)
-    field2_end_value = str_to_bytes(field2_end_value)
-
-    # Const doesn't work in Cython, but all these are essentially constants,
-    # aimed to speed up execution
-    cdef int field1_start_len = <int>(len(field1_start_value)) if field1_start_value else 0
-    cdef int field1_start_stoppos = field1_startpos + field1_start_len
-
-    cdef int field1_end_len = <int>(len(field1_end_value)) if field1_end_value else 0
-    cdef int field1_end_stoppos = field1_endpos + field1_end_len
-    cdef int field1_end_lastpos = field1_end_stoppos - 1
-
-    cdef int field2_start_len = <int>(len(field2_start_value)) if field2_start_value else 0
-    cdef int field2_start_stoppos = field2_startpos + field2_start_len
-
-    cdef int field2_end_len = <int>(len(field2_end_value)) if field2_end_value else 0
-    cdef int field2_end_stoppos = field2_endpos + field2_end_len
-    cdef int field2_end_lastpos = field2_end_stoppos - 1
-
-    # Where to start within the file, what is the file size, and line width
-    cdef long start_pos = fwf.start_pos
-    cdef long fsize = fwf.fsize
-    cdef int fwidth = fwf.fwidth
-
-    # Provide access to the (read-only) memory map
-    cdef const char* mm = get_virtual_address(fwf.mm)
-
-    # The result array of indices (int). We pre-allocate the memory
-    # and shrink it later (once) if needed.
-    cdef array.array result = array.array('i', [])
-    array.resize(result, fwf.reclen + 1)
-    cdef int* result_ptr = result.data.as_ints
-
-    cdef int count = 0      # Position within the target array
-    cdef int irow = 0       # Row / line count in the file
-    cdef const char* line   # Current line
-
-    while start_pos < fsize:
-        line = mm + start_pos
-
-        # Execute the effective data and period filters
-        if (
-            (field1_startpos >= 0) and
-            (strncmp(field1_start_value, line + field1_startpos, field1_start_len) < 0)
-            ):
-            pass # print(f"{irow} - 1 - False")
-        elif (
-            (field1_endpos >= 0) and
-            (line[field1_end_lastpos] != 32) and
-            (strncmp(field1_end_value, line + field1_endpos, field1_end_len) > 0)
-            ):
-            pass # print(f"{irow} - 2 - False")
-        elif (
-            (field2_startpos >= 0) and
-            (strncmp(field2_start_value, line + field2_startpos, field2_start_len) < 0)
-            ):
-            pass # print(f"{irow} - 3 - False")
-        elif (
-            (field2_endpos >= 0) and
-            (line[field2_end_lastpos] != 32) and
-            (strncmp(field2_end_value, line + field2_endpos, field2_end_len) > 0)
-            ):
-            pass # print(f"{irow} - 4 - False")
-        else:
-            # This record we want to keep
-            result_ptr[count] = irow
-            count += 1
-
-        # Next line
-        start_pos += fwidth
-        irow += 1
-
-    # Shrink the array to the actually needed size
-    array.resize(result, count)
-    return result
+    return field_slice.stop - field_slice.start
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
 def get_field_data(fwf, field_name):
-    """Return a numpy array with the data from the 'field', in the
-    sequence read from the file.
-
-    numpy has no array of bytes or string, just numeric primitives. And I
-    didn't want to build another access layer. Additionally we thought that
-    Numpy and Pandas certainly have additional nice cool features that will
-    help us processing the data.
+    """Return a numpy array of string values with the data from the 'field',
+    in the sequence read from the file.
     """
 
     # Some constants needed further down
@@ -232,14 +130,15 @@ def get_field_data(fwf, field_name):
 # -----------------------------------------------------------------------------
 
 def create_index(fwf, field_name):
-    """Create an index (dict: values -> [line number]) for 'field'
+    """Create an index (dict: value -> [line number]) for 'field'
 
     Leverage the speed of Cython (and C) which saturates the SDD when reading
     the data and thus allows to do some minimal processing in between, such as
     updating the index. It's not perfect, it adds some delay (e.g. 6 sec),
     however it is still much better then creating the index afterwards (14 secs).
 
-    Return: a dict which maps values to one or more lines (line number)
+    Return: a dict which maps values to one or more lines (line number), representing
+    lines which have the same value (index key).
     """
 
     # Some constants
@@ -417,11 +316,11 @@ cdef inline int last_pos(int [:] next_ar, int inext):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-## @cython.boundscheck(False)  # Deactivate bounds checking
-## @cython.wraparound(False)   # Deactivate negative indexing.
+#-- # @cython.boundscheck(False)  # Deactivate bounds checking
+#-- # @cython.wraparound(False)   # Deactivate negative indexing.
 def fwf_cython(fwf,
-    int field1_startpos, bytes field1_start_value, int field1_endpos, bytes field1_end_value,
-    int field2_startpos, bytes field2_start_value, int field2_endpos, bytes field2_end_value,
+    int field1_startpos, int field1_endpos, int field2_startpos, int field2_endpos,
+    bytes field1_start_value, bytes field1_end_value, bytes field2_start_value, bytes field2_end_value,
     index=None, unique_index=False, integer_index=False, index_dict=None, index_tuple=None):
     """Putting it all together: Filter the fwf file on an effective date and a
     period, and optionally create an index on a 'field'. The index can optionally
@@ -524,27 +423,6 @@ def fwf_cython(fwf,
 
     cdef int create_tuple = index_tuple is not None
 
-    # Enable optimizations of our memory efficient index (dict)
-    cdef int is_mem_optimized_dict = isinstance(index_dict, BytesDictWithIntListValues)
-    cdef int mem_dict_last
-    cdef dict mem_dict_dict
-    cdef int [:] mem_dict_next
-    cdef int [:] mem_dict_end
-    cdef signed char [:] mem_dict_file
-    cdef int [:] mem_dict_lineno
-    cdef int index_tuple_int
-    cdef int inext
-    cdef int iend
-
-    if is_mem_optimized_dict:
-        mem_dict_last = index_dict.last
-        mem_dict_dict = index_dict.index
-        mem_dict_next = index_dict.next
-        mem_dict_end = index_dict.end
-        mem_dict_file = index_dict.file
-        mem_dict_lineno = index_dict.lineno
-        index_tuple_int = 0 if index_tuple is None else int(index_tuple)
-
     # Iterate over all the lines in the file
     cdef int count = 0      # The index in array to add the next index
     cdef int irow = 0       # Current line number
@@ -589,28 +467,7 @@ def fwf_cython(fwf,
                 if create_integer_index:
                     key = atoi(key)
 
-                if is_mem_optimized_dict:
-                    # Cython is all about performance and this little bit of
-                    # code specific to the memory optimized dict for indices,
-                    # allows Cython to apply it's magic.
-
-                    mem_dict_last += 1
-                    value = mem_dict_dict.get(key, None)
-                    if value is None:
-                        inext = mem_dict_last
-                        mem_dict_dict[key] = inext
-                        mem_dict_end[inext] = inext
-                    else:
-                        iend = value
-                        inext = mem_dict_end[iend]
-                        mem_dict_next[inext] = mem_dict_last
-                        mem_dict_end[iend] = mem_dict_last
-                        inext = mem_dict_last
-
-                    mem_dict_file[inext] = index_tuple_int
-                    mem_dict_lineno[inext] = irow
-
-                elif create_unique_index:
+                if create_unique_index:
                     # Unique index: just keep the last index
                     value = (index_tuple, irow) if create_tuple else irow
                     values[key] = value
@@ -627,9 +484,6 @@ def fwf_cython(fwf,
     if not create_index:
         array.resize(result, count)
         return result
-
-    if is_mem_optimized_dict:
-        values.last = mem_dict_last
 
     # Else, return the index
     return values

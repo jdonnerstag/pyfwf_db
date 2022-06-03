@@ -27,8 +27,26 @@ indices a standard python dict is perfectly fine.
 
 import struct
 import collections
-import numpy as np
 
+import numpy as np
+cimport numpy
+
+from libc.stdlib cimport atoi
+from libc.string cimport strncmp, strncpy, memcpy
+
+from fwf_db_cython import str_to_bytes
+
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+def say_hello_to(name):
+    """Health check"""
+
+    return f"Hello {name}!"
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 # pylint: disable=missing-class-docstring
 class BytesDictWithIntListValues(collections.abc.Mapping):
@@ -363,3 +381,168 @@ class MyIndexDict:
                 buckets_by_length[v] += 1
 
         return (percentage_filled, buckets_by_length, max_length, buckets_length)
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+## @cython.boundscheck(False)  # Deactivate bounds checking
+## @cython.wraparound(False)   # Deactivate negative indexing.
+def fwf_cython(fwf,
+    int field1_startpos, int field1_endpos, int field2_startpos, int field2_endpos,
+    bytes field1_start_value, bytes field1_end_value, bytes field2_start_value, bytes field2_end_value,
+    index=None, unique_index=False, integer_index=False, index_dict=None, index_tuple=None):
+    """
+    Please see fwf_db_cython.fwf_cython() for more details. This function is
+    exactly the same, but uses the memory optimized dictionary also defined in
+    this package.
+    """
+
+    # Some constants which will be tested millions of times
+    cdef int create_index = index is not None
+    cdef int create_unique_index = unique_index is True
+    cdef int create_integer_index = integer_index is True
+
+    if not create_index:
+        raise Exception("'index' is None. Please use fwf_db_cython.fwf_cython() if you don't require an index")
+
+    if not create_unique_index:
+        raise Exception("'create_unique_index' is True. Please use fwf_db_cython.fwf_cython() for unique indices")
+
+    # If index is a field name, then determine the fields position within a line
+    cdef index_slice = fwf.fields[index]
+    cdef int index_start = index_slice.start
+    cdef int index_stop = index_slice.stop
+
+    # Convert the filter values into bytes if needed
+    field1_start_value = str_to_bytes(field1_start_value)
+    field1_end_value = str_to_bytes(field1_end_value)
+    field2_start_value = str_to_bytes(field2_start_value)
+    field2_end_value = str_to_bytes(field2_end_value)
+
+    # Const doesn't work in Cython, but all these are essentially constants,
+    # aimed to speed up execution
+    cdef int field1_start_len = <int>(len(field1_start_value)) if field1_start_value else 0
+    cdef int field1_start_stoppos = field1_startpos + field1_start_len
+
+    cdef int field1_end_len = <int>(len(field1_end_value)) if field1_end_value else 0
+    cdef int field1_end_stoppos = field1_endpos + field1_end_len
+    cdef int field1_end_lastpos = field1_end_stoppos - 1
+
+    cdef int field2_start_len = <int>(len(field2_start_value)) if field2_start_value else 0
+    cdef int field2_start_stoppos = field2_startpos + field2_start_len
+
+    cdef int field2_end_len = <int>(len(field2_end_value)) if field2_end_value else 0
+    cdef int field2_end_stoppos = field2_endpos + field2_end_len
+    cdef int field2_end_lastpos = field2_end_stoppos - 1
+
+    # Where to start within the file, what is the file size, and line width
+    cdef long start_pos = fwf.start_pos
+    cdef long fsize = fwf.fsize
+    cdef int fwidth = fwf.fwidth
+
+    # Get the memory address for the (memory-mapped) file
+    cdef const char* mm = get_virtual_address(fwf.mm)
+
+    # If an index is requested, create an respective dict that
+    # eventually will contain the index.
+    cdef values
+    cdef key
+    cdef value
+
+    if index_dict is not None:
+        if not isinstance(index_dict, BytesDictWithIntListValues):
+            raise Exception("Parameter 'index_dict' must either be of type BytesDictWithIntListValues")
+
+        values = index_dict
+    else:
+        values = BytesDictWithIntListValues()
+
+    cdef int create_tuple = index_tuple is not None
+
+    # Enable optimizations of our memory efficient index (dict)
+    cdef int mem_dict_last = index_dict.last
+    cdef dict mem_dict_dict = index_dict.index
+    cdef int [:] mem_dict_next = index_dict.next
+    cdef int [:] mem_dict_end = index_dict.end
+    cdef signed char [:] mem_dict_file = index_dict.file
+    cdef int [:] mem_dict_lineno = index_dict.lineno
+    cdef int index_tuple_int = 0 if index_tuple is None else int(index_tuple)
+    cdef int inext
+    cdef int iend
+
+    # Iterate over all the lines in the file
+    cdef int count = 0      # The index in array to add the next index
+    cdef int irow = 0       # Current line number
+    cdef const char* line   # Line data
+
+    while (start_pos + fwidth) <= fsize:
+        line = mm + start_pos
+
+        # Execute the effective data and period filters
+        if (
+            (field1_startpos >= 0) and
+            (strncmp(field1_start_value, line + field1_startpos, field1_start_len) < 0)
+            ):
+            pass # print(f"{irow} - 1 - False")
+        elif (
+            (field1_endpos >= 0) and
+            (line[field1_end_lastpos] != 32) and
+            (strncmp(field1_end_value, line + field1_endpos, field1_end_len) > 0)
+            ):
+            pass # print(f"{irow} - 2 - False")
+        elif (
+            (field2_startpos >= 0) and
+            (strncmp(field2_start_value, line + field2_startpos, field2_start_len) < 0)
+            ):
+            pass # print(f"{irow} - 3 - False")
+        elif (
+            (field2_endpos >= 0) and
+            (line[field2_end_lastpos] != 32) and
+            (strncmp(field2_end_value, line + field2_endpos, field2_end_len) > 0)
+            ):
+            pass # print(f"{irow} - 4 - False")
+        else:
+            # The line passed all the filters
+
+            # Get the field data (as bytes)
+            key = line[index_start : index_stop]
+            if create_integer_index:
+                key = atoi(key)
+
+            # Cython is all about performance and this little bit of
+            # code specific to the memory optimized dict for indices,
+            # allows Cython to apply it's magic.
+
+            mem_dict_last += 1
+            value = mem_dict_dict.get(key, None)
+            if value is None:
+                inext = mem_dict_last
+                mem_dict_dict[key] = inext
+                mem_dict_end[inext] = inext
+            else:
+                iend = value
+                inext = mem_dict_end[iend]
+                mem_dict_next[inext] = mem_dict_last
+                mem_dict_end[iend] = mem_dict_last
+                inext = mem_dict_last
+
+            mem_dict_file[inext] = index_tuple_int
+            mem_dict_lineno[inext] = irow
+
+        start_pos += fwidth
+        irow += 1
+
+    values.last = mem_dict_last
+
+    # Else, return the index
+    return values
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+cdef const char* get_virtual_address(mm):
+    """Determine the virtual memory address of a (read-only) mmap region"""
+
+    cdef const unsigned char[:] mm_view = mm
+    cdef const char* addr = <const char*>&mm_view[0]
+    return addr

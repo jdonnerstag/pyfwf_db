@@ -10,7 +10,7 @@ import io
 from random import randrange
 from time import time
 
-from fwf_db.fwf_mem_optimized_index import BytesDictWithIntListValues, MyIndexDict
+from fwf_db._cython.fwf_mem_optimized_index import BytesDictWithIntListValues, MyIndexDict
 
 
 def test_constructor():
@@ -198,7 +198,7 @@ def test_MyIndexDict_put():
     # TODO Lets assume we use 256 entry (1 byte) lookup tables, for every byte found.
     # TODO for an 10 byte index, 10 consequtive lookups would be needed to find an exact match
     # TODO Given the test above, the hash approach also requires 4-6 hops given our current hash implementation
-    
+
 
 def test_MyIndexDict_get():
     data = MyIndexDict(size=100, mm=b"1234567890\nabcdefghij\nklmnopqrst\nuvwxyzABCD" * 100, reclen=11, field_pos=0, field_len=1, align="left")
@@ -216,7 +216,7 @@ def test_MyIndexDict_get():
 
     assert data._get_from_bucket(1, b"1") == None
     assert data._get_from_bucket(117, b"1") == None
-    
+
     assert data._get_from_bucket(2, b"1") == 0
     assert data._get_from_bucket(2, b"a") == 1
     assert data._get_from_bucket(2, b"k") == 2

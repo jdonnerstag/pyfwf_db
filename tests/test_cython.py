@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+# pylint: disable=missing-class-docstring, missing-function-docstring
+
 import pytest
 
 import abc
@@ -11,10 +13,7 @@ from random import randrange
 from time import time
 from collections import defaultdict
 
-from fwf_db.fwf_file import FWFFile
-from fwf_db.cython import fwf_db_ext
-from fwf_db.fwf_cython import FWFCython
-
+import fwf_db
 
 
 class HumanFile(object):
@@ -33,20 +32,20 @@ class HumanFile(object):
 
 def exec_fwf_cython_empty(data):
 
-    fwf = FWFFile(HumanFile)
+    fwf = fwf_db.FWFFile(HumanFile)
     with fwf.open(data) as fd:
         assert len(fd) == 0
 
-        rtn = fwf_db_ext.fwf_cython(fwf, 
+        rtn = fwf_db.fwf_db_ext.fwf_cython(fwf,
             -1, None, -1, None,
             -1, None, -1, None,
-            index=None, 
-            unique_index=False, 
+            index=None,
+            unique_index=False,
             integer_index=False
         )
         assert len(fd) == len(rtn)
 
-        rtn = FWFCython(fd).apply(-1, None, -1, None)
+        rtn = fwf_db.fwf_db_ext.fwf_cython.FWFCython(fd).apply(-1, None, -1, None)
         assert len(fd) == len(rtn)
 
 

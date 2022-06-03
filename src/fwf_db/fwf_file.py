@@ -29,8 +29,10 @@ class FWFFile(FWFViewLike):
         following properties: FIELDSPECS.
 
         ENCODING is an optional property to convert binary data into string.
+        NEWLINE is an optional property providing the list of allowed newline chars
+        COMMENTS is an optional property containing the line comment char (default: #)
 
-        Please the unit tests for an example.
+        Please see the unit tests for an example.
         """
 
         self.reader = reader
@@ -150,9 +152,9 @@ class FWFFile(FWFViewLike):
 
 
     def __enter__(self):
-        """Make this class a context manager. What is enables is to use
-        this class and open() in a with clause, and alternatively open
-        and close the file manually.
+        """Make this class a context manager. What it enables is to use
+        this class and open() in a with clause, as an alternative to manual
+        open / close.
 
         1)
         with FWFFile(HumanFile).open(DATA) as fd:
@@ -180,7 +182,7 @@ class FWFFile(FWFViewLike):
         if isinstance(file, str):
             self.file = file
             fd = self.fd = open(file, "rb")
-            self.mm = mmap.mmap(fd.fileno(), 0, access=mmap.ACCESS_COPY)
+            self.mm = mmap.mmap(fd.fileno(), 0, access=mmap.ACCESS_READ)
         elif isinstance(file, bytes):
             # Support data already loaded in whatever way. Nice for testing.
             self.file = id(file)

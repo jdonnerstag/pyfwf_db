@@ -11,5 +11,7 @@
 *.obj
 .tox
 .cache
+.pyd
 .venv/
 build/
+fwf_db.egg-info/

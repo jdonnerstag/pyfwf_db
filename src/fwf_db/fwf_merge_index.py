@@ -9,7 +9,7 @@ from .fwf_multi_subset import FWFMultiSubset
 from .fwf_file import FWFFile
 from .fwf_cython import FWFCython
 from .fwf_multi_file import FWFMultiFileMixin
-from .fwf_mem_optimized_index import BytesDictWithIntListValues
+from ._cython.fwf_mem_optimized_index import BytesDictWithIntListValues
 
 
 class FWFMergeIndexException(Exception):
@@ -41,7 +41,7 @@ class FWFMergeIndex(FWFMultiFileMixin, FWFDictIndexLike):
             self.data.resize(len(fd))
 
         FWFCython(fd).apply(
-            index=index or self.index, 
+            index=index or self.index,
             unique_index=False,
             integer_index=self.integer_index,
             index_dict=self.data,       # Update this dict

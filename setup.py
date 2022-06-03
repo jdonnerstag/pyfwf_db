@@ -9,14 +9,7 @@ https://github.com/pypa/sampleproject
 # pylint: disable=deprecated-module, wrong-import-order
 import pathlib
 from setuptools import setup, find_packages
-from distutils.extension import Extension
-from Cython.Build import cythonize
-import numpy
 
-
-ext_modules = [
-    Extension("fwf_db_ext", sources=["src/fwf_db/_fwf_db_ext.pyx"], include_dirs=[numpy.get_include()])
-]
 
 here = pathlib.Path(__file__).parent.resolve()
 
@@ -210,8 +203,4 @@ setup(
         # "Say Thanks!": "http://saythanks.io/to/example",
         # "Source": "https://github.com/jdonnderstag/pyfwf_db/",
     },
-
-    ext_modules = cythonize(ext_modules, language_level="3", annotate=True),
-
-    zip_safe = False,
 )

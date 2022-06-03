@@ -22,7 +22,7 @@ from fwf_db.fwf_operator import FWFOperator as op
 from fwf_db.fwf_cython import FWFCython
 from fwf_db.cython import fwf_db_ext
 from fwf_db.fwf_merge_index import FWFMergeIndex
-from fwf_db.fwf_mem_optimized_index import BytesDictWithIntListValues
+from fwf_db._cython.fwf_mem_optimized_index import BytesDictWithIntListValues
 
 
 class CENT_PARTY:
@@ -81,16 +81,16 @@ def test_default_dict():
     fwf = FWFFile(CENT_SALES_ASSIGNMENT)
 
     with fwf.open(FILE_SALES_ASSIGNMENT) as fd:
-        assert len(fd) == 10363608   
+        assert len(fd) == 10363608
 
         data = defaultdict(list)
 
         t1 = time()
-        rtn = fwf_db_ext.fwf_cython(fwf, 
+        rtn = fwf_db_ext.fwf_cython(fwf,
             -1, None, -1, None,
             -1, None, -1, None,
-            index="SALES_LOCATION_ID", 
-            unique_index=False, 
+            index="SALES_LOCATION_ID",
+            unique_index=False,
             integer_index=False,
             index_dict=data,
             index_tuple=None
@@ -106,16 +106,16 @@ def test_mem_optimized_dict():
     fwf = FWFFile(CENT_SALES_ASSIGNMENT)
 
     with fwf.open(FILE_SALES_ASSIGNMENT) as fd:
-        assert len(fd) == 10363608   
+        assert len(fd) == 10363608
 
         data = BytesDictWithIntListValues(len(fd))
 
         t1 = time()
-        rtn = fwf_db_ext.fwf_cython(fwf, 
+        rtn = fwf_db_ext.fwf_cython(fwf,
             -1, None, -1, None,
             -1, None, -1, None,
-            index="SALES_LOCATION_ID", 
-            unique_index=False, 
+            index="SALES_LOCATION_ID",
+            unique_index=False,
             integer_index=False,
             index_dict=data,
             index_tuple=None
