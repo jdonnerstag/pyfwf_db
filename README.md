@@ -1,6 +1,11 @@
 # FWF - Fixed-Width-Field File Format parser and tools
 
-A python library that provides efficient read-only access to files with fixed-width-fields.
+This project has been extracted from a larger program. Review and cleanup
+is not finished yet.
+
+A python library that provides performant, read-only, Nosql-like access
+to (very) large files with fixed-width-fields. File size is not restricted
+by the amount of memory available. Fast index creation.
 
 Files that look like this:
 ```
@@ -16,38 +21,51 @@ USRI19820125Fcf54b2eb5219Marc Kidd       WhateverMedic
 USME20080503F0f51da89a299Kelly Crose     WhateverComedian
 ...
 ```
-Where each line represents one dataset and every field has a fixed length, without explicit separator between the fields.
+Where each line represents one dataset and every field has a
+fixed length, without explicit separator between the fields.
 
 ## Key Features
 
 This lib is especially targetted for the following use cases:
 
-- No more coffee breaks for whatever ingest or import job to finish
+- No more lunch breaks for whatever ingest or import job to finish
 - Data sets which are too large to fit into memory
-- New files of the same kind arrive regulary and must be treated like one large file.
-- Views (subsets)
-- Views based on filters (== indexes)
-- Retrieving data via lookups (views, indexes) must be very fast. But no analytics, reporting or number crunching.
+- New files of the same kind arrive regulary and must be treated as one large file.
+- Views (subsets) are required
+- Views based on filters (== indexes). We opted for django-like filters.
+- Retrieving data via lookups (views, indexes) must be very fast. But no analytics,
+  reporting or number crunching.
 - Easy export of views into Pandas, Vaex and other tools if needed
-- Some data are like change records (CDC) and only the last one received is relevant. Old ones can be ignored. Filtering them should be easy and fast.
-- Persist indexes to avoid rebuilding them
-- Casts and transformations to convert field data into
-  strings, ints, dates or anything else
-- Support for arbitrary line-endings: it's unbelievable how often we receive files with none-standard line-endings, such as \x00 or similar.
+- Some data are like change records (CDC) and only the last one received is relevant.
+  Old ones must be ignored. Filtering them should be easy and fast.
+- Persisted indexes to avoid rebuilding them
+- Casts and transformations to convert field data into strings, ints, dates or
+  anything else
+- Support for arbitrary line-endings: it's unbelievable how often we receive files
+  with none-standard line-endings, such as \x00 or similar.
 - Support for files larger then the available memory => memory mapped files.
-- Files which are compressed or from an object store can still be processed, but must fit into memory (or locally cached)
-- Field length is in bytes rather then chars. UTF-8 chars consume
-  1-6 bytes, which leads to variable line lengths in bytes. The lib
-  however relies on a constant line length in bytes
-- There are many tools around to explore (fixed-width) data files. But this little tool has been handy for us.
+- Files which are compressed or from an object store can still be processed, but
+  must fit into memory (or locally cached)
+- Field length is in bytes rather then chars. UTF-8 chars consume 1-6 bytes, which
+  leads to variable line lengths in bytes. The lib however relies on a constant line
+  length in bytes
+- Vizualization as table (thanks to [terminaltables](https://robpol86.github.io/terminaltables/)
+- Change the order of the columns, to change the visualisation
+- Remove columns not needed
+- Add (in-memory) columns. The files remain read-only.
+- Supports sorting and uniqueness filters based on column data
+- Count number of entries in a view (subset)
+
+There are many tools around to explore (fixed-width) data files. But this little
+tool has been handy for us.
 
 ## How did we get here?
 
 Building this lib wasn't our first thought:
 
-- We needed lots of lookups across multiple tables. We are using traditional
-  RDBMS systems a lot and have really experienced people. But ingesting and
-  preparing (staging) the data took ages. We applied partitioning, and all kind
+- We needed lots of lookups across multiple tables. And because we are using
+  RDBMS and Nosql systems quite a bit, we have experienced people. But ingesting
+  and preparing (staging) the data took ages. We applied partitioning, and all sort
   of tricks to speed up ingest and lookups, but it remained painful, slow and
   also comparatively expensive. We've tested it on-premise and in public clouds,
   including rather big boxes with sufficient I/O and network bandwidth.
@@ -56,7 +74,7 @@ Building this lib wasn't our first thought:
   layer. This and because network latency for queries don't go away, did not
   make us happy.
 - Several of us have laptops with 24GB RAM and we initially started with
-  a 5GB data set in uncompressed fixed-width files. We tried to load them with
+  a 5GB data set of uncompressed fixed-width files. We tried to load them with
   Pandas, but quickly run into out-of-memory exceptions, even with in-stream
   filtering of records upon ingest. There are several blogs alluding to a
   factor 5 between raw data and memory consumption. Once loaded, the
@@ -65,31 +83,25 @@ Building this lib wasn't our first thought:
   - we completely avoid any load or ingest job. We can start using new
     files immediately when they arrive.
   - A full index scan, takes less then 2 mins on our standard business
-    laptops (with SDD). Many times faster than the other
-    options, and on low-cost hardware (vs big boxes and high-speed networks).
-  - With Numpy based indexes it is very fast to determine the line. Loading it from disc and converting the line and required
-    fields / columns from bytes into consumable data types, is a bit slower
-    compared to in-memory preprocessed Pandas dataframes. But we need to do
-    millions of lookups with moderate overlap. Where required, we cache the converted object.
- - We've tested it with 100GB data sets, slowly approaching memory limits
-   for full table (in-memory) indexes. Obviously depending on the number
+    laptops (with SDD). Many times faster than the other options, and on
+    low-cost hardware (vs big boxes and high-speed networks).
+  - With Numpy based indexes it is very fast to determine the line number. Loading
+    the line from disc and converting the required fields / columns from bytes
+    into consumable data types, is a bit slower compared to in-memory preprocessed
+    Pandas dataframes. But we need to do millions of lookups, and in our use cases,
+    we don't need to re-read lines that often. Where required, we cache the
+    converted object.
+ - We've tested it with 100GB data sets (our files are usually <10GB), approaching
+   memory limits for full table (in-memory) indexes. Obviously depending on the number
    of rows and size of the index key.
-
-## Features
-
-- Parse and objectify your file
-- Filter objects using a django-like syntax
-- Reorganize your data
-- Vizualization as table (thanks to
-   [terminaltables](https://robpol86.github.io/terminaltables/)
-- Order by column
-- Add or remove columns
-- Count a subset
-- Uniqueness of data on a column
 
 ## Installation
 
+work-in-progress: The project is not yet available on pip. For now, it
+is required to download and build it (e.g. `python setup.py bdist_wheel`)
+
 Just use pip
+
 ```
 pip install fwf_db
 ```
@@ -97,19 +109,26 @@ pip install fwf_db
 ## Setting up your parser
 
 First thing you need to know is the width of each column in your file.
-There's no magic here. You will need to find out.
+There's no magic here. You need to find out.
 
 Lets take [this
 file](https://raw.githubusercontent.com/nano-labs/pyfwf3/master/examples/humans.txt)
-as example. This is its first line:
+as an example. Its first line looks like:
 
 ```
 1234567890123456789012345678901234567890123456789012345678901234567890123
 US       AR19570526Fbe56008be36eDianne Mcintosh         Whatever    Medic
 ```
 
-First 9 characters are the location. Next 2 characters are the state. Then 8 byte for the
-birthdate. Next byte is the gender. Next 12 I don't know.  Next 24 are the name. And so on. But I only want name, birthday and gender so let's write it's model
+- 9 bytes: location
+- 2 bytes: state
+- 8 bytes: birthdate
+- 1 byte: gender
+- 12 bytes: don't know
+- 24 bytes: name
+- .. and so on
+
+I only want name, birthday and gender. So let's write the model:
 
 ``` python
 from fwf import BaseLineParser
@@ -123,8 +142,7 @@ class Human(BaseLineParser):
 ```
 
 The slices represent the first and last positions of each information
-in the line and that's the most basic line parser you need. Now we are
-going to use it with the file parser.
+in the line. Now we are going to use it with the file parser.
 
 ``` python
 from pyfwf import BaseFileParser
@@ -169,15 +187,14 @@ class HumanFileParser(BaseFileParser):
 parsed = HumanFileParser.open("examples/humans.txt")
 ```
 
-These classes are discussed in more detail further down below.
-
 ## Queryset
 
-`BaseFileParser` makes all records from the file available via its `objects` attribute. So:
+`BaseFileParser` makes all records from the file available via
+its `objects` attribute:
 
 ``` python
 >>> parsed = HumanFileParser.open("examples/humans.txt")
->>> # slices return a smaller queryset instance
+>>> # slices provide a view (subset) onto the full data set
 >>> parsed.objects[0:5]
 +------------------+----------+--------+
 | name             | birthday | gender |
@@ -206,13 +223,14 @@ These classes are discussed in more detail further down below.
 ('M', 'Jack Brown', '19490106')
 >>> list(parsed.objects[327])
 ['M', 'Jack Brown', '19490106']
->>> # To prevent the fields from changing order use OrderedDict instead of dict on _map. More about that later
+>>> # To prevent the fields from changing order use OrderedDict
+>>> # instead of dict on _map. More about that later
 ```
 
 ## .filter(**kwargs)
 
 Here is where the magic happens. A filtered queryset will always return
-a new queryset that can be filtered too and so on
+a new queryset that can be filtered again and so on
 
 ``` python
 >>> parsed = HumanFileParser.open("examples/humans.txt")
@@ -477,13 +495,16 @@ was specified
     ('Shirley Gray', 'M', '19510403', 'US', 'WI', 'Whatever', 'Comedian'),
     ('Georgia Frank', 'F', '20110508', 'US', 'MD', 'Whatever', 'Comedian'),
     ('Virginia Lambert', 'M', '19930404', 'US', 'PA', 'Whatever', 'Shark tammer')]
->>> # Note that you dont need to slice the result with '[:]'. I am only doing it to show the response structure behind the table representation
+>>> # Note that you dont need to slice the result with '[:]'.
+>>> # I am only doing it to show the response structure behind the table representation
 ```
 
 There are also 2 hidden fields that may be used, if needed:
 
-- _line_number: The line number on the original file, counting even if some line is skipped during parsing
-- _unparsed_line: The unchanged and unparsed original line, with original line breakers at the end
+- _line_number: The line number on the original file, counting even if
+  some line is skipped during parsing
+- _unparsed_line: The unchanged and unparsed original line, with original
+  line breakers at the end
 
 ``` python
 >>> parsed = CompleteHumanFileParser.open("examples/humans.txt")
