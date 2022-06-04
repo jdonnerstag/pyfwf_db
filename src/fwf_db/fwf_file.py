@@ -116,6 +116,7 @@ class FWFFile(FWFViewLike):
         """Determine the file size.
 
         Adjust the file size if the last line has no newline.
+        TODO I don't like that it is changing the file size
         """
 
         fsize = len(mm)
@@ -195,7 +196,7 @@ class FWFFile(FWFViewLike):
         self.fwidth = self.record_length(self.fields) + self.number_of_newline_bytes
         self.fsize = self.get_file_size(self.mm)
         self.start_pos = self.skip_comment_line(self.mm, self.comment_char)
-        self.reclen = int((self.fsize - self.start_pos + 1) / self.fwidth)
+        self.reclen = int((self.fsize - self.start_pos + 0.1) / self.fwidth) if len(self.mm) > 0 else 0
 
         self.init_view_like(slice(0, self.reclen), self.fields)
 

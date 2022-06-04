@@ -44,7 +44,7 @@ def say_hello_to(name):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-cdef str_to_bytes(obj):
+cpdef str_to_bytes(obj):
     """Convert string to bytes using utf-8 encoding"""
 
     if isinstance(obj, str):
@@ -82,7 +82,7 @@ cdef const char* get_virtual_address(mm):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-cdef int get_field_size(fwf, field_name):
+cpdef int get_field_size(fwf, field_name):
     """For field 'field_name' determine its size (number of bytes) in the fixed-width files"""
     cdef field_slice = fwf.fields[field_name]
     return field_slice.stop - field_slice.start
@@ -90,7 +90,7 @@ cdef int get_field_size(fwf, field_name):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def get_field_data(fwf, field_name):
+cpdef get_field_data(fwf, field_name):
     """Return a numpy array of string values with the data from the 'field',
     in the sequence read from the file.
     """
@@ -114,7 +114,7 @@ def get_field_data(fwf, field_name):
     # Loop over every line
     cdef int irow = 0
     cdef const char* ptr = mm + start_pos + <int>field_slice.start
-    while start_pos < fsize:
+    while (start_pos + fwidth) <= fsize:
 
         # Add the field value to the numpy array
         values[irow] = ptr[0 : field_size]
@@ -129,7 +129,7 @@ def get_field_data(fwf, field_name):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def create_index(fwf, field_name):
+cpdef create_index(fwf, field_name):
     """Create an index (dict: value -> [line number]) for 'field'
 
     Leverage the speed of Cython (and C) which saturates the SDD when reading
@@ -159,7 +159,7 @@ def create_index(fwf, field_name):
 
     cdef int irow = 0
     cdef const char* ptr = mm + start_pos + <int>field_slice.start
-    while start_pos < fsize:
+    while (start_pos + fwidth) <= fsize:
 
         # Add the value and row to the index
         values[ptr[0 : field_size]].append(irow)
@@ -174,7 +174,7 @@ def create_index(fwf, field_name):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def create_unique_index(fwf, field_name):
+cpdef create_unique_index(fwf, field_name):
     """Create an unique index (dict: value -> line number) for 'field'.
 
     Note: in case the same field value is found multiple times, then the
@@ -204,7 +204,7 @@ def create_unique_index(fwf, field_name):
 
     cdef int irow = 0
     cdef const char* ptr = mm + start_pos + <int>field_slice.start
-    while start_pos < fsize:
+    while (start_pos + fwidth) <= fsize:
 
         # Update the index. This is Python and thus rather slow. But I
         # also don't know how to further optimize.
@@ -220,7 +220,7 @@ def create_unique_index(fwf, field_name):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def get_int_field_data(fwf, field_name):
+cpdef get_int_field_data(fwf, field_name):
     """Read the data for 'field', convert them into a int and store them in a
     numpy array
 
@@ -246,7 +246,7 @@ def get_int_field_data(fwf, field_name):
 
     cdef int irow = 0
     cdef const char* ptr = mm + start_pos + <int>field_slice.start
-    while start_pos < fsize:
+    while (start_pos + fwidth) <= fsize:
 
         # Convert the field string data into int and add to the array
         values[irow] = atoi(ptr[0 : field_size])
@@ -258,11 +258,10 @@ def get_int_field_data(fwf, field_name):
     # Array of int values
     return values
 
-
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def create_int_index(fwf, field_name):
+cpdef create_int_index(fwf, field_name):
     """Like create_index() except that the 'field' is converted into a int.
 
     Return: dict: int(field) -> [indices]
@@ -287,7 +286,7 @@ def create_int_index(fwf, field_name):
     cdef int v
     cdef int irow = 0
     cdef const char* ptr = mm + start_pos + <int>field_slice.start
-    while start_pos < fsize:
+    while (start_pos + fwidth) <= fsize:
 
         # Convert the field value into an int and add it to the index
         v = atoi(ptr[0 : field_size])
@@ -318,9 +317,9 @@ cdef inline int last_pos(int [:] next_ar, int inext):
 
 #-- # @cython.boundscheck(False)  # Deactivate bounds checking
 #-- # @cython.wraparound(False)   # Deactivate negative indexing.
-def fwf_cython(fwf,
-    int field1_startpos, int field1_endpos, int field2_startpos, int field2_endpos,
-    bytes field1_start_value, bytes field1_end_value, bytes field2_start_value, bytes field2_end_value,
+cpdef fwf_cython(fwf,
+    str filter_field1, bytes field1_start_value, bytes field1_end_value,
+    str filter_field2, bytes field2_start_value, bytes field2_end_value,
     index=None, unique_index=False, integer_index=False, index_dict=None, index_tuple=None):
     """Putting it all together: Filter the fwf file on an effective date and a
     period, and optionally create an index on a 'field'. The index can optionally
@@ -376,6 +375,9 @@ def fwf_cython(fwf,
 
     # Const doesn't work in Cython, but all these are essentially constants,
     # aimed to speed up execution
+    cdef field1_slice = fwf.fields[filter_field1] if filter_field1 is not None and len(filter_field1) > 0 else slice(-1, -1)
+    cdef int field1_startpos = field1_slice.start
+    cdef int field1_endpos = field1_slice.stop
     cdef int field1_start_len = <int>(len(field1_start_value)) if field1_start_value else 0
     cdef int field1_start_stoppos = field1_startpos + field1_start_len
 
@@ -383,6 +385,9 @@ def fwf_cython(fwf,
     cdef int field1_end_stoppos = field1_endpos + field1_end_len
     cdef int field1_end_lastpos = field1_end_stoppos - 1
 
+    cdef field2_slice = fwf.fields[filter_field2] if filter_field2 is not None and len(filter_field2) > 0 else slice(-1, -1)
+    cdef int field2_startpos = field2_slice.start
+    cdef int field2_endpos = field2_slice.stop
     cdef int field2_start_len = <int>(len(field2_start_value)) if field2_start_value else 0
     cdef int field2_start_stoppos = field2_startpos + field2_start_len
 
