@@ -318,8 +318,8 @@ cdef inline int last_pos(int [:] next_ar, int inext):
 #-- # @cython.boundscheck(False)  # Deactivate bounds checking
 #-- # @cython.wraparound(False)   # Deactivate negative indexing.
 cpdef fwf_cython(fwf,
-    str filter_field1, bytes field1_start_value, bytes field1_end_value,
-    str filter_field2, bytes field2_start_value, bytes field2_end_value,
+    str filter_field1=None, field1_start_value=None, field1_end_value=None,
+    str filter_field2=None, field2_start_value=None, field2_end_value=None,
     index=None, unique_index=False, integer_index=False, index_dict=None, index_tuple=None):
     """Putting it all together: Filter the fwf file on an effective date and a
     period, and optionally create an index on a 'field'. The index can optionally
@@ -357,6 +357,7 @@ cpdef fwf_cython(fwf,
     cdef int create_index = index is not None
     cdef int create_unique_index = unique_index is True
     cdef int create_integer_index = integer_index is True
+    cdef int create_tuple = index_tuple is not None
 
     # If index is a field name, then determine the fields position within a line
     cdef index_slice
@@ -378,22 +379,30 @@ cpdef fwf_cython(fwf,
     cdef field1_slice = fwf.fields[filter_field1] if filter_field1 is not None and len(filter_field1) > 0 else slice(-1, -1)
     cdef int field1_startpos = field1_slice.start
     cdef int field1_endpos = field1_slice.stop
-    cdef int field1_start_len = <int>(len(field1_start_value)) if field1_start_value else 0
-    cdef int field1_start_stoppos = field1_startpos + field1_start_len
+    cdef int field1_size = field1_slice.stop - field1_slice.start
+    cdef int field1_end_lastpos = field1_endpos - 1
+    cdef int field1_has_start_value = field1_size > 0 and field1_start_value is not None
+    cdef int field1_has_end_value = field1_size > 0 and field1_end_value is not None
 
-    cdef int field1_end_len = <int>(len(field1_end_value)) if field1_end_value else 0
-    cdef int field1_end_stoppos = field1_endpos + field1_end_len
-    cdef int field1_end_lastpos = field1_end_stoppos - 1
+    if field1_has_start_value and (len(field1_start_value) != field1_size):
+        raise Exception(f"'field1_size' is {field1_size}. field1_start_value ({field1_start_value}) must have the same length")
+
+    if field1_has_end_value and (len(field1_end_value) != field1_size):
+        raise Exception(f"'field1_size' is {field1_size}. field1_end_value ({field1_end_value}) must have the same length")
 
     cdef field2_slice = fwf.fields[filter_field2] if filter_field2 is not None and len(filter_field2) > 0 else slice(-1, -1)
     cdef int field2_startpos = field2_slice.start
     cdef int field2_endpos = field2_slice.stop
-    cdef int field2_start_len = <int>(len(field2_start_value)) if field2_start_value else 0
-    cdef int field2_start_stoppos = field2_startpos + field2_start_len
+    cdef int field2_size = field2_slice.stop - field2_slice.start
+    cdef int field2_end_lastpos = field2_endpos - 1
+    cdef int field2_has_start_value = field2_size > 0 and field2_start_value is not None
+    cdef int field2_has_end_value = field2_size > 0 and field2_end_value is not None
 
-    cdef int field2_end_len = <int>(len(field2_end_value)) if field2_end_value else 0
-    cdef int field2_end_stoppos = field2_endpos + field2_end_len
-    cdef int field2_end_lastpos = field2_end_stoppos - 1
+    if field2_has_start_value and (len(field2_start_value) != field2_size):
+        raise Exception(f"'field2_size' is {field2_size}. field2_start_value ({field2_start_value}) must have the same length")
+
+    if field2_has_end_value and (len(field2_end_value) != field2_size):
+        raise Exception(f"'field2_size' is {field2_size}. field2_end_value ({field2_end_value}) must have the same length")
 
     # Where to start within the file, what is the file size, and line width
     cdef long start_pos = fwf.start_pos
@@ -412,7 +421,7 @@ cpdef fwf_cython(fwf,
         array.resize(result, fwf.reclen + 1)
         result_ptr = result.data.as_ints
 
-    # If an index is requested, create an respective dict that
+    # If an index is requested, create a respective dict that
     # eventually will contain the index.
     cdef values
     cdef key
@@ -426,8 +435,6 @@ cpdef fwf_cython(fwf,
             else:
                 values = collections.defaultdict(list)
 
-    cdef int create_tuple = index_tuple is not None
-
     # Iterate over all the lines in the file
     cdef int count = 0      # The index in array to add the next index
     cdef int irow = 0       # Current line number
@@ -437,26 +444,27 @@ cpdef fwf_cython(fwf,
         line = mm + start_pos
 
         # Execute the effective data and period filters
+        #print(f"irow={irow}, field1_startpos={field1_startpos}, field1_endpos={field1_endpos}, field1_start_value={field1_start_value}, field1_end_value={field1_end_value}, line={line}")
         if (
-            (field1_startpos >= 0) and
-            (strncmp(field1_start_value, line + field1_startpos, field1_start_len) < 0)
+            field1_has_start_value and
+            (strncmp(line + field1_startpos, field1_start_value, field1_size) < 0)
             ):
             pass # print(f"{irow} - 1 - False")
         elif (
-            (field1_endpos >= 0) and
-            (line[field1_end_lastpos] != 32) and
-            (strncmp(field1_end_value, line + field1_endpos, field1_end_len) > 0)
+            field1_has_end_value and
+            ((line[field1_end_lastpos] == 32) or
+            (strncmp(line + field1_startpos, field1_end_value, field1_size) >= 0))
             ):
             pass # print(f"{irow} - 2 - False")
         elif (
-            (field2_startpos >= 0) and
-            (strncmp(field2_start_value, line + field2_startpos, field2_start_len) < 0)
+            field2_has_start_value and
+            (strncmp(line + field2_startpos, field2_start_value, field2_size) < 0)
             ):
             pass # print(f"{irow} - 3 - False")
         elif (
-            (field2_endpos >= 0) and
-            (line[field2_end_lastpos] != 32) and
-            (strncmp(field2_end_value, line + field2_endpos, field2_end_len) > 0)
+            field2_has_end_value and
+            ((line[field2_end_lastpos] == 32) or
+            (strncmp(line + field2_startpos, field2_end_value, field2_size) >= 0))
             ):
             pass # print(f"{irow} - 4 - False")
         else:
