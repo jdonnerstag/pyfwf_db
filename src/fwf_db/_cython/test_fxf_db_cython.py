@@ -38,8 +38,8 @@ def exec_fwf_cython_empty(filedef, data):
         assert len(fd) == 0
 
         rtn = fwf_db_cython.fwf_cython(fwf,
-            None, None, None,
-            None, None, None,
+            -1, -1, -1, -1,
+            None, None, None, None,
             index=None,
             unique_index=False,
             integer_index=False
@@ -155,45 +155,46 @@ def exec_fwf_cython_filter(filedef, data, filters):
 
 def test_fwf_cython_filter():
     # Because no index creation is requested, all these tests return a list of line numbers
-    assert len(exec_fwf_cython_filter(TestFile4, b"", [None, None, None, None, None, None])) == 0
-    assert len(exec_fwf_cython_filter(TestFile4, b"\n", [None, None, None, None, None, None])) == 0
-    assert len(exec_fwf_cython_filter(TestFile4, b"# ", [None, None, None, None, None, None])) == 0
-    assert len(exec_fwf_cython_filter(TestFile4, b"# empty", [None, None, None, None, None, None])) == 0
-    assert len(exec_fwf_cython_filter(TestFile4, b"# line \n# empty", [None, None, None, None, None, None])) == 0
+    no_filter = [-1, -1, -1, -1, None, None, None, None]
+    assert len(exec_fwf_cython_filter(TestFile4, b"", no_filter)) == 0
+    assert len(exec_fwf_cython_filter(TestFile4, b"\n", no_filter)) == 0
+    assert len(exec_fwf_cython_filter(TestFile4, b"# ", no_filter)) == 0
+    assert len(exec_fwf_cython_filter(TestFile4, b"# empty", no_filter)) == 0
+    assert len(exec_fwf_cython_filter(TestFile4, b"# line \n# empty", no_filter)) == 0
 
-    assert exec_fwf_cython_filter(TestFile4, b"# comment\n333\n444", [None, None, None, None, None, None]).tolist() == [0, 1]
-    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", [None, None, None, None, None, None]).tolist() == [0, 1, 2, 3]
+    assert exec_fwf_cython_filter(TestFile4, b"# comment\n333\n444", no_filter).tolist() == [0, 1]
+    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", no_filter).tolist() == [0, 1, 2, 3]
 
-    # You must provide a value for 'field1_start_value' and 'field1_end_value' if 'filter_field1' has been provided")
-    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", ["id", None, None, None, None, None]).tolist() == [0, 1, 2, 3]
-    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", [None, None, None, "id", None, None]).tolist() == [0, 1, 2, 3]
+    with pytest.raises(Exception):
+        # Whenever pos != -1, a value must be provided
+        assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", [0, -1, -1, -1, None, None, None, None]).tolist() == [0, 1, 2, 3]
 
-    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", ["id", "000", "999", None, None, None]).tolist() == [0, 1, 2, 3]
-    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", [None, None, None, "id", "000", "999"]).tolist() == [0, 1, 2, 3]
-    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", ["id", "000", "999", "id", "000", "999"]).tolist() == [0, 1, 2, 3]
+    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", [0, 0, -1, -1, b"000", b"999", None, None]).tolist() == [0, 1, 2, 3]
+    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", [-1, -1, 0, 0, None, None, b"000", b"999"]).tolist() == [0, 1, 2, 3]
+    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", [0, 0, 0, 0, b"000", b"999", b"000", b"999"]).tolist() == [0, 1, 2, 3]
 
     # The lower bound is inclusive. The upper bound is exclusive.
-    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", ["id", "111", "444", None, None, None]).tolist() == [0, 1, 2]
-    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", [None, None, None, "id", "111", "444"]).tolist() == [0, 1, 2]
+    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", [0, 0, -1, -1, b"111", b"444", None, None]).tolist() == [0, 1, 2]
+    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", [-1, -1, 0, 0, None, None, b"111", b"444"]).tolist() == [0, 1, 2]
 
-    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", ["id", "112", "444", None, None, None]).tolist() == [1, 2]
-    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", [None, None, None, "id", "112", "444"]).tolist() == [1, 2]
+    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", [0, 0, -1, -1, b"112", b"444", None, None]).tolist() == [1, 2]
+    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", [-1, -1, 0, 0, None, None, b"112", b"444"]).tolist() == [1, 2]
 
     # An empty value equals lowest or highest possible value
-    assert exec_fwf_cython_filter(TestFile4, b"111\n   \n333\n444", ["id", "000", "999", None, None, None]).tolist() == [0, 2, 3]
-    assert exec_fwf_cython_filter(TestFile4, b"111\n   \n333\n444", [None, None, None, "id", "000", "999"]).tolist() == [0, 2, 3]
+    assert exec_fwf_cython_filter(TestFile4, b"111\n   \n333\n444", [0, 0, -1, -1, b"111", b"444", None, None]).tolist() == [0, 1, 2]
+    assert exec_fwf_cython_filter(TestFile4, b"111\n   \n333\n444", [-1, -1, 0, 0, None, None, b"111", b"444"]).tolist() == [0, 1, 2]
 
     # Only filter on lower bound
-    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", ["id", "222", None, None, None, None]).tolist() == [1, 2, 3]
-    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", [None, None, None, "id", "222", None]).tolist() == [1, 2, 3]
-    assert exec_fwf_cython_filter(TestFile4, b"111\n   \n333\n444", ["id", "222", None, None, None, None]).tolist() == [2, 3]
-    assert exec_fwf_cython_filter(TestFile4, b"111\n   \n333\n444", [None, None, None, "id", "222", None]).tolist() == [2, 3]
+    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", [0, -1, -1, -1, b"222", None, None, None]).tolist() == [1, 2, 3]
+    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", [-1, -1, 0, -1, None, None, b"222", None]).tolist() == [1, 2, 3]
+    assert exec_fwf_cython_filter(TestFile4, b"111\n   \n333\n444", [0, -1, -1, -1, b"222", None, None, None]).tolist() == [1, 2, 3]
+    assert exec_fwf_cython_filter(TestFile4, b"111\n   \n333\n444", [-1, -1, 0, -1, None, None, b"222", None]).tolist() == [1, 2, 3]
 
     # Only filter on upper bound
-    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", ["id", None, "444", None, None, None]).tolist() == [0, 1, 2]
-    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", [None, None, None, "id", None, "444"]).tolist() == [0, 1, 2]
-    assert exec_fwf_cython_filter(TestFile4, b"111\n   \n333\n444", ["id", None, "444", None, None, None]).tolist() == [0, 2]
-    assert exec_fwf_cython_filter(TestFile4, b"111\n   \n333\n444", [None, None, None, "id", None, "444"]).tolist() == [0, 2]
+    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", [-1, 0, -1, -1, None, b"444", None, None]).tolist() == [0, 1, 2]
+    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", [-1, -1, -1, 0, None, None, None, b"444"]).tolist() == [0, 1, 2]
+    assert exec_fwf_cython_filter(TestFile4, b"111\n   \n333\n444", [-1, 0, -1, -1, None, b"444", None, None]).tolist() == [0, 1, 2]
+    assert exec_fwf_cython_filter(TestFile4, b"111\n   \n333\n444", [-1, -1, -1, 0, None, None, None, b"444"]).tolist() == [0, 1, 2]
 
-    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", ["id", "222", None, "id", None, "444"]).tolist() == [1, 2]
-    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", ["id", None, "444", "id", "222", None]).tolist() == [1, 2]
+    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", [0, -1, -1, 0, b"222", None, None, b"444"]).tolist() == [1, 2]
+    assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", [-1, 0, 0, -1, None, b"444", b"222", None]).tolist() == [1, 2]
