@@ -6,6 +6,12 @@
 - Cleanup file structure, tests, etc.
 - Make sure that everything is mentioned in readme, is actually working
 - I'm wondering whether we could use DataFrame, like Pandas, Veax, etc.
+   My understanding of Dataframe, and the Dataframe interchange protocol,
+   https://labs.quansight.org/blog/2021/10/dataframe-interchange-protocol-and-vaex/
+   is, that it is very much for columnar data. Whereas our use case is much more a
+   nosql / lookup by ID use case. Vaex/Panda are able to import python lists, which
+   fwf_db is able to provide (lazy) in a row-by-row format. Obviously Pandas and
+   Vaex will need to transpose the data upon load.
 - Use fsspec to support remote files, incl. AWS, GCP, etc.
 - Should we do local file caching in this module, or rather create another
   re-useable one? Is it may be already in fsspec?

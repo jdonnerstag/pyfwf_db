@@ -2,10 +2,11 @@
 (read-only) database.
 
 Large files may have hundred millions of records and might be too large
-to be loaded into memory. Hence fwf_db maps them into memory.
+to load into memory. Hence fwf_db maps them into memory.
 
 This Cython module is not a complete standalone module. It just contains
-few extension methods for fwf_db which have proved worthwhile.
+few extension methods for fwf_db which have proved worthwhile. These
+functions are rather low level and not intended for end-users directly.
 
 fwf_db is not a replacement for an RDBMS or analytics engine, but must
 be able to handled efficiently millions of millions of lookups. To achieve
@@ -325,6 +326,9 @@ cpdef fwf_cython(fwf,
     period, and optionally create an index on a 'field'. The index can optionally
     be made unique and the field value can be converted into an int.
 
+    Filters: if fieldX_(start/end)pos >= 0, then a fieldX_(start/end)_value must
+    be provided. Else that filter will be ignored.
+
     If index is None, the indices of the filtered lines are returned in an array.
     If index is a field name and unique_index is false => dict: value -> [indices].
     If index is a field name and unique_index is true => dict: value -> last index.
@@ -333,15 +337,15 @@ cpdef fwf_cython(fwf,
 
     This is an optimized effective date and period filter, that shows 10-15x
     performance improvements. Doesn't sound a lot but 2-3 secs vs 20-30 secs makes a
-    big difference when developing software and you need to wait for it.
+    big difference when developing software and you need to wait for the result.
 
     The method has certain (sensible) requirements:
-    - Since it is working on the raw data, the values must be bytes or strings.
+    - Since it is working on raw data, the values must be bytes
     - If startpos respectively endpos == -1 it'll be ignored
     - startpos and endpos are relativ to line start
     - the field length is determined by the length of the value (bytes)
-    - The comparison is pre-configured: start_value <= value <= end_value
-    - Empty values in the line have predetermined meaning: beginning and end of time
+    - The comparison is pre-configured: start_value <= value < end_value
+    - Empty line values are never filtered.
 
     If index is a field and 'index_dict' is provided (must be a subclass of dict), then this
     dict is updated rather then a new one generated. This is useful when creating a

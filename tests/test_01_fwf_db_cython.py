@@ -6,7 +6,7 @@
 import pytest
 import fwf_db
 import fwf_db.fwf_cython
-from . import fwf_db_cython
+from fwf_db._cython import fwf_db_cython
 
 def test_say_hello():
     assert fwf_db_cython.say_hello_to("me") == "Hello me!"
@@ -198,3 +198,59 @@ def test_fwf_cython_filter():
 
     assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", [0, -1, -1, 0, b"222", None, None, b"444"]).tolist() == [1, 2]
     assert exec_fwf_cython_filter(TestFile4, b"111\n222\n333\n444", [-1, 0, 0, -1, None, b"444", b"222", None]).tolist() == [1, 2]
+
+class TestFile6:
+
+    FIELDSPECS = [
+        {"name": "ID", "len": 2},
+        {"name": "sep1", "len": 1},
+        {"name": "ORDER_DATE", "len": 8},   # yyyymmdd
+        {"name": "sep2", "len": 1},
+        {"name": "MODIFIED", "len": 14},    # yyyymmddHHMMSS
+    ]
+
+def test_fwf_cython_filter_2():
+    data = b"""# Comment
+01 20170101 20170102172300
+02 20171231 20171231235959
+03 20170108 20170108101112
+04 20170128 20170128111213
+05 20180101 20180101000000
+"""
+    assert exec_fwf_cython_filter(TestFile6, data, [-1, -1, -1, -1, None, None, None, None]).tolist() == [0, 1, 2, 3, 4]
+    assert exec_fwf_cython_filter(TestFile6, data, [3, 3, -1, -1, b"20170101", b"20180101", None, None]).tolist() == [0, 1, 2, 3]
+    assert exec_fwf_cython_filter(TestFile6, data, [3, 3, -1, -1, b"20170201", b"20180101", None, None]).tolist() == [1]
+    assert exec_fwf_cython_filter(TestFile6, data, [3, -1, -1, -1, b"20170201", None, None, None]).tolist() == [1, 4]
+
+    # These one work by intention as well. Comparison is based on the length of the provided
+    # values, rather then field length as defined in the file spec.
+    assert exec_fwf_cython_filter(TestFile6, data, [-1, 3, -1, -1, None, b"2018", None, None]).tolist() == [0, 1, 2, 3]
+    assert exec_fwf_cython_filter(TestFile6, data, [3, 3, -1, -1, b"201701", b"201702", None, None]).tolist() == [0, 2, 3]
+    assert exec_fwf_cython_filter(TestFile6, data, [3, 3, -1, -1, b"2017", b"201702", None, None]).tolist() == [0, 2, 3]
+
+    assert exec_fwf_cython_filter(TestFile6, data, [3, 3, 12, 12, b"20170101", b"20180101", b"2017", b"201702"]).tolist() == [0, 2, 3]
+
+
+class TestFile7:
+
+    FIELDSPECS = [
+        {"name": "ID", "len": 2},
+        {"name": "sep1", "len": 1},
+        {"name": "VALID_FROM", "len": 8},   # yyyymmdd
+        {"name": "sep2", "len": 1},
+        {"name": "VALID_UNTIL", "len": 8},  # yyyymmdd
+    ]
+
+def test_fwf_cython_filter_3():
+    data = b"""# Comment
+01 20170101 20170131
+02 20170101 20170331
+03 20170201 20170227
+04 20170315 20170317
+05 20170410 20170510
+06 20170505 20170505
+"""
+    assert exec_fwf_cython_filter(TestFile7, data, [-1, -1, -1, -1, None, None, None, None]).tolist() == [0, 1, 2, 3, 4, 5]
+    assert exec_fwf_cython_filter(TestFile7, data, [3, -1, -1, -1, b"20170201", None, None, None]).tolist() == [2, 3, 4, 5]
+    assert exec_fwf_cython_filter(TestFile7, data, [3, 12, -1, -1, b"20170201", b"20170505", None, None]).tolist() == [2, 3]
+    assert exec_fwf_cython_filter(TestFile7, data, [3, 12, -1, -1, b"20170201", b"20170506", None, None]).tolist() == [2, 3, 5]
