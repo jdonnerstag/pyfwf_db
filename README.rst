@@ -42,23 +42,22 @@ This lib is especially targetted for the following use cases:
 - Easy export of views into Pandas, Vaex and other tools if needed
 - Some data are like change records (CDC) and only the last one received is relevant.
   Old ones must be ignored. Filtering them should be easy and fast.
-- Persisted indexes to avoid rebuilding them
-- Casts and transformations to convert field data into strings, ints, dates or
-  anything else
+- Persisted indexes to avoid rebuilding them unnecessarily
+- Casts and transformations to convert field data (bytes) into strings, ints,
+  dates or anything else
 - Support for arbitrary line-endings: it's unbelievable how often we receive files
   with none-standard line-endings, such as \x00 or similar.
-- Support for files larger then the available memory => memory mapped files.
 - Files which are compressed or from an object store can still be processed, but
   must fit into memory (or locally cached)
 - Field length is in bytes rather then chars. UTF-8 chars consume 1-6 bytes, which
   leads to variable line lengths in bytes. The lib however relies on a constant line
-  length in bytes
+  length in bytes (except for leading comment lines)
 - Vizualization as table (thanks to `terminaltables`_
-- Change the order of the columns, to change the visualisation
-- Remove columns not needed
-- Add (in-memory) columns. The files remain read-only.
-- Supports sorting and uniqueness filters based on column data
-- Count number of entries in a view (subset)
+- Virtually change the order of the columns, to change the visualisation
+- Virtually remove columns not needed
+- Virtually add columns (in-memory). The files remain read-only.
+- Sorting and uniqueness filters based on column data
+- Entry count in a view (subset)
 
 .. _terminaltables: https://robpol86.github.io/terminaltables/
 
@@ -70,22 +69,27 @@ How did we get here?
 
 Building this lib wasn't our first thought:
 
-- We needed lots of lookups across multiple tables. And because we are using
-  RDBMS and Nosql systems quite a bit, we have experienced people. But ingesting
-  and preparing (staging) the data took ages. We applied partitioning, and all sort
-  of tricks to speed up ingest and lookups, but it remained painful, slow and
-  also comparatively expensive. We've tested it on-premise and in public clouds,
-  including rather big boxes with sufficient I/O and network bandwidth.
+- We needed lots of lookups across multiple tables, all provided as files. And
+  because we have been using RDBMS and Nosql systems quite a bit, we had good and
+  experienced people. But ingesting and preparing (staging) the data took ages.
+  We applied partitioning, and all sort of tricks to speed up ingest and lookups,
+  but it remained painful, slow and also comparatively expensive. We've tested it
+  on-premise and in public clouds, including rather big boxes with sufficient I/O
+  and network bandwidth.
 - We tried NoSql but following best pratices, it is adviced to create a
   schema that matches your queries best. Hence more complexity in the ingest
   layer. This and because network latency for queries don't go away, did not
   make us happy.
+- We also tried converting the source files into hdf5 and similar formats, but
+  (a) it still requires injest and it wasn't especially fast, and (b) many of
+  these formats are columnar. Which is good for analytics, but doesn't help with
+  our use case.
 - Several of us have laptops with 24GB RAM and we initially started with
   a 5GB data set of uncompressed fixed-width files. We tried to load them with
   Pandas, but quickly run into out-of-memory exceptions, even with in-stream
   filtering of records upon ingest. There are several blogs alluding to a
-  factor 5 between raw data and memory consumption. Once loaded, the
-  performance was perfect.
+  factor 5 between raw data and memory consumption. Once loaded, the performance
+  was perfect.
 - With our little lib,
 
    - we completely avoid any load or ingest job. We can start using new
@@ -93,15 +97,15 @@ Building this lib wasn't our first thought:
    - A full index scan, takes less then 2 mins on our standard business
      laptops (with SDD). Many times faster than the other options, and on
      low-cost hardware (vs big boxes and high-speed networks).
-   - With Numpy based indexes it is very fast to determine the line number. Loading
-     the line from disc and converting the required fields / columns from bytes
+   - With Numpy based indexes, the solution is very fast to determine the line number.
+     Loading the line from disc and converting the required fields / columns from bytes
      into consumable data types, is a bit slower compared to in-memory preprocessed
      Pandas dataframes. But we need to do millions of lookups, and in our use cases,
      we don't need to re-read lines that often. Where required, we cache the
      converted object.
-   - We've tested it with 100GB data sets (our files are usually <10GB), approaching
-     memory limits for full table (in-memory) indexes. Obviously depending on the number
-     of rows and size of the index key.
+   - We've tested it with 100GB data sets (our individual file size usually is <10GB),
+     approaching memory limits for full table (in-memory) indexes. Obviously depending
+     on the number of rows and size of the index key.
 
 Installation
 ============
@@ -121,7 +125,7 @@ Setting up your parser
 First thing you need to know is the width of each column in your file.
 There's no magic here. You need to find out.
 
-Lets take `this file`_ as an example. Its first line looks like:
+Lets take `this file`_ as an example. The first line looks like:
 
 .. _this file: https://raw.githubusercontent.com/nano-labs/pyfwf3/master/examples/humans.txt
 
@@ -138,7 +142,7 @@ Lets take `this file`_ as an example. Its first line looks like:
 - 24 bytes: name
 - \.\. and so on
 
-I only want name, birthday and gender. So let's write the model:
+For the examples, we only use name, birthday and gender. So let's write the model:
 
 .. code-block:: Python
 
@@ -236,13 +240,13 @@ its `objects` attribute:
   >>> list(parsed.objects[327])
   ['M', 'Jack Brown', '19490106']
   >>> # To prevent the fields from changing order use OrderedDict
-  >>> # instead of dict on _map. More about that later
+  >>> # instead of dict on _map. More about that later.
 
 .filter(\*\*kwargs)
 ===================
 
 Here is where the magic happens. A filtered queryset will always return
-a new queryset that can be filtered again and so on
+a new queryset that can be filtered again and so on.
 
 .. code-block:: Python
 
@@ -292,7 +296,7 @@ not limited to:
 - __gt: greater than
 - __gte: greater than or equals
 - __ne: not equals
-- __len: field lenght (without trailing spaces)
+- __len: field length (without trailing spaces)
 - __startswith: value starts with that string
 - __endswith: value ends with that string
 
@@ -312,7 +316,7 @@ Pretty much the opposite of `.filter()`
 
   >>> parsed = HumanFileParser.open("examples/humans.txt")
   >>> first5 = parsed.objects[:5]
-  >>> firts5
+  >>> first5
   +------------------+----------+--------+
   | name             | birthday | gender |
   +------------------+----------+--------+
@@ -370,7 +374,7 @@ Reorder the whole queryset sorting by that given field
   | Dianne Mcintosh  | F      | 19570526 |
   +------------------+--------+----------+
 
-TODO: Order by more than one field and order by special field
+TODO: Order by more than one field via chaining order_by
 
 .unique(field_name)
 ====================
@@ -455,7 +459,7 @@ returns the specified fields only or all of them if none is specified.
 Returns a `ValuesList` instance which is in fact a extended `list`
 object with overwriten `__repr__` method just to look like a table
 on shell, so on every other aspect it is a list. May be a list of tuples,
-if more the one column is returned, or a simple list if only one field
+if more then one column is returned, or a simple list if only one field
 was specified
 
 .. code-block:: Python
@@ -517,8 +521,7 @@ was specified
 
 There are also 2 hidden fields that may be used, if needed:
 
-- _line_number: The line number on the original file, counting even if
-  some line is skipped during parsing
+- _line_number: The line number (record number) within the original file, excluding leading comments
 - _unparsed_line: The unchanged and unparsed original line, with original
   line breakers at the end
 
@@ -578,8 +581,7 @@ fwf.BaseLineParser
 This is the class responsible for the actual parsing which has to be
 extended to set its parsing map, as explained in [Setting up your
 parser](#setting_up_your_parser). It's also responsible for all the
-magic before and after parsing by the use of
-`_before_parse()` and
+magic before and after parsing by means of the `_before_parse()` and
 `_after_parse()` methods
 
 _before_parse()
@@ -588,14 +590,12 @@ _before_parse()
 This method is called before the line is parsed. At this point `self` has:
 
 - self._unparsed_line: Original unchanged line
-- self._parsable_line: Line to be parsed. If None given self._unparsed_line wil be used
+- self._parsable_line: Line to be parsed. If None then self._unparsed_line wil be used
 - self._line_number: File line number
 - self._headers: Name of all soon-to-be-available fields
 - self._map: The field mapping for the parsing
 
-Use it to pre-filter, pre-validade or process the line before parsing.
-
-Ex:
+Use it to pre-filter, pre-validate or process the line before parsing.
 
 .. code-block:: Python
 
@@ -618,25 +618,27 @@ Ex:
       )
 
       def _before_parse(self):
-          """Do some pre-process before the parsing."""
+          """Do some pre-processing before the parsing."""
           # Validate line size to avoid malformed lines
-          # an InvalidLineError will make this line to be skipped
-          # any other error will break the parsing
+          # an InvalidLineError will make this line to be skipped.
+          # Any other error will break the parsing
           if not len(self._unparsed_line) == 82:
               raise InvalidLineError()
 
-          # As I know that the first characters are reserved for location I will
-          # pre-filter any person that are not from US even before parsing it
+          # Since we know that the first characters are reserved for location, we
+          # pre-filter any person that is not from US even before parsing the line.
+          # Which is very efficient.
           if not self._unparsed_line.startswith("US"):
               raise InvalidLineError()
 
           # Then put everything uppercased
           self._parsable_line = self._unparsed_line.upper()
-          # Note that instead of changing self._unparsed_line I've set the new
-          # string to self._parsable_line. I don't want to loose the unparsed
-          # value because it is useful for further debug
 
-Then use it as you like
+          # Note that instead of changing self._unparsed_line, self._parsable_line
+          # is update. Preferably the unparsed value should be read-only. This is
+          # useful e.g. for debugging.
+
+Then use it as you like:
 
 .. code-block:: Python
 
@@ -653,6 +655,7 @@ Then use it as you like
   +------------------+--------+----------+----------+-------+----------+--------------+
   >>> # Note that everything is uppercased
   >>> # And there is nobody who is not from US
+  >>> # And almost without performance impact.
   >>> parsed.objects.exclude(location="US").count()
   0
   >>> parsed.objects.unique("location")
@@ -661,11 +664,9 @@ Then use it as you like
 _after_parse()
 ==============
 
-This method is called after the line is parsed. At this point you have a already parsed line
-and now you may create new fields, alter some existing or combine those. You still may filter
-some objects.
-
-E.g.:
+This method is called after the line is parsed. At this point line has been parsed
+and it users may create new fields, alter some existing ones or combine them.
+Filtering is also also still possible.
 
 .. code-block:: Python
 
@@ -696,12 +697,12 @@ E.g.:
               self.birthday = datetime.strptime(self.birthday, "%Y%m%d").date()
           except ValueError:
               # There is some "unknown" values on my example file so I decided to
-              # set birthday as 1900-01-01 as failover. I also could just skip
+              # set birthday to 1900-01-01 as fail-over. I also could just skip
               # those lines by raising InvalidLineError
               self.birthday = datetime(1900, 1, 1).date()
 
           # Set a new attribute 'age'
-          # Yeah, I know, it's not the proper way to calc someone's age but stil...
+          # Yeah, I know, it's not the proper way to calc someone's age but ...
           self.age = datetime.today().year - self.birthday.year
 
           # Combine 'location' and 'state' to create 'address' field
@@ -711,9 +712,9 @@ E.g.:
           del self.state
 
           # then update table headers so 'age' and 'address' become available and
-          # remove 'location' and 'state'
+          # 'location' and 'state' are removed.
           self._update_headers()
-          # You will note that the new columns will be added at the end of the
+          # Please note that the new columns have been added at the end of the
           # table. If you want some specific column order just set self._headers
           # manually
 
@@ -841,15 +842,14 @@ This class method opens the given file, parses it, closes it and
 returns a parsed file instance. Pretty much every example here is using
 `.open()`
 
-You may define your line parser class here, if you want, but for
-semantics sake I recommend that you extend BaseFileParser to set you
-line parser there.
+You may define your line parser class here, if you want, but I suggest you
+extend BaseFileParser to set you line parser there.
 
 Parse an already opened file
 ----------------------------
 
-You also may parse an already opened file, StringIO, downloaded file or
-any IO instance that you have. For that just create an instance directly
+You may also parse an already opened file, StringIO, downloaded file or
+any IO instance that you have:
 
 .. code-block:: Python
 
@@ -873,11 +873,15 @@ any IO instance that you have. For that just create an instance directly
 .objects attribute
 ====================
 
-Your parsed file have a `.objects` attribute. That is your complete parsed
-`queryset`
+Your parsed file has an `.objects` attribute. Which is a `queryset` consisting
+of all record, excluding the ones filtered in-line.
 
 Development
 ============
 
-`pip install -e .`
-`pytest tests\...`
+We are using a virtual env (`.venv`) for dependencies. And given the chosen
+file structure (`./src` directory; `./tests` directory without `__init__.py`), we do
+`pip install -e .` to install the project in '.' as a local package, with
+development enabled (-e).
+
+Test execution: `pytest tests\...`

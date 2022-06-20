@@ -20,6 +20,9 @@ which are valid during a specific period determined by table fields such as
 VALID_FROM and VALID_UNTIL. Again a tight loop executing millions of times.
 """
 
+# TODO Double-check which function is still required, vs. exists for
+# historic reasons.
+
 import collections
 import ctypes
 import array

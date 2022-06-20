@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+'''
+Perform basic tests with the Cython extension library
+'''
+
 # pylint: disable=missing-class-docstring, missing-function-docstring
 
 import pytest
@@ -9,6 +13,7 @@ import fwf_db.fwf_cython
 from fwf_db._cython import fwf_db_cython
 
 def test_say_hello():
+    """ Make sure we can load the lib and invoke same basic function """
     assert fwf_db_cython.say_hello_to("me") == "Hello me!"
 
 

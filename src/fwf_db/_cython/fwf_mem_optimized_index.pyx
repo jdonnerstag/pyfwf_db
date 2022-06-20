@@ -25,6 +25,15 @@ This special dict is only useful for non-unique indicies. For unique
 indices a standard python dict is perfectly fine.
 """
 
+# TODO This is almost the same as the other cython file. Is it worth it
+# to maintain a 2nd copy, with plenty redundant functions? Originally we
+# split it because we searched for an approach that is easily extendable,
+# assuming we'll want to test more indexes of different kind. We did not
+# find a really good approach so far, I think. A *.pyx file represents a
+# python module, not everything that is in a directory gets merged into
+# a module.
+
+
 import struct
 import collections
 

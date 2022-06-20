@@ -1,19 +1,21 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+# A convinence wrapper around a little cython lib
+
 from .fwf_subset import FWFSubset
 from .fwf_simple_index import FWFSimpleIndex
 from .fwf_simple_unique_index import FWFSimpleUniqueIndex
 from ._cython.fwf_db_cython import fwf_cython
 
+# TODO I'm wondering whether this whole file should go into the cython module?
 
 class FWFCythonException(Exception):
     ''' FWFCythonException '''
 
-
 class FWFCython:
     """Python is really nice, but for tight loops that must be executed million
-    times, it's interpreted nature become apparent. This is the python frontend
+    times, it's interpreter nature become apparent. This is the python frontend
     for a small Cython component that speeds up few tasks needed when processing
     fixed width files (fwf).
 
@@ -96,10 +98,14 @@ class FWFCython:
             index_tuple=index_tuple
         )
 
+        # TODO I'm wondering whether the "function" should go in the cython module?
         if (func is not None) and isinstance(rtn, dict):
             rtn = {func(k) : v for k, v in rtn.items()}
 
+        # TODO I don't like the hard-coded Index object creation. What about methods
+        # which can be subclassed?
         if index is None:
+            # TODO list(rtn) is not just a wrapper. What does not require a copy?
             return FWFSubset(self.fwffile, list(rtn), self.fwffile.fields)
 
         if unique_index is False:
