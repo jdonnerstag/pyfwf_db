@@ -54,6 +54,7 @@ from .fwf_unique import FWFUnique
 from .fwf_file import FWFFile
 from .fwf_multi_file import FWFMultiFile
 from .fwf_simple_index import FWFSimpleIndex
+from ._cython.fwf_db_cython import FWFCython
 
 version = (0, 1, 0, 'rc1')
 __version__ = "0.1.0"
