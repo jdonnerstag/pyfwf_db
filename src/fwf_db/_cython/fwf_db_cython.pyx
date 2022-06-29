@@ -104,6 +104,22 @@ cdef int last_pos(int [:] next_ar, int inext):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
+cpdef int str2int(const char* line, int start, int end):
+    cdef int ret = 0
+
+    while start < end:
+        ch = line[start]
+        if ch < 0x30 or ch > 0x39:
+            break
+
+        ret = ret * 10 + (ch - 0x30)
+        start += 1
+
+    return ret
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
 class FWFCythonException(Exception):
     ''' FWFCythonException '''
 
@@ -117,22 +133,21 @@ cdef class FWFFilterValue:
     cdef readonly int last
     cdef readonly bool upper
 
-    def __init__(self, pos, value, upper)
-        self.pos = pos if isinstance(pos, int) else -1
+    def __init__(self, pos, value, upper):
+        self.pos = pos if isinstance(pos, int) else 0
         self.value = value
         self.upper = upper
         if self.value:
-            self.len = len(self.value)
+            self.len = <int>len(self.value)
             self.last = self.pos + self.len - 1
         else:
             self.len = 0
             self.last = 0
-            self.pos = -1
 
-    cdef bool filter(self, bytes line):
-        return (self.pos >= 0) and
+    cpdef bool filter(self, const char* line):
+        return ((self.len > 0) and
             (line[self.last] != 32) and
-            ((strncmp(self.value, line + self.pos, self.len) > 0) != self.upper)
+            ((strncmp(self.value, line + self.pos, self.len) > 0) != self.upper))
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -154,26 +169,6 @@ cdef class FWFCython:
 
     cdef readonly list filters
 
-    cdef readonly int filter1_lower_pos
-    cdef readonly bytes filter1_lower_value
-    cdef readonly int filter1_lower_len
-    cdef readonly int filter1_lower_last
-
-    cdef readonly int filter1_upper_pos
-    cdef readonly int filter1_upper_len
-    cdef readonly bytes filter1_upper_value
-    cdef readonly int filter1_upper_last
-
-    cdef readonly int filter2_lower_pos
-    cdef readonly bytes filter2_lower_value
-    cdef readonly int filter2_lower_len
-    cdef readonly int filter2_lower_last
-
-    cdef readonly int filter2_upper_pos
-    cdef readonly bytes filter2_upper_value
-    cdef readonly int filter2_upper_len
-    cdef readonly int filter2_upper_last
-
     cdef readonly long start_pos
     cdef readonly long fsize
     cdef readonly int fwidth
@@ -184,6 +179,8 @@ cdef class FWFCython:
     cdef readonly field_slice
     cdef readonly field_size
 
+    cdef readonly irow
+    cdef readonly count
 
     def __init__(self, fwffile: FWFFile, field_name: str = None):
         self.fwf = fwffile
@@ -193,15 +190,7 @@ cdef class FWFCython:
         self.reclen = self.fwf.reclen
         self.mm_addr = get_virtual_address(self.fwf.mm)
 
-        self.has_filter = False
-        self.filter1_lower_pos = -1
-        self.filter1_lower_len = 0
-        self.filter1_upper_pos = -1
-        self.filter1_upper_len = 0
-        self.filter2_lower_pos = -1
-        self.filter2_lower_len = 0
-        self.filter2_upper_pos = -1
-        self.filter2_upper_len = 0
+        self.filters = list()
 
         self.field_name = field_name
         if field_name:
@@ -229,7 +218,7 @@ cdef class FWFCython:
             return start_pos
 
         if isinstance(start_pos, str):
-            return self.fwffile.fields[start_pos].start
+            return self.fwf.fields[start_pos].start
 
         raise FWFCythonException(f"Invalid parameters 'pos: {pos}, idx: {idx}, values: '{values}'")
 
@@ -242,7 +231,10 @@ cdef class FWFCython:
         elif isinstance(values, (str, bytes)):
             return bytes(values)
         elif isinstance(values, list):
-            return bytes(values[idx])
+            try:
+                return bytes(values[idx])
+            except:
+                return None
 
         raise FWFCythonException(f"Invalid parameters 'values: {values}, idx: {idx}")
 
@@ -254,69 +246,39 @@ cdef class FWFCython:
 
 
     def init_1st_filter(self, pos=None, values=None):
-        self.has_filter = True
+        value = self.get_value(values, 0)
+        if value:
+            pos = self.get_start_pos(pos, 0, value)
+            self.filters.append(FWFFilterValue(pos, value, False))
 
-        # Filter-1 -> the lower bound -> the position in the line; the value, the len of the value
-        self.filter1_lower_pos = self.get_start_pos(pos, 0, self.filter1_lower_value)
-        self.filter1_lower_value = self.get_value(values, 0)
-        self.filter1_lower_len = <int>(len(self.filter1_lower_value)) if self.filter1_lower_value else 0
-        self.filter1_lower_last = self.filter1_lower_pos + self.filter1_lower_len - 1
-
-        self.filter1_upper_pos = self.get_start_pos(pos, 1, self.filter1_upper_value)
-        self.filter1_upper_value = self.get_value(values, 1)
-        self.filter1_upper_len = <int>(len(self.filter1_upper_value)) if self.filter1_upper_value else 0
-        self.filter1_upper_last = self.filter1_upper_pos + self.filter1_upper_len - 1
+        value = self.get_value(values, 1)
+        if value:
+            pos = self.get_start_pos(pos, 1, value)
+            self.filters.append(FWFFilterValue(pos, value, True))
 
 
     def init_2nd_filter(self, pos=None, values=None):
-        self.has_filter = True
+        value = self.get_value(values, 0)
+        if value:
+            pos = self.get_start_pos(pos, 0, value)
+            self.filters.append(FWFFilterValue(pos, value, False))
 
-        # Filter-2 -> the lower bound -> the position in the line; the value, the len of the value
-        self.filter2_lower_pos = self.get_start_pos(pos, 0, self.filter2_lower_value)
-        self.filter2_lower_value = self.get_value(values, 0)
-        self.filter2_lower_len = <int>(len(self.filter2_lower_value)) if self.filter2_lower_value else 0
-        self.filter2_lower_last = self.filter2_lower_pos + self.filter2_lower_len - 1
-
-        self.filter2_upper_pos = self.get_start_pos(pos, 1, self.filter2_upper_value)
-        self.filter2_upper_value = self.get_value(values, 1)
-        self.filter2_upper_len = <int>(len(self.filter2_upper_value)) if self.filter2_upper_value else 0
-        self.filter2_upper_last = self.filter2_upper_pos + self.filter2_upper_len - 1
+        value = self.get_value(values, 1)
+        if value:
+            pos = self.get_start_pos(pos, 1, value)
+            self.filters.append(FWFFilterValue(pos, value, True))
 
 
-    cdef bool filter(self, bytes line):
-        if (
-            (self.filter1_lower_pos >= 0) and
-            (line[self.filter1_lower_last] != 32) and
-            (strncmp(self.filter1_lower_value, line + self.filter1_lower_pos, self.filter1_lower_len) > 0)
-            ):
-            # print(f"{irow} - 1 - False")
-            return False
-        elif (
-            (self.filter1_upper_pos >= 0) and
-            (line[self.filter1_upper_last] != 32) and
-            (strncmp(self.filter1_upper_value, line + self.filter1_upper_pos, self.filter1_upper_len) <= 0)
-            ):
-            # print(f"{irow} - 2 - False")
-            return False
-        elif (
-            (self.filter2_lower_pos >= 0) and
-            (line[self.filter2_lower_last] != 32) and
-            (strncmp(self.filter2_lower_value, line + self.filter2_lower_pos, self.filter2_lower_len) > 0)
-            ):
-            # print(f"{irow} - 3 - False")
-            return False
-        elif (
-            (self.filter2_upper_pos >= 0) and
-            (line[self.filter2_upper_last] != 32) and
-            (strncmp(self.filter2_upper_value, line + self.filter2_upper_pos, self.filter2_upper_len) <= 0)
-            ):
-            # print(f"{irow} - 4 - False")
-            return False
+    cdef bool filter(self, const char* line):
+        for f in self.filters:
+            if f.filter(line):
+                return False
 
         return True
 
-    cpdef evaluate_line(self, int irow, bytes line):
+    cpdef evaluate_line(self, int irow, const char* line):
         """Abstract base method"""
+
 
     cpdef super_analyze(self):
         """Return a numpy array of string values with the data from the 'field',
@@ -330,15 +292,19 @@ cdef class FWFCython:
         cdef const char* mm = self.mm_addr
         cdef long fsize = self.fsize
 
+        self.count = 0
+        cdef const char* line
         while (start_pos + fwidth) <= fsize:
             line = mm + start_pos
 
-            if self.has_filter == False or self.filter(line):
+            if self.filter(line):
                 self.evaluate_line(irow, line)
+                self.count += 1
 
             start_pos += fwidth
             irow += 1
 
+        self.irow = irow
 
     # TODO add filter
     cpdef create_index(self, field_name: str):
@@ -486,7 +452,7 @@ cdef class FWFCython:
         """ apply """
 
         if index is not None:
-            index = self.fwffile.field_from_index(index)
+            index = self.fwf.field_from_index(index)
 
         rtn = self.fwf_cython(
             index=index,
@@ -504,15 +470,15 @@ cdef class FWFCython:
         # which can be subclassed?
         if index is None:
             # TODO list(rtn) is not just a wrapper. What does not require a copy?
-            return FWFSubset(self.fwffile, list(rtn), self.fwffile.fields)
+            return FWFSubset(self.fwf, list(rtn), self.fwf.fields)
 
         if unique_index is False:
-            idx = FWFSimpleIndex(self.fwffile)
+            idx = FWFSimpleIndex(self.fwf)
             idx.field = index
             idx.data = rtn
             return idx
 
-        idx = FWFSimpleUniqueIndex(self.fwffile)
+        idx = FWFSimpleUniqueIndex(self.fwf)
         idx.field = index
         idx.data = rtn
         return idx
@@ -611,13 +577,9 @@ cdef class FWFCython:
         while (start_pos + self.fwidth) <= self.fsize:
             line = mm + start_pos
 
-            # Execute the effective data and period filters
+            # Execute the effective date and period filters
             #print(f"irow={irow}, line={line}")
-            #print(f" filter1_lower_pos={filter1_lower_pos}, filter1_lower_len={filter1_lower_len}, filter1_lower_value={filter1_lower_value}, filter1_lower_last={filter1_lower_last}")
-            #print(f" filter1_upper_pos={filter1_upper_pos}, filter1_upper_len={filter1_upper_len}, filter1_upper_value={filter1_upper_value}, field1_end_lastpos={field1_end_lastpos}")
-            #print(f" filter2_lower_pos={filter2_lower_pos}, filter2_lower_len={filter2_lower_len}, filter2_lower_value={filter2_lower_value}, field2_start_lastpos={field2_start_lastpos}")
-            #print(f" filter2_upper_pos={filter2_upper_pos}, filter2_upper_len={filter2_upper_len}, filter2_upper_value={filter2_upper_value}, field2_end_lastpos={field2_end_lastpos}")
-            if self.has_filter == False or self.filter(line) == True:
+            if self.filter(line) == False:
                 # The line passed all the filters
 
                 # If no index, then added the index to the result array
@@ -657,7 +619,7 @@ cdef class FWFLineNumber(FWFCython):
     filtered lines
     """
 
-    cdef readonly numpy.ndarray result
+    cdef readonly array.array result
 
     def __init__(self, fwffile: FWFFile):
         FWFCython.__init__(self, fwffile)
@@ -665,16 +627,19 @@ cdef class FWFLineNumber(FWFCython):
         # Allocate memory for all of the data
         # We are not converting or processing the field data in any way
         # or form => dtype for binary data types and field length
-        self.result = numpy.empty(self.reclen, dtype=numpy.int32)
+        self.result = array.array('i', [])
+        array.resize(self.result, self.reclen + 1)
+        #self.result_ptr = self.result.data.as_ints
 
-    cpdef evaluate_line(self, int irow, bytes line):
-        self.result[irow] = irow
+    cpdef evaluate_line(self, int irow, const char* line):
+        self.result[self.count] = irow
 
     cpdef analyze(self):
         """Return a numpy array of string values with the data from the 'field',
         in the sequence read from the file.
         """
         self.super_analyze()
+        array.resize(self.result, self.count)
         return self.result
 
 
@@ -696,11 +661,9 @@ cdef class FWFColumData(FWFCython):
     cpdef str determine_dtype(self):
         return f"S{self.field_size}"
 
-    cpdef determine_value(self, int irow, bytes line):
-        return line[self.field_slice]
-
-    cpdef evaluate_line(self, int irow, bytes line):
-        self.result[irow] = self.determine_value(irow, line)
+    cpdef evaluate_line(self, int irow, const char* line):
+        cdef bytes data = line
+        self.result[self.count] = data[self.field_slice]
 
     cpdef analyze(self):
         """Return a numpy array of string values with the data from the 'field',
@@ -723,8 +686,8 @@ cdef class FWFIntColumnData(FWFColumData):
     cpdef str determine_dtype(self):
         return "i4"
 
-    cpdef determine_value(self, int irow, bytes line):
-        return atoi(line[self.field_slice])
+    cpdef evaluate_line(self, int irow, const char* line):
+        self.result[self.count] = str2int(line, self.field_slice.start, self.field_slice.stop)
 
 
 cdef class FWFIndex(FWFCython):
@@ -753,10 +716,11 @@ cdef class FWFIndex(FWFCython):
         self.unique_index = False
 
     # Because of the different return values, this function can not be a cpdef
-    def determine_key(self, int irow, bytes line):
-        return line[self.field_slice]
+    def determine_key(self, int irow, const char* line):
+        cdef bytes data = line
+        return data[self.field_slice]
 
-    cpdef evaluate_line(self, int irow, bytes line):
+    cpdef evaluate_line(self, int irow, const char* line):
         key = self.determine_key(irow, line)
         if self.unique_index:
             self.result[key] = irow
@@ -795,5 +759,6 @@ cdef class FWFIntIndex(FWFIndex):
     """
 
     # Because of the different return values, this function can not be a cpdef
-    def determine_key(self, int irow, bytes line):
-        return atoi(line[self.field_slice])
+    # TODO Double check the performance impact
+    def determine_key(self, int irow, const char* line):
+        return str2int(line, self.field_slice.start, self.field_slice.stop)
