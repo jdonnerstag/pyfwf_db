@@ -6,7 +6,7 @@
 from .fwf_subset import FWFSubset
 from .fwf_simple_index import FWFSimpleIndex
 from .fwf_simple_unique_index import FWFSimpleUniqueIndex
-from ._cython.fwf_db_cython import fwf_cython
+#from ._cython.fwf_db_cython import fwf_cython
 
 # TODO I'm wondering whether this whole file should go into the cython module?
 
