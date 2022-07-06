@@ -1,23 +1,36 @@
 """fwf_db is about accessing large fixed width files almost like a
 (read-only) database.
 
-Large files may have hundred millions of records and might be too large
-to load into memory. Hence fwf_db maps them into memory.
+Large files can have hundreds of millions of records and often are too large
+to fit into memory. And even if your production system might be large enough,
+the dev & test servers often are not. 'fwf_db' leverages memory mapping
+to avoid this issue.
+
+fwf_db is not a replacement for an RDBMS or analytics engine, but must
+be able to handled efficiently millions of millions of lookups. To achieve
+reasonable performance an (in-memory) index is needed. Creating these indexes
+requires processing millions of records, and as validated by test cases,
+Cython is useful in these tight loops of millions of iterations.
+
+Similarly we had the requirement to filter certain events, e.g. records
+which were provided / updated after or before a certain (effective) date.
+Or records which are valid during a specific period determined by table
+fields such as VALID_FROM and VALID_UNTIL. Again a tight loop executing
+millions of times.
 
 This Cython module is not a complete standalone module. It just contains
 few extension methods for fwf_db which have proved worthwhile. These
 functions are rather low level and not intended for end-users directly.
 
-fwf_db is not a replacement for an RDBMS or analytics engine, but must
-be able to handled efficiently millions of millions of lookups. To achieve
-reasonable performance an (in-memory) index is needed. Creating the index
-requires processing millions of records, and as validated by test cases,
-Cython is useful in these tight loops of millions of iterations.
+Focus has been on performance. E.g. we had versions that were leveraging
+inheritance, or lambdas or generators. Because the performance was lower
+they are obviously much harder for Cython to optimize. Hence we ended up
+with simple plain functions (and a little bit of repetitive code).
 
-Similarly we had the requirement to filter certain events, e.g. records
-which were provided / updated after a certain (effective) date. Or records
-which are valid during a specific period determined by table fields such as
-VALID_FROM and VALID_UNTIL. Again a tight loop executing millions of times.
+Cython supports def, cpdef and cdef to define functions. Please see the offical
+documentation for more details. With cpdef, Cython decides whether python- or
+C-invocation logic gets used, which might be performance relevant. If you
+want to avoid this uncertainty, prefer cdef which definitely uses C-conventions.
 """
 
 import collections
@@ -34,10 +47,6 @@ from libc.stdint cimport uint32_t
 from cpython cimport array
 from libc.stdlib cimport atoi
 
-from ..fwf_subset import FWFSubset
-from ..fwf_simple_index import FWFSimpleIndex
-from ..fwf_simple_unique_index import FWFSimpleUniqueIndex
-
 ctypedef bint bool
 ctypedef object FWFFile
 
@@ -52,7 +61,7 @@ def say_hello_to(name):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-cpdef str_to_bytes(obj):
+cdef str_to_bytes(obj):
     """Convert string to bytes using utf-8 encoding"""
 
     if isinstance(obj, str):
@@ -78,39 +87,27 @@ cdef uint32_t load32(const char *p):  # char*  is allowed to alias anything
 cdef const char* get_virtual_address(mm):
     """Determine the virtual memory address of a (read-only) mmap region"""
 
-    cdef const char* addr
-
     if isinstance(mm, (str, bytes)):
-        addr = mm
-        return addr
+        return <const char*>mm
 
     cdef const unsigned char[:] mm_view = mm
-    addr = <const char*>&mm_view[0]
-    return addr
-
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-
-## @cython.boundscheck(False)  # Deactivate bounds checking
-## @cython.wraparound(False)   # Deactivate negative indexing.
-cdef int last_pos(int [:] next_ar, int inext):
-    cdef int last = inext
-    while inext > 0:
-        last = inext
-        inext = next_ar[inext]
-
-    return last
+    return <const char*>&mm_view[0]
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
 cpdef int str2int(const char* line, int start, int end):
-    cdef int ret = 0
+    """Convert bytes into an int value"""
 
+    cdef int ret = 0
     while start < end:
         ch = line[start]
+        if ch == 0x20:
+            continue
+
         if ch < 0x30 or ch > 0x39:
-            break
+            data = line[start:end]
+            raise TypeError(f"String is not an int: '{data}'")
 
         ret = ret * 10 + (ch - 0x30)
         start += 1
@@ -127,17 +124,36 @@ class FWFCythonException(Exception):
 # -----------------------------------------------------------------------------
 
 cdef class FWFFilterValue:
-    cdef readonly int pos
-    cdef readonly bytes value
-    cdef readonly int len
-    cdef readonly int last
-    cdef readonly bool upper
+    """Define lower and upper bound filters
+
+    An interesting aspect is, that these filters don't have to be aligned with the
+    boundary or size of fixed-width fields. This is especially interesting for date
+    fields which you can filter e.g. very efficiently by yyyy. Or where 2 fields have
+    been defined for date + time, which can be treated as one for the filter.
+
+    The number of bytes to be compared, is determined by the length (number of bytes)
+    of the provided lower / upper bound values respectively.
+
+    'lower' bounds are inclusive. 'upper' bounds are exclusive.
+
+    Sometimes fields are empty (spaces). Empty fields (more precisely, the most
+    right byte of the field is a space) are never filtered. Reason: assuming date
+    and time fields are most often subject to filters, then "empty" gets interpreted as
+    'lowest' or 'highest' value possible depending on whether it is a 'lower' or
+    'upper' bound filter.-
+    """
+
+    cdef readonly int pos       # Position in the line
+    cdef readonly bytes value   # Lower (inclusive) or upper bound (exclusive) values
+    cdef readonly int len       # len(value)
+    cdef readonly int last      # Position of the last char (== line[pos + len(value) - 1])
+    cdef readonly bool upper    # False, if lower bound. True, if upper bound
 
     def __init__(self, pos, value, upper):
         self.pos = pos if isinstance(pos, int) else 0
         self.value = value
         self.upper = upper
-        if self.value:
+        if self.value and pos >= 0:
             self.len = <int>len(self.value)
             self.last = self.pos + self.len - 1
         else:
@@ -165,51 +181,55 @@ cdef class FWFCython:
     - Create an integer index where the field value has been converted into an int.
     """
 
-    cdef readonly FWFFile fwf
+    cdef readonly FWFFile fwf       # The fixed-width file, including the data, field definitions etc.
 
-    cdef readonly list filters
+    cdef readonly list filters      # TODO test if a static fixed size C-style array is faster
 
-    cdef readonly long start_pos
-    cdef readonly long fsize
-    cdef readonly int fwidth
-    cdef readonly int reclen
-    cdef readonly const char* mm_addr
+    cdef readonly long start_pos    # Excluding leading comments, the (byte) index where the content starts
+    cdef readonly long fsize        # file size (incl. comments). Never access memory beyond
+    cdef readonly int fwidth        # fixed width record size, incl. newline
+    cdef readonly int records       # Number of records in the file
+    cdef readonly const char* mm_addr   # The memory address of the file's content (or in mem data region)
 
-    cdef readonly str field_name
-    cdef readonly field_slice
-    cdef readonly field_size
+    cdef readonly str field_name    # All indexes require a key (field name)
+    cdef readonly int field_start   # start positions of the field, relativ to the line
+    cdef readonly int field_stop    # stop positions of the field, relativ to the line
+    cdef readonly int field_size    # The length of the field
 
-    cdef readonly irow
-    cdef readonly count
+    cdef readonly int irow          # Temp: the iterators current row number
+    cdef readonly int count         # Temp: the iterators current row count, excluding filtered rows.
+    cdef readonly const char* line  # Temp: the iterators current line
 
     def __init__(self, fwffile: FWFFile, field_name: str = None):
         self.fwf = fwffile
         self.start_pos = self.fwf.start_pos
         self.fsize = self.fwf.fsize
         self.fwidth = self.fwf.fwidth
-        self.reclen = self.fwf.reclen
+        self.records = self.fwf.reclen
         self.mm_addr = get_virtual_address(self.fwf.mm)
 
         self.filters = list()
 
         self.field_name = field_name
         if field_name:
-            self.field_slice = self.fwf.fields[field_name]
-            self.field_size = self.field_slice.stop - self.field_slice.start
+            field = self.fwf.fields[field_name]
+            self.field_start = field.start
+            self.field_stop = field.stop
+            self.field_size = self.field_stop - self.field_start
 
 
-    def get_start_pos(self, pos, idx: int, values) -> int:
-        """ internal: Determine the start position within a line
+    def get_start_pos(self, pos, idx: int):
+        """ Internal: Determine the start position within a line
 
-        - return -1, if 'pos' or 'names' is None. -1 equals to "no filter"
+        - return -1, if 'pos' is None. -1 relates to "no filter"
         - if 'pos' is a list, then use 'idx' to determine the entry
         - if that entry is an int, then assume it is the start pos and return it
-        - if that entry is a str, then assume it is a field name, and use to determine
-          find the field, and return the field's start pos.
+        - if that entry is a str, then assume it is a field name, and use it to determine
+          the field's start pos.
         - Else, throw an exception
         """
 
-        if pos is None or values is None:
+        if pos is None:
             return -1
 
         start_pos = pos[idx] if isinstance(pos, list) else pos
@@ -217,97 +237,78 @@ cdef class FWFCython:
         if isinstance(start_pos, int):
             return start_pos
 
-        if isinstance(start_pos, str):
-            return self.fwf.fields[start_pos].start
+        field_name = start_pos
+        if isinstance(field_name, bytes):
+            field_name = str(field_name, "utf-8")
 
-        raise FWFCythonException(f"Invalid parameters 'pos: {pos}, idx: {idx}, values: '{values}'")
+        if isinstance(field_name, str):
+            return self.fwf.fields[field_name].start
+
+        raise FWFCythonException(f"Invalid parameters: pos: {pos}, idx: {idx}")
 
 
-    def get_value(self, values, idx: int) -> bytes:
-        """ internal: Determine the lower or upper bound filter value """
+    def get_value(self, values, idx: int):
+        """ Internal: Determine the lower or upper bound filter value """
 
         if values is None:
             return None
-        elif isinstance(values, (str, bytes)):
-            return bytes(values)
-        elif isinstance(values, list):
-            try:
-                return bytes(values[idx])
-            except:
-                return None
+
+        value = values[idx] if isinstance(values, list) else values
+
+        if isinstance(value, bytes):
+            return value
+        elif isinstance(value, str):
+            return value.encode("utf-8")
 
         raise FWFCythonException(f"Invalid parameters 'values: {values}, idx: {idx}")
 
 
-    def get_field_size(self, field_name: str) -> int:
-        """For field 'field_name' determine its size (number of bytes) in the fixed-width files"""
-        cdef field_slice = self.fwf.fields[field_name]
-        return field_slice.stop - field_slice.start
-
-
-    def init_1st_filter(self, pos=None, values=None):
-        value = self.get_value(values, 0)
+    def add_filter(self, pos, values, upper: bool, idx: int=0):
+        value = self.get_value(values, idx)
         if value:
-            pos = self.get_start_pos(pos, 0, value)
-            self.filters.append(FWFFilterValue(pos, value, False))
+            pos = self.get_start_pos(pos, idx)
+            if pos >= 0:
+                self.filters.append(FWFFilterValue(pos, value, upper))
 
-        value = self.get_value(values, 1)
-        if value:
-            pos = self.get_start_pos(pos, 1, value)
-            self.filters.append(FWFFilterValue(pos, value, True))
+        return True
 
 
-    def init_2nd_filter(self, pos=None, values=None):
-        value = self.get_value(values, 0)
-        if value:
-            pos = self.get_start_pos(pos, 0, value)
-            self.filters.append(FWFFilterValue(pos, value, False))
-
-        value = self.get_value(values, 1)
-        if value:
-            pos = self.get_start_pos(pos, 1, value)
-            self.filters.append(FWFFilterValue(pos, value, True))
+    cdef bytes field_value(self):
+        return self.line[self.field_start : self.field_stop]
 
 
-    cdef bool filter(self, const char* line):
+    cdef bool filter(self):
         for f in self.filters:
-            if f.filter(line):
+            if f.filter(self.line):
                 return False
 
         return True
 
-    cpdef evaluate_line(self, int irow, const char* line):
+
+    cdef evaluate_line(self):
         """Abstract base method"""
+        raise FWFCythonException(f"This is an abstract base implementation!!")
 
 
-    cpdef super_analyze(self):
-        """Return a numpy array of string values with the data from the 'field',
-        in the sequence read from the file.
-        """
+    cdef scan_file(self):
+        """Main loop: iterate over all records and filter the lines"""
 
-        # Loop over every line
-        cdef int irow = 0
-        cdef long start_pos = self.start_pos
-        cdef long fwidth = self.fwidth
-        cdef const char* mm = self.mm_addr
-        cdef long fsize = self.fsize
-
+        self.irow = 0
         self.count = 0
-        cdef const char* line
-        while (start_pos + fwidth) <= fsize:
-            line = mm + start_pos
+        cdef long start_pos = self.start_pos
 
-            if self.filter(line):
-                self.evaluate_line(irow, line)
+        while (start_pos + self.fwidth) <= self.fsize:
+            self.line = self.mm_addr + start_pos
+
+            if self.filter():
+                self.evaluate_line()
                 self.count += 1
 
-            start_pos += fwidth
-            irow += 1
+            start_pos += self.fwidth
+            self.irow += 1
 
-        self.irow = irow
 
-    # TODO add filter
-    cpdef create_index(self, field_name: str):
+    cpdef create_index(self):
         """Create an index (dict: value -> [line number]) for 'field'
 
         Leverage the speed of Cython (and C) which saturates the SDD when reading
@@ -319,27 +320,29 @@ cdef class FWFCython:
         lines which have the same value (index key).
         """
 
-        # Some constants
-        cdef field_slice = self.fwf.fields[field_name]
-        cdef int field_size = field_slice.stop - field_slice.start
-
         # The result dict that will contain the index
         cdef values = collections.defaultdict(list)
 
-        cdef int irow = 0
-        cdef long start_pos = self.fwf.start_pos
-        cdef const char* ptr = self.mm_addr + <int>field_slice.start
-        while (start_pos + self.fwidth) <= self.fsize:
+        self.irow = 0
+        self.count = 0
+        cdef long start_pos = self.start_pos
 
-            # Add the value and row to the index
-            values[ptr[0 : field_size]].append(irow)
+        cdef const char* line
+        while (start_pos + self.fwidth) <= self.fsize:
+            line = self.mm_addr + start_pos
+
+            if self.filter():
+                # Add the value and row to the index
+                values[self.field_value()].append(self.irow)
+
+                self.count += 1
 
             start_pos += self.fwidth
-            ptr += self.fwidth
-            irow += 1
+            self.irow += 1
 
         # Return the index
         return values
+
 
 
     # TODO add filter
@@ -395,7 +398,7 @@ cdef class FWFCython:
         cdef int field_size = field_slice.stop - field_slice.start
 
         # Pre-allocate memory for the numpy array (result)
-        cdef numpy.ndarray[numpy.int64_t, ndim=1] values = numpy.empty(self.reclen, dtype=numpy.int64)
+        cdef numpy.ndarray[numpy.int64_t, ndim=1] values = numpy.empty(self.records, dtype=numpy.int64)
 
         cdef int irow = 0
         cdef long start_pos = self.fwf.start_pos
@@ -443,45 +446,6 @@ cdef class FWFCython:
 
         # The index: int(field) -> [indices]
         return values
-
-
-    def apply(self,
-        index=None, unique_index=False, integer_index=False,
-        index_dict=None, index_tuple=None,
-        func=None):
-        """ apply """
-
-        if index is not None:
-            index = self.fwf.field_from_index(index)
-
-        rtn = self.fwf_cython(
-            index=index,
-            unique_index=unique_index,
-            integer_index=integer_index,
-            index_dict=index_dict,
-            index_tuple=index_tuple
-        )
-
-        # TODO I'm wondering whether the "function" should go in the cython module?
-        if (func is not None) and isinstance(rtn, dict):
-            rtn = {func(k) : v for k, v in rtn.items()}
-
-        # TODO I don't like the hard-coded Index object creation. What about methods
-        # which can be subclassed?
-        if index is None:
-            # TODO list(rtn) is not just a wrapper. What does not require a copy?
-            return FWFSubset(self.fwf, list(rtn), self.fwf.fields)
-
-        if unique_index is False:
-            idx = FWFSimpleIndex(self.fwf)
-            idx.field = index
-            idx.data = rtn
-            return idx
-
-        idx = FWFSimpleUniqueIndex(self.fwf)
-        idx.field = index
-        idx.data = rtn
-        return idx
 
 
     #-- # @cython.boundscheck(False)  # Deactivate bounds checking
@@ -552,7 +516,7 @@ cdef class FWFCython:
         cdef int* result_ptr
         if not create_index:
             result = array.array('i', [])
-            array.resize(result, self.fwf.reclen + 1)
+            array.resize(result, self.fwf.records + 1)
             result_ptr = result.data.as_ints
 
         # If an index is requested, create a respective dict that
@@ -570,44 +534,39 @@ cdef class FWFCython:
                     values = collections.defaultdict(list)
 
         # Iterate over all the lines in the file
-        cdef int count = 0      # The index in array to add the next index
-        cdef int irow = 0       # Current line number
-        cdef const char* line   # Line data
-
         while (start_pos + self.fwidth) <= self.fsize:
-            line = mm + start_pos
+            self.line = self.mm_addr + start_pos
 
             # Execute the effective date and period filters
             #print(f"irow={irow}, line={line}")
-            if self.filter(line) == False:
+            if self.filter() == False:
                 # The line passed all the filters
 
                 # If no index, then added the index to the result array
                 if not create_index:
-                    result_ptr[count] = irow
-                    count += 1
+                    result_ptr[self.count] = self.irow
                 else:
                     # Get the field data (as bytes)
-                    key = line[index_start : index_stop]
+                    key = self.line[index_start : index_stop]
                     if create_integer_index:
                         key = atoi(key)
 
                     if create_unique_index:
                         # Unique index: just keep the last index
-                        value = (index_tuple, irow) if create_tuple else irow
+                        value = (index_tuple, self.irow) if create_tuple else self.irow
                         values[key] = value
                     else:
                         # Add the index to potentially already existing indices
-                        value = (index_tuple, irow) if create_tuple else irow
+                        value = (index_tuple, self.irow) if create_tuple else self.irow
                         values[key].append(value)
 
             start_pos += self.fwidth
-            irow += 1
+            self.irow += 1
 
         # If only filters are provided but no index is requested, then return
         # the array with the line indices.
         if not create_index:
-            array.resize(result, count)
+            array.resize(result, self.count)
             return result
 
         # Else, return the index
@@ -615,8 +574,14 @@ cdef class FWFCython:
 
 
 cdef class FWFLineNumber(FWFCython):
-    """Return a numpy array of int32 with the line numbers of the optionally
-    filtered lines
+    """Return an array.array of ints with the line numbers of optionally
+    filtered lines.
+
+    This function is only of limited value. Because scanning the file content
+    saturates I/O, it is benefical (performance) to index while scanning the
+    file content. "indexing while scanning" is more then twice as fast as "scan,
+    then index". This is also because "scan then index" needs to run through
+    the file content twice.
     """
 
     cdef readonly array.array result
@@ -625,20 +590,15 @@ cdef class FWFLineNumber(FWFCython):
         FWFCython.__init__(self, fwffile)
 
         # Allocate memory for all of the data
-        # We are not converting or processing the field data in any way
-        # or form => dtype for binary data types and field length
         self.result = array.array('i', [])
-        array.resize(self.result, self.reclen + 1)
+        array.resize(self.result, self.records + 1)
         #self.result_ptr = self.result.data.as_ints
 
-    cpdef evaluate_line(self, int irow, const char* line):
-        self.result[self.count] = irow
+    cdef evaluate_line(self):
+        self.result[self.count] = self.irow
 
     cpdef analyze(self):
-        """Return a numpy array of string values with the data from the 'field',
-        in the sequence read from the file.
-        """
-        self.super_analyze()
+        self.scan_file()
         array.resize(self.result, self.count)
         return self.result
 
@@ -656,20 +616,16 @@ cdef class FWFColumData(FWFCython):
         # Allocate memory for all of the data
         # We are not converting or processing the field data in any way
         # or form => dtype for binary data types and field length
-        self.result = numpy.empty(self.reclen, dtype=self.determine_dtype())
+        self.result = numpy.empty(self.records, dtype=self.determine_dtype())
 
     cpdef str determine_dtype(self):
         return f"S{self.field_size}"
 
-    cpdef evaluate_line(self, int irow, const char* line):
-        cdef bytes data = line
-        self.result[self.count] = data[self.field_slice]
+    cdef evaluate_line(self):
+        self.result[self.count] = self.field_value()
 
     cpdef analyze(self):
-        """Return a numpy array of string values with the data from the 'field',
-        in the sequence read from the file.
-        """
-        self.super_analyze()
+        self.scan_file()
         return self.result
 
 
@@ -686,8 +642,8 @@ cdef class FWFIntColumnData(FWFColumData):
     cpdef str determine_dtype(self):
         return "i4"
 
-    cpdef evaluate_line(self, int irow, const char* line):
-        self.result[self.count] = str2int(line, self.field_slice.start, self.field_slice.stop)
+    cdef evaluate_line(self):
+        self.result[self.count] = str2int(self.line, self.field_start, self.field_stop)
 
 
 cdef class FWFIndex(FWFCython):
@@ -702,35 +658,22 @@ cdef class FWFIndex(FWFCython):
     lines which have the same value (index key).
     """
 
-    cdef readonly dict result
-    cdef readonly bool unique_index
+    cdef readonly result
 
     def __init__(self, fwffile: FWFFile, field_name: str):
         FWFCython.__init__(self, fwffile, field_name)
 
-        # The result dict that will contain the index
-        # I'm not able to cdef collections.defaultdict ?!?
-        #self.result = collections.defaultdict(list)
-        self.result = dict()
-
-        self.unique_index = False
+        self.result = collections.defaultdict(list)
 
     # Because of the different return values, this function can not be a cpdef
-    def determine_key(self, int irow, const char* line):
-        cdef bytes data = line
-        return data[self.field_slice]
+    cdef determine_key(self):
+        return self.field_value()
 
-    cpdef evaluate_line(self, int irow, const char* line):
-        key = self.determine_key(irow, line)
-        if self.unique_index:
-            self.result[key] = irow
-        elif key in self.result:
-            self.result[key].append(irow)
-        else:
-            self.result[key] = [irow]
+    cdef evaluate_line(self):
+        self.result[self.determine_key()].append(self.irow)
 
     cpdef analyze(self):
-        self.super_analyze()
+        self.scan_file()
         return self.result
 
 
@@ -749,7 +692,10 @@ cdef class FWFUniqueIndex(FWFIndex):
     def __init__(self, fwffile: FWFFile, field_name: str):
         FWFIndex.__init__(self, fwffile, field_name)
 
-        self.unique_index = True
+        self.result = dict()
+
+    cdef evaluate_line(self):
+        self.result[self.determine_key()] = self.irow
 
 
 cdef class FWFIntIndex(FWFIndex):
@@ -758,7 +704,22 @@ cdef class FWFIntIndex(FWFIndex):
     Return: dict: int(field) -> [indices]
     """
 
+    def __init__(self, fwffile: FWFFile, field_name: str):
+        FWFCython.__init__(self, fwffile, field_name)
+
+        self.result = collections.defaultdict(list)
+
     # Because of the different return values, this function can not be a cpdef
-    # TODO Double check the performance impact
-    def determine_key(self, int irow, const char* line):
-        return str2int(line, self.field_slice.start, self.field_slice.stop)
+    cdef determine_key(self):
+        return str2int(self.line, self.field_start, self.field_stop)
+
+
+cdef class FWFIntUniqueIndex(FWFIntIndex):
+
+    def __init__(self, fwffile: FWFFile, field_name: str):
+        FWFCython.__init__(self, fwffile, field_name)
+
+        self.result = dict()
+
+    cdef evaluate_line(self):
+        self.result[self.determine_key()] = self.irow

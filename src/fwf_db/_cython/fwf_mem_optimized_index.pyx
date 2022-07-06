@@ -57,6 +57,19 @@ def say_hello_to(name):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
+## @cython.boundscheck(False)  # Deactivate bounds checking
+## @cython.wraparound(False)   # Deactivate negative indexing.
+cdef int last_pos(int [:] next_ar, int inext):
+    cdef int last = inext
+    while inext > 0:
+        last = inext
+        inext = next_ar[inext]
+
+    return last
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
 # pylint: disable=missing-class-docstring
 class BytesDictWithIntListValues(collections.abc.Mapping):
     # Apply the module doc to the class as well
@@ -109,7 +122,7 @@ class BytesDictWithIntListValues(collections.abc.Mapping):
 
 
     def finish(self):
-        """Once all all data have been added to the dict, it is possible to
+        """Once all data have been added to the dict, it is possible to
         release some memory that is only needed for fast appends.
         """
         self.end = None
@@ -118,6 +131,7 @@ class BytesDictWithIntListValues(collections.abc.Mapping):
     def resize_array(self, data, newsize):
         newdata = np.zeros(newsize, dtype=data.dtype)
         newdata[:len(data)] = data
+        # TODO This approach copies the data. array.array has a resize operator that trims the array.
         return newdata
 
 

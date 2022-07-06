@@ -67,15 +67,21 @@ class TestFile5:
         {"name": "text", "len": 4},
     ]
 
-def exec_line_number(filedef, data, filter1=None, filter2=None):
+def exec_line_number(filedef, data, filters=None):
     fwf = fwf_db.FWFFile(filedef)
     with fwf.open(data) as fd:
         db = fwf_db_cython.FWFLineNumber(fwf)
-        if filter1 is not None:
-            db.init_1st_filter(*filter1)
 
-        if filter2 is not None:
-            db.init_2nd_filter(*filter2)
+        if filters:
+            for f in filters:
+                pos = f[0]
+                values = list()
+                values.append(f[1] if len(f) > 1 else None)
+                values.append(f[2] if len(f) > 2 else None)
+                upper = False
+                for v in values:
+                    db.add_filter(pos, v, upper)
+                    upper = not upper
 
         # TODO compare performance
         #rtn = db.get_int_column_data("id")
@@ -94,35 +100,28 @@ def test_line_number():
     assert exec_line_number(TestFile5, b"000abcd\n001abcd").tolist() == [0, 1]
     assert exec_line_number(TestFile5, b"000abcd\n001abcd\n").tolist() == [0, 1]
 
-    assert exec_line_number(TestFile4, b"111\n222\n333\n444", ["id", [b"000", b"999"]]).tolist() == [0, 1, 2, 3]
-    assert exec_line_number(TestFile4, b"111\n222\n333\n444", None, ["id", [b"000", b"999"]]).tolist() == [0, 1, 2, 3]
-    assert exec_line_number(TestFile4, b"111\n222\n333\n444", ["id", [b"000", b"999"]], ["id", [b"000", b"999"]]).tolist() == [0, 1, 2, 3]
+    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", b"000", b"999"]]).tolist() == [0, 1, 2, 3]
+    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", b"000", b"999"], ["id", b"000", b"999"]]).tolist() == [0, 1, 2, 3]
 
     # The lower bound is inclusive. The upper bound is exclusive.
-    assert exec_line_number(TestFile4, b"111\n222\n333\n444", ["id", [b"000", b"444"]]).tolist() == [0, 1, 2]
-    assert exec_line_number(TestFile4, b"111\n222\n333\n444", None, ["id", [b"000", b"444"]]).tolist() == [0, 1, 2]
-
-    assert exec_line_number(TestFile4, b"111\n222\n333\n444", ["id", [b"112", b"444"]]).tolist() == [1, 2]
-    assert exec_line_number(TestFile4, b"111\n222\n333\n444", None, ["id", [b"112", b"444"]]).tolist() == [1, 2]
+    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", b"000", b"444"]]).tolist() == [0, 1, 2]
+    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", b"112", b"444"]]).tolist() == [1, 2]
 
     # An empty value equals lowest or highest possible value
-    assert exec_line_number(TestFile4, b"111\n   \n333\n444", ["id", [b"111", b"444"]]).tolist() == [0, 1, 2]
-    assert exec_line_number(TestFile4, b"111\n   \n333\n444", None, ["id", [b"111", b"444"]]).tolist() == [0, 1, 2]
+    assert exec_line_number(TestFile4, b"111\n   \n333\n444", [["id", b"111", b"444"]]).tolist() == [0, 1, 2]
 
     # Only filter on lower bound
-    assert exec_line_number(TestFile4, b"111\n222\n333\n444", ["id", [b"222"]]).tolist() == [1, 2, 3]
-    assert exec_line_number(TestFile4, b"111\n222\n333\n444", None, ["id", [b"222"]]).tolist() == [1, 2, 3]
-    assert exec_line_number(TestFile4, b"111\n   \n333\n444", ["id", [b"222"]]).tolist() == [1, 2, 3]
-    assert exec_line_number(TestFile4, b"111\n   \n333\n444", None, ["id", [b"222"]]).tolist() == [1, 2, 3]
+    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", b"222"]]).tolist() == [1, 2, 3]
+    assert exec_line_number(TestFile4, b"111\n   \n333\n444", [["id", b"222"]]).tolist() == [1, 2, 3]
 
     # Only filter on upper bound
-    assert exec_line_number(TestFile4, b"111\n222\n333\n444", ["id", [None, b"444"]]).tolist() == [0, 1, 2]
-    assert exec_line_number(TestFile4, b"111\n222\n333\n444", None, ["id", [b"000", b"444"]]).tolist() == [0, 1, 2]
-    assert exec_line_number(TestFile4, b"111\n   \n333\n444", ["id", [b"000", b"444"]]).tolist() == [0, 1, 2]
-    assert exec_line_number(TestFile4, b"111\n   \n333\n444", None, ["id", [b"000", b"444"]]).tolist() == [0, 1, 2]
+    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", None, b"444"]]).tolist() == [0, 1, 2]
+    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", b"000", b"444"]]).tolist() == [0, 1, 2]
+    assert exec_line_number(TestFile4, b"111\n   \n333\n444", [["id", b"000", b"444"]]).tolist() == [0, 1, 2]
+    assert exec_line_number(TestFile4, b"111\n   \n333\n444", [["id", b"000", b"444"]]).tolist() == [0, 1, 2]
 
-    assert exec_line_number(TestFile4, b"111\n222\n333\n444", ["id", [b"222"]], ["id", [None, b"444"]]).tolist() == [1, 2]
-    assert exec_line_number(TestFile4, b"111\n222\n333\n444", ["id", [None, b"444"]], ["id", [b"222"]]).tolist() == [1, 2]
+    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", b"222"], ["id", None, b"444"]]).tolist() == [1, 2]
+    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", None, b"444"], ["id", b"222"]]).tolist() == [1, 2]
 
 
 def exec_get_field_data(filedef, data):
