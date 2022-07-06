@@ -658,19 +658,20 @@ cdef class FWFIndex(FWFCython):
     lines which have the same value (index key).
     """
 
-    cdef readonly result
+    cdef readonly dict result
 
     def __init__(self, fwffile: FWFFile, field_name: str):
         FWFCython.__init__(self, fwffile, field_name)
 
-        self.result = collections.defaultdict(list)
-
-    # Because of the different return values, this function can not be a cpdef
-    cdef determine_key(self):
-        return self.field_value()
+        self.result = dict()
 
     cdef evaluate_line(self):
-        self.result[self.determine_key()].append(self.irow)
+        cdef bytes key = self.field_value()
+        cdef rv = self.result.get(key)
+        if rv is None:
+            self.result[key] = rv = []
+
+        rv.append(self.irow)
 
     cpdef analyze(self):
         self.scan_file()
@@ -689,13 +690,8 @@ cdef class FWFUniqueIndex(FWFIndex):
     Return: a dict mapping the value to its last index
     """
 
-    def __init__(self, fwffile: FWFFile, field_name: str):
-        FWFIndex.__init__(self, fwffile, field_name)
-
-        self.result = dict()
-
     cdef evaluate_line(self):
-        self.result[self.determine_key()] = self.irow
+        self.result[self.field_value()] = self.irow
 
 
 cdef class FWFIntIndex(FWFIndex):
@@ -704,22 +700,17 @@ cdef class FWFIntIndex(FWFIndex):
     Return: dict: int(field) -> [indices]
     """
 
-    def __init__(self, fwffile: FWFFile, field_name: str):
-        FWFCython.__init__(self, fwffile, field_name)
+    cdef evaluate_line(self):
+        cdef int key = str2int(self.line, self.field_start, self.field_stop)
+        cdef rv = self.result.get(key)
+        if rv is None:
+            self.result[key] = rv = []
 
-        self.result = collections.defaultdict(list)
-
-    # Because of the different return values, this function can not be a cpdef
-    cdef determine_key(self):
-        return str2int(self.line, self.field_start, self.field_stop)
+        rv.append(self.irow)
 
 
 cdef class FWFIntUniqueIndex(FWFIntIndex):
 
-    def __init__(self, fwffile: FWFFile, field_name: str):
-        FWFCython.__init__(self, fwffile, field_name)
-
-        self.result = dict()
-
     cdef evaluate_line(self):
-        self.result[self.determine_key()] = self.irow
+        cdef int key = str2int(self.line, self.field_start, self.field_stop)
+        self.result[key] = self.irow
