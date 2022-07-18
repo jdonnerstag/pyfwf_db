@@ -1,0 +1,13 @@
+{ date: 2022-07-18 12:05:12, }
+{ date: 2022-07-18 12:06:21, test_perf_iter_lines: 6.568156480789185, test_perf_iter_fwfline: 8.748903751373291, }
+{ date: 2022-07-18 12:11:40, }
+{ date: 2022-07-18 12:13:03, : 5.855962038040161, : 8.665223836898804, }
+{ date: 2022-07-18 12:14:47, test_perf_iter_lines: 5.21692681312561, test_perf_iter_fwfline: 8.689988374710083, }
+{ date: 2022-07-18 12:17:46, test_perf_iter_lines: 8.226709365844727, test_perf_iter_fwfline: 9.315880537033081, test_perf_simple_index-Create-FWFSimpleIndex: 12.21474289894104, test_perf_simple_index-1mio-random-lookups: 3.9988720417022705, }
+{ date: 2022-07-18 12:19:20, test_perf_iter_lines: 8.753261089324951, test_perf_iter_fwfline: 9.059054613113403, test_perf_simple_index-Create_FWFSimpleIndex: 12.064887523651123, test_perf_simple_index-1mio_random_lookups: 3.8932321071624756, }
+{ date: 2022-07-18 12:25:37, test_numpy_samples-Create_random_entries: 16.707017183303833, test_numpy_samples-Create-maps-of-lists-index: 12.072783470153809, test_numpy_samples-1mio_random_lookups: 5.124734401702881, }
+{ date: 2022-07-18 12:34:22, test_numpy_samples-Create_random_entries: 24.911410570144653, test_numpy_samples-Create-maps-of-lists-index: 11.561449766159058, test_numpy_samples-1mio_random_lookups: 3.6972949504852295, }
+{ date: 2022-07-18 12:35:38, test_perf_numpy_index: 4.728854179382324, }
+{ date: 2022-07-18 12:36:39, test_perf_numpy_index-Create_FWFIndexNumpyBased: 16.442008018493652, test_perf_numpy_index-1mio_random_lookups: 4.011003017425537, }
+{ date: 2022-07-18 12:50:33, }
+{ date: 2022-07-18 12:53:07, test_effective_date_simple_filter: 18.611270427703857, }

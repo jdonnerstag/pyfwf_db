@@ -1,29 +1,60 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+from time import time
 import pytest
 
 import abc
 import os
 import sys
 import io
+import datetime
 from random import randrange
-from time import time
 import numpy as np
-import pandas as pd
+#import pandas as pd
 from collections import defaultdict
 import ctypes
+import inspect
 
 from fwf_db import FWFFile, FWFSimpleIndex, FWFMultiFile, FWFUnique
-from fwf_db.fwf_unique_np_based import FWFUniqueNpBased
+#from fwf_db.fwf_unique_np_based import FWFUniqueNpBased
 from fwf_db.fwf_index_np_based import FWFIndexNumpyBased
-from fwf_db.fwf_cython_unique_index import FWFCythonUniqueIndex
+#from fwf_db.fwf_cython_unique_index import FWFCythonUniqueIndex
 from fwf_db.fwf_operator import FWFOperator as op
-from fwf_db.fwf_cython import FWFCython
-from fwf_db.cython import fwf_db_ext
-from fwf_db.fwf_merge_index import FWFMergeIndex
-from fwf_db._cython.fwf_mem_optimized_index import BytesDictWithIntListValues, MyIndexDict
+#from fwf_db.fwf_cython import FWFCython
+#from fwf_db.cython import fwf_db_ext
+#from fwf_db.fwf_merge_index import FWFMergeIndex
+#from fwf_db._cython.fwf_mem_optimized_index import BytesDictWithIntListValues, MyIndexDict
 
+# pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name, global-statement
+# pylint: disable=
+
+# ---------------------------------------------
+# Performance Log
+# ---------------------------------------------
+
+LOG = None
+
+def setup_module(module):
+    """ setup any state specific to the execution of the given module."""
+    global LOG
+    LOG = open("./logs/performance.log", "at", encoding="utf-8")
+    now = datetime.datetime.now()
+    dt = now.strftime("%Y-%m-%d %H:%M:%S")
+    LOG.write(f"{{ date: {dt}, ")
+
+
+def teardown_module(module):
+    """ teardown any state that was previously setup with a setup_module
+    method.
+    """
+    LOG.write("}\n")  # type: ignore
+    LOG.close()  # type: ignore
+
+
+# ---------------------------------------------
+# FWF specifications
+# ---------------------------------------------
 
 class CENT_PARTY:
 
@@ -72,12 +103,23 @@ DIR = "../PIL-data-2/11_input_crlf_fixed/"
 FILE_CENT_PARTY = DIR + "ANO_DWH..DWH_TO_PIL_CENT_PARTY_VTAG.20180119104659.A901"
 FILE_SALES_ASSIGNMENT = DIR + "ANO_DWH..DWH_TO_PIL_CENT_SALES_ASSIGNMENT_VTAG.20180119115137.A901"
 
+# -----------------------------------------------------------------------------
+# Add additional Pytest marker configuration
+# E.g. disable slow tests: '-m "not slow"
+# Some tests run for 20+ seconds and we don't want them to run everytime
+# -----------------------------------------------------------------------------
 
-def pytest_configure(config):
-    config.addinivalue_line(
-        "markers", """slow: marks tests as slow (deselect with '-m "not slow"')"""
-    )
+def log(t1, suffix=None):
+    elapsed = time() - t1
+    me = inspect.stack()[1][3]
+    if suffix is not None:
+        me = me + "-" + suffix
+    LOG.write(f'{me}: {elapsed}, ')  # type: ignore
+    print(f'{me}: Elapsed time is {elapsed} seconds.')
 
+# -----------------------------------------------------------------------------
+# Tests
+# -----------------------------------------------------------------------------
 
 @pytest.mark.slow
 def test_perf_iter_lines():
@@ -91,10 +133,9 @@ def test_perf_iter_lines():
             assert i >= 0
             assert line
 
-        print(f'Elapsed time is {time() - t1} seconds.')
-
-        # In run mode: Just read the lines (bytes)
-        # 7.170794725418091     # And my SDD shows almost no signs of being busy => CPU contraint
+        # Just read the lines (bytes)
+        # 7.170794725418091     # My SDD shows almost no signs of being busy => CPU constraint
+        log(t1)
 
 
 @pytest.mark.slow
@@ -108,10 +149,9 @@ def test_perf_iter_fwfline():
         for line in fd:
             assert line
 
-        print(f'Elapsed time is {time() - t1} seconds.')
-
-        # In run mode: wrap the line into a FWFLine object
+        # Wrap the line into a FWFLine object
         # 12.35709834098816     # 5-6 secs more (almost doubled the time)
+        log(t1)
 
 
 @pytest.mark.slow
@@ -122,8 +162,8 @@ def test_perf_simple_index():
         assert len(fd) == 5889278
         t1 = time()
         index = FWFSimpleIndex(fd).index("PARTY_ID")
-        print(f'Elapsed time is {time() - t1} seconds.')
         assert len(index) == 5889278    # No duplictates, which makes sense for this data
+        log(t1, "Create_FWFSimpleIndex")
 
         idx = list(index.data.keys())
         t1 = time()
@@ -133,18 +173,17 @@ def test_perf_simple_index():
             refs = index[key]
             assert refs
 
-        print(f'Elapsed time is {time() - t1} seconds.')
-
-        # run mode: Create an index on PARTY_ID, using the optimized
-        # field reader (no FWFLine object)
+        # Create an index on PARTY_ID, using the optimized field reader (no FWFLine object)
         # Elapsed time is 22.193581104278564 seconds.   # 10 - 15 secs to create the index
         #
-        # and access lines randomly 1 mio times
+        # Access lines randomly 1 mio times
         # Elapsed time is 6.269562721252441 seconds.
+        log(t1, "1mio_random_lookups")
 
 
 @pytest.mark.slow
 def test_numpy_samples():
+    # Create 10 mio random string entries (10 bytes)
     reclen = int(10e6)
     values = np.empty(reclen, dtype="S10")
 
@@ -156,12 +195,12 @@ def test_numpy_samples():
         value = bytes(f"{value:>10}", "utf-8")
         values[i] = value
 
-    print(f'Elapsed time is {time() - t1} seconds.')
+    log(t1, "Create_random_entries")        # Approx 16 secs
 
     t1 = time()
     data = defaultdict(list)
     all(data[value].append(i) or True for i, value in enumerate(values))
-    print(f'Elapsed time is {time() - t1} seconds.')
+    log(t1, "Create-maps-of-lists-index")   # Approx 12 secs
 
     t1 = time()
     for i in range(int(1e6)):
@@ -172,7 +211,7 @@ def test_numpy_samples():
         rec = data.get(value, None)
         assert rec is not None
 
-    print(f'Elapsed time is {time() - t1} seconds.')
+    log(t1, "1mio_random_lookups")      # Approx 5 secs
 
 
 @pytest.mark.slow
@@ -184,7 +223,7 @@ def test_perf_numpy_index():
         assert len(fd) == 5889278
         t1 = time()
         index = FWFIndexNumpyBased(fd).index("PARTY_ID")
-        print(f'Elapsed time is {time() - t1} seconds.')
+        log(t1, "Create_FWFIndexNumpyBased")    # Approx 16 secs
         assert len(index) == 5889278    # No duplictates, which makes sense for this data
 
         idx = list(index.keys())
@@ -195,14 +234,13 @@ def test_perf_numpy_index():
             refs = index[key]
             assert refs
 
-        print(f'Elapsed time is {time() - t1} seconds.')
+        log(t1, "1mio_random_lookups")      # Approx 4-5 secs
 
-        # In run mode it takes: Create an index on PARTY_ID, using the optimized
-        # field reader (no FWFLine object)
-        # Elapsed time is 20.20484495162964 seconds.   # a tiny bit faster then simple index
+        # Create an index on PARTY_ID, using the optimized field reader (no FWFLine object).
+        # A tiny bit faster then simple index
         #
-        # and access lines randomly 1 mio times
-        # Elapsed time is 5.6988043785095215 seconds.
+        # Access lines randomly 1 mio times
+        #
         # That is pretty much the same result, that the simple python based index provides.
         # Which makes sense, as both create dicts
 
@@ -218,14 +256,13 @@ def test_effective_date_simple_filter():
         t1 = time()
         fd = fd.filter(op("BUSINESS_DATE") < b"20180118")
         # They are dummy data with all the same change date !?!?
-        assert len(fd) == 0
+        assert len(fd) == 0     # Approx 17 secs
 
-        print(f'Elapsed time is {time() - t1} seconds.')
+        log(t1)
 
-        # In run mode:
-        # 21.847846508026123     # Compared to 7 secs for simple bytes and 12 secs for FWFLines
+        # A little slow, compared to 7 secs for simple bytes and 12 secs for FWFLines
 
-
+'''
 @pytest.mark.slow
 def test_effective_date_region_filter():
 
@@ -797,26 +834,4 @@ def test_MyIndexDict_get():
 
         # TODO if possible compare key length < 8 bytes, == 8 bytes and > 8 bytes
 
-# Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":
-if __name__ == '__main__':
-
-    # pytest.main(["-v", "./tests"])
-
-    # test_perf_iter_lines()
-    # test_perf_iter_fwfline()
-    # test_perf_simple_index()
-    # test_perf_numpy_index()
-    # test_numpy_samples()
-    # test_effective_date_simple_filter()
-    # test_effective_date_region_filter()
-    # test_effective_date_region_filter_optmized()
-    # test_cython_filter()
-    # test_cython_create_index()
-    # test_cython_get_field_data()
-    # test_find_last()
-    # test_numpy_sort()
-    # test_int_index()
-    # test_fwf_cython()
-    # test_merge_unique_index()
-    # test_merge_non_unique_index()
-    test_MyIndexDict_get()
+'''
