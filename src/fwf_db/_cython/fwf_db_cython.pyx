@@ -39,7 +39,7 @@ want to avoid this uncertainty, prefer cdef which definitely uses C-conventions.
 
 import collections
 import ctypes
-from dataclasses import dataclass
+from dataclasses import dataclass   # Requires Python 3.7
 import array
 
 cimport cython
@@ -159,6 +159,22 @@ cdef int get_field_size(fwf, field_name):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
+@dataclass(frozen=True)
+class FilterParameters:
+    field1_startpos: int = -1
+    field1_start_value: bytes
+    field1_endpos: int = -1
+    field1_end_value: bytes
+    field2_startpos: int = -1
+    field2_start_value: bytes
+    field2_endpos: int = -1
+    field2_end_value: bytes
+
+    file_id: int = None
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
 cdef struct InternalData:
     int field1_startpos
     int field1_start_len
@@ -192,39 +208,43 @@ cdef struct InternalData:
     const char* line
     const char* file_end
 
+    int index_startpos
+    int index_endpos
+
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-cdef InternalData init_internal_data(fwf,
-    int field1_startpos = 0, bytes field1_start_value = b"", int field1_endpos = 0, bytes field1_end_value = b"",
-    int field2_startpos = 0, bytes field2_start_value = b"", int field2_endpos = 0, bytes field2_end_value = b""):
+cdef InternalData init_internal_data(fwf, args: FilterParameters, index_field: str):
+
+    if args is None:
+        args = FilterParameters()
 
     cdef InternalData params
 
     # Const doesn't work in Cython, but all these are essentially constants,
     # aimed to speed up execution
-    params.field1_startpos = field1_startpos
-    params.field1_start_len = <int>len(field1_start_value)
-    params.field1_start_stoppos = field1_startpos + params.field1_start_len
-    params.field1_start_value = field1_start_value
+    params.field1_startpos = args.field1_startpos
+    params.field1_start_len = <int>len(args.field1_start_value)
+    params.field1_start_stoppos = args.field1_startpos + params.field1_start_len
+    params.field1_start_value = args.field1_start_value
 
-    params.field1_endpos = field1_endpos
-    params.field1_end_len = <int>len(field1_end_value)
-    params.field1_end_stoppos = field1_endpos + params.field1_end_len
+    params.field1_endpos = args.field1_endpos
+    params.field1_end_len = <int>len(args.field1_end_value)
+    params.field1_end_stoppos = args.field1_endpos + params.field1_end_len
     params.field1_end_lastpos = params.field1_end_stoppos - 1
-    params.field1_end_value = field1_end_value
+    params.field1_end_value = args.field1_end_value
 
-    params.field2_startpos = field2_startpos
-    params.field2_start_len = <int>len(field2_start_value)
-    params.field2_start_stoppos = field2_startpos + params.field2_start_len
-    params.field2_start_value = field2_start_value
+    params.field2_startpos = args.field2_startpos
+    params.field2_start_len = <int>len(args.field2_start_value)
+    params.field2_start_stoppos = args.field2_startpos + params.field2_start_len
+    params.field2_start_value = args.field2_start_value
 
-    params.field2_endpos = field2_endpos
-    params.field2_end_len = <int>len(field2_end_value)
-    params.field2_end_stoppos = field2_endpos + params.field2_end_len
+    params.field2_endpos = args.field2_endpos
+    params.field2_end_len = <int>len(args.field2_end_value)
+    params.field2_end_stoppos = args.field2_endpos + params.field2_end_len
     params.field2_end_lastpos = params.field2_end_stoppos - 1
-    params.field2_end_value = field2_end_value
+    params.field2_end_value = args.field2_end_value
 
     # Where to start within the file, what is the file size, and line width
     params.fwidth = fwf.fwidth
@@ -237,6 +257,16 @@ cdef InternalData init_internal_data(fwf,
     params.irow = 0       # Row / line count in the file
     params.line = params.mm + <long>fwf.start_pos   # Current line
     params.file_end = params.mm + <long>fwf.fsize
+
+    if index_field:
+        field_slice = fwf.fields[index_field]
+        params.index_startpos = field_slice.start
+        params.index_endpos = field_slice.stop
+        params.index_size = params.index_endpos - params.index_startpos
+    else:
+        params.index_startpos = -1
+        params.index_endpos = -1
+        params.index_size = 0
 
     return params
 
@@ -287,9 +317,19 @@ cdef bool has_more_lines(InternalData* params):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def iter_and_filter(fwf,
-    int field1_startpos, bytes field1_start_value, int field1_endpos, bytes field1_end_value,
-    int field2_startpos, bytes field2_start_value, int field2_endpos, bytes field2_end_value):
+cdef bytes field_data(InternalData* params):
+    return params.line[params.index_startpos : params.index_endpos]
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+cdef int field_data_int(InternalData* params):
+    return str2int(params.line, params.index_startpos, params.index_endpos)
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+def retrieve_line_numbers(fwf, args: FilterParameters = None):
     """This is an optimized effective date and period filter, that shows 10-15x
     performance improvements. Doesn't sound a lot but 2-3 secs vs 20-30 secs makes a
     big difference when developing software and you need to wait for it.
@@ -305,9 +345,10 @@ def iter_and_filter(fwf,
     Return: an array with the line indices that passed the filters
     """
 
-    cdef InternalData params = init_internal_data(fwf,
-        field1_startpos, field1_start_value, field1_endpos, field1_end_value,
-        field2_startpos, field2_start_value, field2_endpos, field2_end_value)
+    if args.file_id > 0:
+        raise AttributeError("line_numbers() does not support the 'file_id' attribute")
+
+    cdef InternalData params = init_internal_data(fwf, args, None)
 
     # The result array of indices (int). We pre-allocate the memory
     # and shrink it later (and only once). The allocated memory is a
@@ -334,32 +375,31 @@ def iter_and_filter(fwf,
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def get_field_data(fwf, field_name):
+def retrieve_field_data(fwf, index_field: str, args: FilterParameters = None):
     """Return a numpy array with the data from the 'field', in the
     sequence read from the file.
 
-    array has not array of bytes or string, just numeric primitives. And I
-    didn't want to build another access layer. Additionally we thought that
+    array does not support an array of bytes or strings, just numeric primitives.
+    And I didn't want to build another access layer. Additionally we thought that
     Numpy and Pandas certainly have additional nice cool features that will
     help us processing the data.
     """
 
-    cdef InternalData params = init_internal_data(fwf)
+    if args.file_id > 0:
+        raise AttributeError("retrieve_field_data() does not support the 'file_id' attribute")
+
+    cdef InternalData params = init_internal_data(fwf, args, index_field)
 
     # Allocate memory for all of the data
     # We are not converting or processing the field data in any way
     # or form => dtype for binary data types and field length
-    cdef field_slice = fwf.fields[field_name]
-    cdef int startpos = field_slice.start
-    cdef int endpos = field_slice.end
-    cdef int field_size = get_field_size(fwf, field_name)
-    cdef numpy.ndarray values = numpy.empty(fwf.reclen, dtype=f"S{field_size}")
+    cdef numpy.ndarray values = numpy.empty(fwf.reclen + 1, dtype=f"S{params.field_size}")
 
     # Loop over every line
     while has_more_lines(&params):
-
-        # Add the field value to the numpy array
-        values[params.irow] = params.line[startpos : endpos]
+        if cmp_values(&params):
+            # Add the field value to the numpy array
+            values[params.irow] = field_data(&params)
 
         next_line(&params)
 
@@ -369,7 +409,34 @@ def get_field_data(fwf, field_name):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def create_index(fwf, field_name):
+def retrieve_int_field_data(fwf, index_field: str, args: FilterParameters = None):
+    """Read the data for 'field', convert them into a int and store them in a
+    numpy array
+
+    Doing that millions times is a nice use case for Cython. It add's no
+    measurable delay.
+
+    Return: Numpy int64 ndarray
+    """
+
+    cdef InternalData params = init_internal_data(fwf, args, index_field)
+
+    cdef numpy.ndarray[numpy.int64_t, ndim=1] values = numpy.empty(fwf.reclen + 1, dtype=numpy.int64)
+
+    while has_more_lines(&params):
+        if cmp_values(&params):
+            # Convert the field string data into int and add to the array
+            values[params.irow] = field_data_int(&params)
+
+        next_line(&params)
+
+    # Array of int values
+    return values
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+def create_index(fwf, index_field: str, index_dict = collections.defaultdict(list), args: FilterParameters = None):
     """Create an index (dict: values -> [indices]) for 'field'
 
     Leverage the speed of Cython (and C) which saturates the SDD when reading
@@ -380,30 +447,23 @@ def create_index(fwf, field_name):
     Return: a dict mapping values to one or more lines indices
     """
 
-    cdef InternalData params = init_internal_data(fwf)
-
-    # The field to create the index upon
-    cdef field_slice = fwf.fields[field_name]
-    cdef int startpos = field_slice.start
-    cdef int endpos = field_slice.end
-
-    # The result dict that will contain the index
-    cdef values = collections.defaultdict(list)
+    cdef InternalData params = init_internal_data(fwf, args, index_field)
 
     while has_more_lines(&params):
-
-        # Add the value and row to the index
-        values[params.line[startpos : endpos]].append(params.irow)
+        if cmp_values(&params):
+            # Add the value and row to the index
+            value = params.irow if params.file_id == 0 else (params.file_id, params.irow)
+            index_dict[field_data(&params)].append(value)
 
         next_line(&params)
 
     # Return the index
-    return values
+    return index_dict
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def create_unique_index(fwf, field_name):
+def create_unique_index(fwf, index_field: str, index_dict = dict(), args: FilterParameters = None):
     """Create an unique index (dict: value -> index) for 'field'.
 
     Note: in case the same field value is found multiple times, then the
@@ -415,119 +475,98 @@ def create_unique_index(fwf, field_name):
     Return: a dict mapping the value to its last index
     """
 
-    cdef InternalData params = init_internal_data(fwf)
-
-    # The field to create the index from
-    cdef field_slice = fwf.fields[field_name]
-    cdef int startpos = field_slice.start
-    cdef int endpos = field_slice.end
-
-    # The result dict: value -> last index
-    cdef dict values = dict()
+    cdef InternalData params = init_internal_data(fwf, args, index_field)
 
     while has_more_lines(&params):
-
-        # Update the index. This is Python and thus rather slow. But I
-        # also don't know how to further optimize.
-        values[params.line[startpos : endpos]] = params.irow
+        if cmp_values(&params):
+            # Update the index. This is Python and thus rather slow. But I
+            # also don't know how to further optimize.
+            value = params.irow if params.file_id == 0 else (params.file_id, params.irow)
+            index_dict[field_data(&params)] = value
 
         next_line(&params)
 
     # Return the index
-    return values
+    return index_dict
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def get_int_field_data(fwf, field_name):
-    """Read the data for 'field', convert them into a int and store them in a
-    numpy array
-
-    Doing that millions times is a nice use case for Cython. It add's no
-    measurable delay.
-
-    Return: Numpy int64 ndarray
-    """
-
-    cdef InternalData params = init_internal_data(fwf)
-
-    # Pre-allocate memory for the numpy array (result)
-    cdef field_slice = fwf.fields[field_name]
-    cdef int startpos = field_slice.start
-    cdef int endpos = field_slice.end
-    cdef numpy.ndarray[numpy.int64_t, ndim=1] values = numpy.empty(fwf.reclen, dtype=numpy.int64)
-
-    while has_more_lines(&params):
-
-        # Convert the field string data into int and add to the array
-        values[params.irow] = atoi(params.line[startpos : endpos])
-
-        next_line(&params)
-
-    # Array of int values
-    return values
-
-
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-
-def create_int_index(fwf, field_name):
+def create_int_index(fwf, index_field: str, index_dict = collections.defaultdict(list), args: FilterParameters = None):
     """Like create_index() except that the 'field' is converted into a int.
 
     Return: dict: int(field) -> [indices]
     """
 
-    cdef InternalData params = init_internal_data(fwf)
-
-    # The index field
-    cdef field_slice = fwf.fields[field_name]
-    cdef int startpos = field_slice.start
-    cdef int endpos = field_slice.end
-
-    # The result dict: int(value) -> [indices]
-    cdef values = collections.defaultdict(list)
+    cdef InternalData params = init_internal_data(fwf, args, index_field)
 
     cdef int v
     while has_more_lines(&params):
-
-        # Convert the field value into an int and add it to the index
-        v = atoi(params.line[startpos : endpos])
-        values[v].append(params.irow)
+        if cmp_values(&params):
+            # Convert the field value into an int and add it to the index
+            v = field_data_int(&params)
+            index_dict[v].append(params.irow)
 
         next_line(&params)
 
     # The index: int(field) -> [indices]
-    return values
-
+    return index_dict
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
-
-@dataclass
-class Parameters:
-    field1_startpos: int = 0
-    field1_start_value: bytes
-    field1_endpos: int = 0
-    field1_end_value: bytes
-    field2_startpos: int = 0
-    field2_start_value: bytes
-    field2_endpos: int = 0
-    field2_end_value: bytes
-
-    index: str = None
-    unique_index: bool = False
-    integer_index: bool = False
-    file_id = None
-
-    index_dict: dict = None
-
 
 ## @cython.boundscheck(False)  # Deactivate bounds checking
 ## @cython.wraparound(False)   # Deactivate negative indexing.
-def fwf_cython(fwf, args):
-    int field1_startpos, bytes field1_start_value, int field1_endpos, bytes field1_end_value,
-    int field2_startpos, bytes field2_start_value, int field2_endpos, bytes field2_end_value,
-    index=None, unique_index=False, integer_index=False, index_dict=None, index_tuple=None):
+def create_mem_optimized_index(fwf, index_field: str, index_dict = BytesDictWithIntListValues(),
+    create_int_index = False, args: FilterParameters = None):
+
+    cdef InternalData params = init_internal_data(fwf, args, index_field)
+
+    cdef int mem_dict_last = index_dict.last
+    cdef dict mem_dict_dict = index_dict.index
+    cdef int [:] mem_dict_next = index_dict.next
+    cdef int [:] mem_dict_end = index_dict.end
+    cdef signed char [:] mem_dict_file = index_dict.file
+    cdef int [:] mem_dict_lineno = index_dict.lineno
+    cdef int file_id_int = 0 if args.file_id is None else int(args.file_id)
+    cdef int inext
+    cdef int iend
+
+    while has_more_lines(&params):
+        if cmp_values(&params):
+
+            key = field_data_int(&params) if create_int_index else field_data(&params)
+
+            mem_dict_last += 1
+            value = mem_dict_dict.get(key, None)
+            if value is None:
+                inext = mem_dict_last
+                mem_dict_dict[key] = inext
+                mem_dict_end[inext] = inext
+            else:
+                iend = value
+                inext = mem_dict_end[iend]
+                mem_dict_next[inext] = mem_dict_last
+                mem_dict_end[iend] = mem_dict_last
+                inext = mem_dict_last
+
+            mem_dict_file[inext] = file_id_int
+            mem_dict_lineno[inext] = params.irow
+
+        next_line(&params)
+
+    index_dict.last = mem_dict_last
+
+    # Else, return the index
+    return index_dict
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+## @cython.boundscheck(False)  # Deactivate bounds checking
+## @cython.wraparound(False)   # Deactivate negative indexing.
+def fwf_cython(fwf, args: FilterParameters, index_field: str = None,
+    unique_index: bool = False, integer_index: bool = False, index_dict: dict = None):
     """Putting it all together: Filter the fwf file on an effective date and a
     period, and optionally create an index on a 'field'. The index can be optionally
     be made unique and the field value can be converted into an int.
@@ -555,17 +594,15 @@ def fwf_cython(fwf, args):
     single index over multiple files. Be careful to provide the correct dict type,
     depending on whether a unique or normal index is requested.
 
-    If index is a field and 'index_tuple' is not None (usually it is an int), then a tuple will
+    If index is a field and 'file_id' is not None (usually it is an int), then a tuple will
     be added to the dict, rather then only the index. The index will be the 2nd value
     in the tuple. This is useful when creating a single index over multiple files.
     """
 
-    cdef InternalData params = init_internal_data(fwf,
-        field1_startpos, field1_start_value, field1_endpos, field1_end_value,
-        field2_startpos, field2_start_value, field2_endpos, field2_end_value)
+    cdef InternalData params = init_internal_data(fwf, args, index_field)
 
     # Some constants which will be tested millions of times
-    cdef int create_index = index is not None
+    cdef int create_index = index_field is not None
     cdef int create_unique_index = unique_index is True
     cdef int create_integer_index = integer_index is True
 
@@ -573,8 +610,8 @@ def fwf_cython(fwf, args):
     cdef index_slice
     cdef int index_start
     cdef int index_stop
-    if index is not None:
-        index_slice = fwf.fields[index]
+    if index_field is not None:
+        index_slice = fwf.fields[index_field]
         index_start = index_slice.start
         index_stop = index_slice.stop
 
@@ -592,7 +629,7 @@ def fwf_cython(fwf, args):
     cdef values
     cdef key
     cdef value
-    if index is not None:
+    if index_field is not None:
         if index_dict is not None:
             values = index_dict
         else:
@@ -601,7 +638,7 @@ def fwf_cython(fwf, args):
             else:
                 values = collections.defaultdict(list)
 
-    cdef int create_tuple = index_tuple is not None
+    cdef int create_tuple = args.file_id is not None
 
     # Enable optimizations of our memory efficient index (dict)
     cdef int is_mem_optimized_dict = isinstance(index_dict, BytesDictWithIntListValues)
@@ -611,7 +648,7 @@ def fwf_cython(fwf, args):
     cdef int [:] mem_dict_end
     cdef signed char [:] mem_dict_file
     cdef int [:] mem_dict_lineno
-    cdef int index_tuple_int
+    cdef int file_id_int
     cdef int inext
     cdef int iend
 
@@ -622,7 +659,7 @@ def fwf_cython(fwf, args):
         mem_dict_end = index_dict.end
         mem_dict_file = index_dict.file
         mem_dict_lineno = index_dict.lineno
-        index_tuple_int = 0 if index_tuple is None else int(index_tuple)
+        file_id_int = 0 if args.file_id is None else int(args.file_id)
 
     while has_more_lines(&params):
 
@@ -632,7 +669,7 @@ def fwf_cython(fwf, args):
                 result_ptr[params.count] = params.irow
                 params.count += 1
             else:
-                # Get the field data (as bytes)
+                # Get the field data (as bytes)ß
                 key = params.line[index_start : index_stop]
                 if create_integer_index:
                     key = atoi(key)
@@ -655,16 +692,16 @@ def fwf_cython(fwf, args):
                         mem_dict_end[iend] = mem_dict_last
                         inext = mem_dict_last
 
-                    mem_dict_file[inext] = index_tuple_int
+                    mem_dict_file[inext] = file_id_int
                     mem_dict_lineno[inext] = params.irow
 
                 elif create_unique_index:
                     # Unique index: just keep the last index
-                    value = (index_tuple, params.irow) if create_tuple else params.irow
+                    value = (args.file_id, params.irow) if create_tuple else params.irow
                     values[key] = value
                 else:
                     # Add the index to potentially already existing indices
-                    value = (index_tuple, params.irow) if create_tuple else params.irow
+                    value = (args.file_id, params.irow) if create_tuple else params.irow
                     values[key].append(value)
 
         next_line(&params)
