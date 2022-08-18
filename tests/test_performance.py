@@ -22,7 +22,7 @@ from fwf_db.fwf_index_np_based import FWFIndexNumpyBased
 #from fwf_db.fwf_cython_unique_index import FWFCythonUniqueIndex
 from fwf_db.fwf_operator import FWFOperator as op
 #from fwf_db.fwf_cython import FWFCython
-#from fwf_db.cython import fwf_db_ext
+from fwf_db._cython import fwf_db_cython
 #from fwf_db.fwf_merge_index import FWFMergeIndex
 #from fwf_db._cython.fwf_mem_optimized_index import BytesDictWithIntListValues, MyIndexDict
 
@@ -256,13 +256,12 @@ def test_effective_date_simple_filter():
         t1 = time()
         fd = fd.filter(op("BUSINESS_DATE") < b"20180118")
         # They are dummy data with all the same change date !?!?
-        assert len(fd) == 0     # Approx 17 secs
-
-        log(t1)
+        assert len(fd) == 0   # type: ignore      # Approx 17 secs
 
         # A little slow, compared to 7 secs for simple bytes and 12 secs for FWFLines
+        log(t1)
 
-'''
+
 @pytest.mark.slow
 def test_effective_date_region_filter():
 
@@ -274,20 +273,17 @@ def test_effective_date_region_filter():
         t1 = time()
         # NOTE: you can not combine the operators with and resp. or
         fd = fd.filter(op("VALID_FROM") <= b"20130101")
-        fd = fd.filter(op("VALID_UNTIL") >= b"20131231")
+        fd = fd.filter(op("VALID_UNTIL") >= b"20131231")  # type: ignore   # TODO: fix the signature
         assert len(fd) == 1293435
 
-        print(f'Elapsed time is {time() - t1} seconds.')
-
-        # In run mode:
-        # 29.993732929229736    # Compared to 22 secs for only 1 filter
+        # 29.993732929229736    # Compared to 17 secs for only 1 filter
+        log(t1)
 
 
 @pytest.mark.slow
-def test_effective_date_region_filter_optmized():
+def test_effective_date_region_filter_optimized():
 
     fwf = FWFFile(CENT_PARTY)
-
     with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5889278
 
@@ -308,53 +304,32 @@ def test_effective_date_region_filter_optmized():
 
         t1 = time()
         fd = fd.filter(region_filter)
-        assert len(fd) == 1293435
+        assert len(fd) == 1293435  # type: ignore
 
-        print(f'Elapsed time is {time() - t1} seconds.')
-
-        # In run mode:
-        # 18.807480335235596    # Faster then then FWFOperator !!
-        # But still CPU bound.
+        # 18.807480335235596    # Faster then then FWFOperator!!  But still CPU bound.
+        log(t1)
 
 
 @pytest.mark.slow
 def test_cython_filter():
-
-    fwf_db_ext.say_hello_to("Susie")
+    fwf_db_cython.say_hello_to("Susie")
 
     fwf = FWFFile(CENT_PARTY)
-
     with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5889278
 
-        """
         t1 = time()
-        rtn = fwf_db_ext.iter_and_filter(fwf,
-            fd.fields["BUSINESS_DATE"].start, b"20180118",
-            -1, None,
-            fd.fields["VALID_FROM"].start, b"20130101",
-            fd.fields["VALID_UNTIL"].start, b"20131231",
-        )
+        db = fwf_db_cython.FWFLineNumber(fwf)
+        db.add_filter("BUSINESS_DATE", "20180118", upper=False)
+        db.add_filter("VALID_FROM", "20130101", upper=False)
+        db.add_filter("VALID_UNTIL", "20131231", upper=True)
+        rtn = db.analyze()
 
         rlen = rtn.buffer_info()[1]
-        print(f'Elapsed time is {time() - t1} seconds.    {rlen}')
         assert rlen == 1293435
+        log(t1)       # 2.1357336044311523   # Yes !!!!
 
-        # In run mode:
-        # 2.1357336044311523   # Yes !!!!
-        """
-
-        t1 = time()
-        rtn = FWFCython(fd).apply(
-            "BUSINESS_DATE", b"20180120",
-            ["VALID_FROM", "VALID_UNTIL"], [b"20130101", b"20131231"],
-        )
-        print(f'Elapsed time is {time() - t1} seconds.    {len(rtn)}')
-        assert len(rtn) == 1293435
-
-        # In run mode:
-        # 1.9844927787780762   # Yes !!!!
-
+'''
 @pytest.mark.slow
 def test_cython_get_field_data():
 

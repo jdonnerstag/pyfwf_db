@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# encoding: utf-8
+
 """fwf_db is about accessing large fixed width files almost like a
 (read-only) database.
 
@@ -97,7 +100,7 @@ cdef const char* get_virtual_address(mm):
 # -----------------------------------------------------------------------------
 
 cpdef int str2int(const char* line, int start, int end):
-    """Convert bytes into an int value"""
+    """Convert a region of bytes into an int value"""
 
     cdef int ret = 0
     while start < end:
@@ -160,7 +163,7 @@ cdef class FWFFilterValue:
             self.len = 0
             self.last = 0
 
-    cpdef bool filter(self, const char* line):
+    cdef bool filter(self, const char* line):
         return ((self.len > 0) and
             (line[self.last] != 32) and
             ((strncmp(self.value, line + self.pos, self.len) > 0) != self.upper))
@@ -298,6 +301,7 @@ cdef class FWFCython:
         cdef long start_pos = self.start_pos
 
         while (start_pos + self.fwidth) <= self.fsize:
+            print(f"irow: {self.irow}")
             self.line = self.mm_addr + start_pos
 
             if self.filter():

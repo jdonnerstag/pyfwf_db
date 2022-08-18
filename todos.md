@@ -26,3 +26,4 @@
 - Order using special fields like: .order\_by("birthday\_\_year")
 - Export methods like: .sqlite file or .sql file
 - Write a fixed-width field file (?)(why would someone write those files?)
+- Consider using Nuitka as Python Compiler

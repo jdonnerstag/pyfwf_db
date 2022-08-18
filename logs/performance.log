@@ -11,3 +11,6 @@
 { date: 2022-07-18 12:36:39, test_perf_numpy_index-Create_FWFIndexNumpyBased: 16.442008018493652, test_perf_numpy_index-1mio_random_lookups: 4.011003017425537, }
 { date: 2022-07-18 12:50:33, }
 { date: 2022-07-18 12:53:07, test_effective_date_simple_filter: 18.611270427703857, }
+{ date: 2022-07-18 15:05:59, test_effective_date_region_filter: 18.748771905899048, }
+{ date: 2022-07-18 15:08:01, test_effective_date_region_filter_optmized: 15.577927589416504, }
+{ date: 2022-07-18 15:58:50, }
