@@ -1,22 +1,21 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+'''
+Test FWFLine class
+'''
+
+# pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name
+
 import pytest
 
-import os
-import sys
-import io
-import numpy as np
-
-from fwf_db.fwf_line import FWFLine
-from fwf_db import FWFFile
+from fwf_db import FWFFile, FWFLine
 
 
 DATA = b"""US       AR19570526Fbe56008be36eDianne Mcintosh         Whatever    Medic        #
 """
 
-
-class HumanFile(object):
+class HumanFile:
 
     FIELDSPECS = [
         {"name": "location", "len": 9},
@@ -31,14 +30,12 @@ class HumanFile(object):
 
 
 def test_constructor():
-
     fwf = FWFFile(HumanFile)
     line = FWFLine(fwf, 0, DATA)
     assert line
 
 
 def test_contains():
-
     fwf = FWFFile(HumanFile)
     line = FWFLine(fwf, 0, DATA)
     assert "location" in line
@@ -53,7 +50,6 @@ def test_contains():
 
 
 def test_keys():
-
     fwf = FWFFile(HumanFile)
     line = FWFLine(fwf, 0, DATA)
     names = [x["name"] for x in HumanFile.FIELDSPECS]
@@ -65,7 +61,6 @@ def test_keys():
 
 
 def test_items():
-
     fwf = FWFFile(HumanFile)
     line = FWFLine(fwf, 0, DATA)
     names = [x["name"] for x in HumanFile.FIELDSPECS]
@@ -78,7 +73,6 @@ def test_items():
 
 
 def test_to_dict():
-
     fwf = FWFFile(HumanFile)
     line = FWFLine(fwf, 0, DATA)
     d = line.to_dict()
@@ -88,7 +82,6 @@ def test_to_dict():
 
 
 def test_get():
-
     fwf = FWFFile(HumanFile)
     line = FWFLine(fwf, 0, DATA)
 
@@ -97,7 +90,6 @@ def test_get():
 
 
 def test_str():
-
     fwf = FWFFile(HumanFile)
     line = FWFLine(fwf, 0, DATA)
 
@@ -107,7 +99,6 @@ def test_str():
 
 
 def test_int():
-
     fwf = FWFFile(HumanFile)
     line = FWFLine(fwf, 0, DATA)
 
@@ -123,11 +114,3 @@ def test_int():
     data = b"US       AR      20Fbe56008be36eDianne Mcintosh         Whatever    Medic"
     line = FWFLine(fwf, 0, data)
     assert line.int("birthday") == 20
-
-
-# Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":
-if __name__ == '__main__':
-
-    pytest.main(["-v", "/tests"])
-    
-    #test_constructor()

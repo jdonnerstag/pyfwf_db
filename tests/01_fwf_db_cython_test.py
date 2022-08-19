@@ -7,8 +7,7 @@ Perform basic tests with the Cython extension library
 
 # pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name
 
-import pytest
-import fwf_db
+from fwf_db import FWFFile
 from fwf_db._cython import fwf_db_cython
 
 
@@ -37,7 +36,7 @@ class TestFile3:
 
 
 def exec_fwf_cython_empty(filedef, data):
-    fwf = fwf_db.FWFFile(filedef)
+    fwf = FWFFile(filedef)
     with fwf.open(data) as fd:
         assert len(fd) == 0
 
@@ -88,7 +87,7 @@ def init_filters(fwf, filters):
 
 
 def exec_line_number(filedef, data, filters=None):
-    fwf = fwf_db.FWFFile(filedef)
+    fwf = FWFFile(filedef)
     with fwf.open(data):
         filter_args = init_filters(fwf, filters)
         db = fwf_db_cython.line_numbers(fwf, filter_args)
@@ -138,7 +137,7 @@ def test_line_number():
 
 
 def exec_get_field_data(filedef, data):
-    fwf = fwf_db.FWFFile(filedef)
+    fwf = FWFFile(filedef)
     with fwf.open(data):
         db = fwf_db_cython.field_data(fwf, "id")
         return db.tolist()
@@ -156,7 +155,7 @@ def test_get_field_data():
     assert exec_get_field_data(TestFile5, b"000abcd\n001abcd\n") == [b"000", b"001"]
 
 def exec_get_int_field_data(filedef, data):
-    fwf = fwf_db.FWFFile(filedef)
+    fwf = FWFFile(filedef)
     with fwf.open(data):
         db = fwf_db_cython.field_data_int(fwf, "id")
         return db.tolist()
@@ -173,7 +172,7 @@ def test_get_int_field_data():
     assert exec_get_int_field_data(TestFile5, b"000abcd\n001abcd\n") == [0, 1]
 
 def exec_create_index(filedef, data):
-    fwf = fwf_db.FWFFile(filedef)
+    fwf = FWFFile(filedef)
     with fwf.open(data) as fd:
         db = fwf_db_cython.create_index(fwf, "id")
         return db
@@ -186,7 +185,7 @@ def test_create_index():
     assert exec_create_index(TestFile4, b"000\n001\n000") == {b"000": [0, 2], b"001": [1]}
 
 def exec_create_unique_index(filedef, data):
-    fwf = fwf_db.FWFFile(filedef)
+    fwf = FWFFile(filedef)
     with fwf.open(data) as fd:
         db = fwf_db_cython.create_unique_index(fwf, "id")
         return db
@@ -199,7 +198,7 @@ def test_create_unique_index():
     assert exec_create_unique_index(TestFile4, b"000\n001\n000") == {b"000": 2, b"001": 1}
 
 def exec_create_int_index(filedef, data):
-    fwf = fwf_db.FWFFile(filedef)
+    fwf = FWFFile(filedef)
     with fwf.open(data) as fd:
         db = fwf_db_cython.create_int_index(fwf, "id")
         return db
@@ -213,7 +212,7 @@ def test_create_int_index():
 
 
 def exec_fwf_cython_filter(filedef, data, filters):
-    fwf = fwf_db.FWFFile(filedef)
+    fwf = FWFFile(filedef)
     with fwf.open(data) as fd:
         rtn = fwf_db_cython.fwf_cython(fwf,
             *filters,

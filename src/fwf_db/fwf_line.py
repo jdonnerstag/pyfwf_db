@@ -19,7 +19,7 @@ class FWFLine:
         self.line = line
 
 
-    def __getitem__(self, arg):
+    def __getitem__(self, arg: str|int|slice) -> bytes:
         """Get a field or range of bytes from the line.
 
         string: representing a field name, get the data associated with it.
@@ -27,17 +27,22 @@ class FWFLine:
         slice: get a bytearray for that slice
         """
         if isinstance(arg, str):
-            return self.get(arg)
+            return self._get(arg)
         elif isinstance(arg, (int, slice)):
             return self.line[arg]
-        else:
-            raise Exception(f"Invalid Index: {arg}")
+
+        raise IndexError(f"Invalid Index: {arg}")
 
 
-    def get(self, field, default=None):
+    def _get(self, field) -> bytes:
         """Get the binary data for the field"""
         field = self.fwf_file_like.fields[field]
-        rtn = self.line[field]
+        return self.line[field]
+
+
+    def get(self, field, default:bytes|None=None) -> bytes|None:
+        """Get the binary data for the field"""
+        rtn = self._get(field)
         if rtn:
             return rtn
 
@@ -49,12 +54,12 @@ class FWFLine:
         applying an encoding
         """
         encoding = encoding or sys.getdefaultencoding()
-        return str(self.get(field), encoding)
+        return str(self._get(field), encoding)
 
 
     def int(self, field):
         """Get the data for the field converted into an int"""
-        return int(self.get(field))
+        return int(self._get(field))
 
 
     def date(self, field, fmt="%Y%m%d"):
@@ -79,19 +84,19 @@ class FWFLine:
     def items(self):
         """Like dict's items(), return field name and value tuples"""
         for key in self.keys():
-            rtn = self.get(key)
+            rtn = self._get(key)
             yield (key, rtn)
 
 
     def to_dict(self):
         """Provide the line as dict"""
-        return {k: v for k, v in self.items()}
+        return dict(self.items())
 
 
     def to_list(self, keys=None):
         """Provide a values in a a list"""
         keys = keys or self.keys()
-        return [self.get(key) for key in keys]
+        return [self._get(key) for key in keys]
 
 
     def __repr__(self):

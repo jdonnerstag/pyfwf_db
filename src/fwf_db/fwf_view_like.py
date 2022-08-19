@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-import abc 
+import abc
+from typing import Iterable, Tuple, Callable, Sized
 from itertools import islice
-from typing import Iterable, List, Optional, Tuple
 
 from .fwf_base_mixin import FWFBaseMixin
 
 
-class FWFViewLike(FWFBaseMixin, abc.ABC):
+class FWFViewLike(FWFBaseMixin, Sized, Iterable, abc.ABC):
     """A core class. Provide all the necessary basics to implement different
-    kind of views, such as views based on a slice, or views based on 
+    kind of views, such as views based on a slice, or views based on
     indivisual indexes.
     """
 
@@ -33,7 +33,7 @@ class FWFViewLike(FWFBaseMixin, abc.ABC):
 
 
     @abc.abstractmethod
-    def fwf_by_indices(self, indices):
+    def fwf_by_indices(self, indices) -> 'FWFViewLike':
         """Initiate a FWFLine (or similar) object and return it"""
 
 
@@ -57,7 +57,7 @@ class FWFViewLike(FWFBaseMixin, abc.ABC):
 
 
     def field_dtype(self, field):
-        """Return the dtype for the field. NOTE: currently on string types are returned""" 
+        """Return the dtype for the field. NOTE: currently on string types are returned"""
         field = self.fields[self.field_from_index(1)]
         flen = field.stop - field.start
         return f"S{flen}"
@@ -71,7 +71,7 @@ class FWFViewLike(FWFBaseMixin, abc.ABC):
             index = default
         elif index < 0:
             index = len(self) + index
-        
+
         assert index >= 0, f"Invalid index: must be >= 0: {index}"
         assert index <= len(self), f"Invalid index: must <= len: {index}"
 
@@ -80,7 +80,7 @@ class FWFViewLike(FWFBaseMixin, abc.ABC):
 
     def __getitem__(self, row_idx):
         """Provide support for [..] access: slice by row and column
-        
+
         Examples:
             fwf[0]
             fwf[0:5]
@@ -95,29 +95,28 @@ class FWFViewLike(FWFBaseMixin, abc.ABC):
             row_idx = self.normalize_index(row_idx, 0)
             return self.fwf_by_line(row_idx, self.line_at(row_idx))
 
-        elif isinstance(row_idx, slice):
+        if isinstance(row_idx, slice):
             start = self.normalize_index(row_idx.start, 0)
             stop = self.normalize_index(row_idx.stop, len(self))
             return self.fwf_by_slice(slice(start, stop))
 
-        elif all(x is True or x is False for x in row_idx):
+        if all(x is True or x is False for x in row_idx):
             # TODO this is rather slow for large indexes
             idx = [i for i, v in enumerate(row_idx) if v is True]
             return self.fwf_by_indices(idx)
 
-        elif all(isinstance(x, int) for x in row_idx):
+        if all(isinstance(x, int) for x in row_idx):
             # Don't allow the subset to grow
             row_idx = [self.normalize_index(x, -1) for x in list(row_idx)]
             return self.fwf_by_indices(row_idx)
 
-        else:
-            raise Exception(f"Invalid range value: {row_idx}")
+        raise Exception(f"Invalid range value: {row_idx}")
 
 
     def __iter__(self):
-        """iterate over all rows. 
-        
-        Return an object describing the line and providing access to 
+        """iterate over all rows.
+
+        Return an object describing the line and providing access to
         each field.
         """
 
@@ -125,9 +124,9 @@ class FWFViewLike(FWFBaseMixin, abc.ABC):
 
 
     def iter(self):
-        """iterate over all rows. 
-        
-        Return an object describing the line and providing access to 
+        """iterate over all rows.
+
+        Return an object describing the line and providing access to
         each field.
         """
 
@@ -137,31 +136,34 @@ class FWFViewLike(FWFBaseMixin, abc.ABC):
 
 
     @abc.abstractmethod
-    def iter_lines(self) -> Iterable[Tuple[Optional[int], Optional[List[int]]]]:
+    def iter_lines(self) -> Iterable[Tuple[int, bytes]]:
         """Iterate over all lines in the file, returning raw line data"""
 
         return [] # (Index, line)
 
 
-    def filter(self, arg1, arg2=None):
+    def filter(self, arg1: str|Callable, arg2: None|Callable=None):
         """Filter either by line or by field.
 
         If the first parameter is callable, then filter by line.
         Else the first parameter must be a valid field name, and the second
-        parameter must be callable. 
+        parameter must be callable.
         """
-        if arg2:
+        if isinstance(arg1, str) and isinstance(arg2, Callable):
             field = arg1
             func = arg2
             return self.filter_by_field(field, func)
 
-        func = arg1
-        return self.filter_by_line(func)
+        if isinstance(arg1, Callable):
+            func = arg1
+            return self.filter_by_line(func)
+
+        raise AttributeError(f"filter(): Invalid arguments: arg1={arg1}, arg2={arg2}")
 
 
-    def filter_by_line(self, func):
+    def filter_by_line(self, func: Callable):
         """Filter lines with a condition
-        
+
         Iterate over all lines in the file and apply 'func' to every line. Except
         if 'func' returns True, the line will be skipped.
 
@@ -172,11 +174,11 @@ class FWFViewLike(FWFBaseMixin, abc.ABC):
         return self.fwf_by_indices(rtn)
 
 
-    def filter_by_field(self, field, func):
+    def filter_by_field(self, field: str, func):
         """Filter lines by the 'field' and 'func' provided.
-        
-        Iterate over all lines in the file, determine the (byte) value for the field, 
-        and apply 'func' to that field value. Except if 'func' returns True, the 
+
+        Iterate over all lines in the file, determine the (byte) value for the field,
+        and apply 'func' to that field value. Except if 'func' returns True, the
         line will be skipped.
 
         The result is a view on the data, rather then copies.

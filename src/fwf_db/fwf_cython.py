@@ -14,7 +14,6 @@ class FWFCythonException(Exception):
     ''' FWFCythonException '''
 
 
-
 class FWFCython:
     """Python is really nice, but for tight loops that must be executed million
     times, it's interpreter nature become apparent. This is the python frontend

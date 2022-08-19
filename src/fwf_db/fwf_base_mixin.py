@@ -2,6 +2,7 @@
 # encoding: utf-8
 
 # pylint: disable=too-few-public-methods
+
 class FWFBaseMixin:
     """Implements re-usable methods required in views, indexes,
     uniques, to_pandas, ...
