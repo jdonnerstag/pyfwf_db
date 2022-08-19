@@ -68,7 +68,7 @@ def say_hello_to(name):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-cdef str_to_bytes(obj):
+cdef _str_to_bytes(obj):
     """Convert string to bytes using utf-8 encoding"""
 
     if isinstance(obj, str):
@@ -79,7 +79,7 @@ cdef str_to_bytes(obj):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-cdef inline uint32_t load32(const char *p):  # char*  is allowed to alias anything
+cdef inline uint32_t _load32(const char *p):  # char*  is allowed to alias anything
     """
     Efficiently read an uint32 from a memory location that is (potentially) misaligned.
     See https://stackoverflow.com/questions/548164/mis-aligned-pointers-on-x86
@@ -91,7 +91,7 @@ cdef inline uint32_t load32(const char *p):  # char*  is allowed to alias anythi
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-cdef const char* get_virtual_address(mm):
+cdef const char* _get_virtual_address(mm):
     """Determine the virtual memory address of a (read-only) mmap region"""
 
     if isinstance(mm, (str, bytes)):
@@ -215,13 +215,13 @@ cdef struct InternalData:
 
     int index_startpos
     int index_endpos
-    int index_size
+    int index_field_size
 
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-cdef InternalData init_internal_data(fwf, filters: list = None, file_id: int = None, index_field: str = None):
+cdef InternalData _init_internal_data(fwf, filters: list = None, file_id: int = None, index_field: str = None):
     cdef InternalData params = InternalData(
         -1, 0, -1, -1, b"",
         -1, 0, -1, -1, b"",
@@ -277,7 +277,7 @@ cdef InternalData init_internal_data(fwf, filters: list = None, file_id: int = N
     params.min_fwidth = params.fwidth - fwf.number_of_newline_bytes
 
     # Provide access to the (read-only) memory map
-    params.mm = get_virtual_address(fwf.mm)
+    params.mm = _get_virtual_address(fwf.mm)
 
     params.count = 0      # Position within the target array
     params.irow = 0       # Row / line count in the file
@@ -288,40 +288,40 @@ cdef InternalData init_internal_data(fwf, filters: list = None, file_id: int = N
         field_slice = fwf.fields[index_field]
         params.index_startpos = field_slice.start
         params.index_endpos = field_slice.stop
-        params.index_size = params.index_endpos - params.index_startpos
+        params.index_field_size = params.index_endpos - params.index_startpos
     else:
         params.index_startpos = -1
         params.index_endpos = -1
-        params.index_size = 0
+        params.index_field_size = 0
 
     return params
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-cdef bool cmp_start_value(const char* line, int pos, int xlen, int lastpos, const char* value):
-    #print(f"cmp_start_value: {line}, {pos}, {xlen}, {lastpos}, {value}")
+cdef bool _cmp_start_value(const char* line, int pos, int xlen, int lastpos, const char* value):
+    #print(f"_cmp_start_value: {line}, {pos}, {xlen}, {lastpos}, {value}")
     return (pos < 0) or (strncmp(line + pos, value, xlen) >= 0) or (line[lastpos] == 32)
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-cdef bool cmp_end_value(const char* line, int pos, int xlen, int lastpos, const char* value):
-    #print(f"cmp_end_value: {line}, {pos}, {xlen}, {lastpos}, {value}")
+cdef bool _cmp_end_value(const char* line, int pos, int xlen, int lastpos, const char* value):
+    #print(f"_cmp_end_value: {line}, {pos}, {xlen}, {lastpos}, {value}")
     return (pos < 0) or (strncmp(line + pos, value, xlen) < 0) or (line[lastpos] == 32)
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-cdef bool cmp_values(InternalData* params):
+cdef bool _cmp_values(InternalData* params):
     #print(f"cmp: start - {params.line}")
-    if cmp_start_value(params.line, params.field1_startpos, params.field1_start_len, params.field1_start_lastpos, params.field1_start_value):
+    if _cmp_start_value(params.line, params.field1_startpos, params.field1_start_len, params.field1_start_lastpos, params.field1_start_value):
         #print(f"cmp: 1")
-        if cmp_end_value(params.line, params.field1_endpos, params.field1_end_len, params.field1_end_lastpos, params.field1_end_value):
+        if _cmp_end_value(params.line, params.field1_endpos, params.field1_end_len, params.field1_end_lastpos, params.field1_end_value):
             #print(f"cmp: 2")
-            if cmp_start_value(params.line, params.field2_startpos, params.field2_start_len, params.field2_start_lastpos, params.field2_start_value):
+            if _cmp_start_value(params.line, params.field2_startpos, params.field2_start_len, params.field2_start_lastpos, params.field2_start_value):
                 #print(f"cmp: 3")
-                if cmp_end_value(params.line, params.field2_endpos, params.field2_end_len, params.field2_end_lastpos, params.field2_end_value):
+                if _cmp_end_value(params.line, params.field2_endpos, params.field2_end_len, params.field2_end_lastpos, params.field2_end_value):
                     #print(f"cmp: 4")
                     return True
 
@@ -343,14 +343,14 @@ cdef bool has_more_lines(InternalData* params):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-cdef bytes field_data(InternalData* params):
+cdef bytes _field_data(InternalData* params):
     # TODO Would love an ignore-case (convert to uppercase) flag
     return params.line[params.index_startpos : params.index_endpos]
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-cdef int field_data_int(InternalData* params):
+cdef int _field_data_int(InternalData* params):
     return str2int(params.line, params.index_startpos, params.index_endpos)
 
 # -----------------------------------------------------------------------------
@@ -372,7 +372,7 @@ def line_numbers(fwf, filters: list = None):
     Return: an array with the line indices that passed the filters
     """
 
-    cdef InternalData params = init_internal_data(fwf, filters)
+    cdef InternalData params = _init_internal_data(fwf, filters)
     # print(params)
 
     # The result array of indices (int). We pre-allocate the memory
@@ -386,7 +386,7 @@ def line_numbers(fwf, filters: list = None):
 
     while has_more_lines(&params):
         # Execute the effective data and period filters
-        if cmp_values(&params):
+        if _cmp_values(&params):
             # This record we want to keep
             result_ptr[params.count] = params.irow
             params.count += 1
@@ -400,7 +400,7 @@ def line_numbers(fwf, filters: list = None):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def retrieve_field_data(fwf, index_field: str, filters: list = None):
+def field_data(fwf, index_field: str, filters: list = None):
     """Return a numpy array with the data from the 'field', in the
     sequence read from the file.
 
@@ -410,28 +410,30 @@ def retrieve_field_data(fwf, index_field: str, filters: list = None):
     help us processing the data.
     """
 
-    cdef InternalData params = init_internal_data(fwf, filters, None, index_field)
+    cdef InternalData params = _init_internal_data(fwf, filters, None, index_field)
 
     # Allocate memory for all of the data
     # We are not converting or processing the field data in any way
     # or form => dtype for binary data types and field length
-    cdef numpy.ndarray values = numpy.empty(fwf.reclen + 1, dtype=f"S{params.field_size}")
+    cdef numpy.ndarray values = numpy.empty(fwf.reclen, dtype=f"S{params.index_field_size}")
 
     # Loop over every line
     while has_more_lines(&params):
-        if cmp_values(&params):
+        if _cmp_values(&params):
             # Add the field value to the numpy array
-            values[params.irow] = field_data(&params)
+            values[params.count] = _field_data(&params)
+            params.count += 1
 
         next_line(&params)
 
     # Return the numpy array
+    values.resize(params.count)
     return values
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def retrieve_int_field_data(fwf, index_field: str, filters: list = None):
+def field_data_int(fwf, index_field: str, filters: list = None):
     """Read the data for 'field', convert them into a int and store them in a
     numpy array
 
@@ -441,24 +443,26 @@ def retrieve_int_field_data(fwf, index_field: str, filters: list = None):
     Return: Numpy int64 ndarray
     """
 
-    cdef InternalData params = init_internal_data(fwf, filters, None, index_field)
+    cdef InternalData params = _init_internal_data(fwf, filters, None, index_field)
 
-    cdef numpy.ndarray[numpy.int64_t, ndim=1] values = numpy.empty(fwf.reclen + 1, dtype=numpy.int64)
+    cdef numpy.ndarray[numpy.int64_t, ndim=1] values = numpy.empty(fwf.reclen, dtype=numpy.int64)
 
     while has_more_lines(&params):
-        if cmp_values(&params):
+        if _cmp_values(&params):
             # Convert the field string data into int and add to the array
-            values[params.irow] = field_data_int(&params)
+            values[params.count] = _field_data_int(&params)
+            params.count += 1
 
         next_line(&params)
 
-    # Array of int values
+    # Return the numpy array
+    values.resize(params.count)
     return values
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def create_index(fwf, index_field: str, index_dict = collections.defaultdict(list), filters: list = None, file_id: int = None):
+def create_index(fwf, index_field: str, index_dict: collections.defaultdict = None, filters: list = None, file_id: int = None):
     """Create an index (dict: values -> [indices]) for 'field'
 
     Leverage the speed of Cython (and C) which saturates the SDD when reading
@@ -469,13 +473,16 @@ def create_index(fwf, index_field: str, index_dict = collections.defaultdict(lis
     Return: a dict mapping values to one or more lines indices
     """
 
-    cdef InternalData params = init_internal_data(fwf, filters, file_id, index_field)
+    if index_dict is None:
+        index_dict = collections.defaultdict(list)
+
+    cdef InternalData params = _init_internal_data(fwf, filters, file_id, index_field)
 
     while has_more_lines(&params):
-        if cmp_values(&params):
+        if _cmp_values(&params):
             # Add the value and row to the index
-            value = params.irow if params.file_id == 0 else (params.file_id, params.irow)
-            index_dict[field_data(&params)].append(value)
+            value = params.irow if file_id is None else (file_id, params.irow)
+            index_dict[_field_data(&params)].append(value)
 
         next_line(&params)
 
@@ -485,7 +492,7 @@ def create_index(fwf, index_field: str, index_dict = collections.defaultdict(lis
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def create_unique_index(fwf, index_field: str, index_dict = dict(), filters: list = None, file_id: int = None):
+def create_unique_index(fwf, index_field: str, index_dict: dict = None, filters: list = None, file_id: int = None):
     """Create an unique index (dict: value -> index) for 'field'.
 
     Note: in case the same field value is found multiple times, then the
@@ -497,14 +504,17 @@ def create_unique_index(fwf, index_field: str, index_dict = dict(), filters: lis
     Return: a dict mapping the value to its last index
     """
 
-    cdef InternalData params = init_internal_data(fwf, filters, file_id, index_field)
+    if index_dict is None:
+        index_dict = dict()
+
+    cdef InternalData params = _init_internal_data(fwf, filters, file_id, index_field)
 
     while has_more_lines(&params):
-        if cmp_values(&params):
+        if _cmp_values(&params):
             # Update the index. This is Python and thus rather slow. But I
             # also don't know how to further optimize.
-            value = params.irow if params.file_id == 0 else (params.file_id, params.irow)
-            index_dict[field_data(&params)] = value
+            value = params.irow if file_id is None else (file_id, params.irow)
+            index_dict[_field_data(&params)] = value
 
         next_line(&params)
 
@@ -514,20 +524,23 @@ def create_unique_index(fwf, index_field: str, index_dict = dict(), filters: lis
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def create_int_index(fwf, index_field: str, index_dict = collections.defaultdict(list), filters: list = None, file_id: int = None):
+def create_int_index(fwf, index_field: str, index_dict: collections.defaultdict = None, filters: list = None, file_id: int = None):
     """Like create_index() except that the 'field' is converted into a int.
 
     Return: dict: int(field) -> [indices]
     """
 
-    cdef InternalData params = init_internal_data(fwf, filters, file_id, index_field)
+    if index_dict is None:
+        index_dict = collections.defaultdict(list)
+
+    cdef InternalData params = _init_internal_data(fwf, filters, file_id, index_field)
 
     cdef int v
     while has_more_lines(&params):
-        if cmp_values(&params):
+        if _cmp_values(&params):
             # Convert the field value into an int and add it to the index
-            v = field_data_int(&params)
-            index_dict[v].append(params.irow)
+            value = params.irow if file_id is None else (file_id, params.irow)
+            index_dict[_field_data_int(&params)].append(value)
 
         next_line(&params)
 
@@ -539,10 +552,10 @@ def create_int_index(fwf, index_field: str, index_dict = collections.defaultdict
 
 ## @cython.boundscheck(False)  # Deactivate bounds checking
 ## @cython.wraparound(False)   # Deactivate negative indexing.
-def create_mem_optimized_index(fwf, index_field: str, index_dict = None,
+def create_mem_optimized_index(fwf, index_field: str, index_dict: BytesDictWithIntListValues = None,
     create_int_index = False, filters: list = None, file_id: int = None):
 
-    cdef InternalData params = init_internal_data(fwf, filters, file_id, index_field)
+    cdef InternalData params = _init_internal_data(fwf, filters, file_id, index_field)
 
     if index_dict is None:
         index_dict = BytesDictWithIntListValues(fwf.reclen + 1)
@@ -558,9 +571,9 @@ def create_mem_optimized_index(fwf, index_field: str, index_dict = None,
     cdef int iend
 
     while has_more_lines(&params):
-        if cmp_values(&params):
+        if _cmp_values(&params):
 
-            key = field_data_int(&params) if create_int_index else field_data(&params)
+            key = _field_data_int(&params) if create_int_index else _field_data(&params)
 
             mem_dict_last += 1
             value = mem_dict_dict.get(key, None)
@@ -624,7 +637,7 @@ def fwf_cython(fwf, filters: list = None, file_id: int = None, index_field: str 
     in the tuple. This is useful when creating a single index over multiple files.
     """
 
-    cdef InternalData params = init_internal_data(fwf, filters, file_id, index_field)
+    cdef InternalData params = _init_internal_data(fwf, filters, file_id, index_field)
 
     # Some constants which will be tested millions of times
     cdef int create_index = index_field is not None
@@ -688,7 +701,7 @@ def fwf_cython(fwf, filters: list = None, file_id: int = None, index_field: str 
 
     while has_more_lines(&params):
 
-        if cmp_values(&params):
+        if _cmp_values(&params):
             # If no index, then added the index to the result array
             if not create_index:
                 result_ptr[params.count] = params.irow
