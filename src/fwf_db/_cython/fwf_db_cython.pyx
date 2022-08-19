@@ -37,9 +37,9 @@ C-invocation logic gets used, which might be performance relevant. If you
 want to avoid this uncertainty, prefer cdef which definitely uses C-conventions.
 """
 
+import sys
 import collections
 import ctypes
-from dataclasses import dataclass   # Requires Python 3.7
 import array
 
 cimport cython
@@ -47,11 +47,12 @@ cimport cython
 import numpy
 cimport numpy
 
-from libc.string cimport strncmp, strncpy, memcpy
+from libc.string cimport strncmp, memcpy
 from cpython cimport array
 from libc.stdlib cimport atoi
 from libc.stdint cimport uint32_t
 
+# TODO I really don't like this dependency
 from ..fwf_mem_optimized_index import BytesDictWithIntListValues
 
 ctypedef bint bool
@@ -62,7 +63,7 @@ ctypedef bint bool
 def say_hello_to(name):
     """Health check"""
 
-    print(f"Hello {name}!")
+    return f"Hello {name}!"
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -159,18 +160,20 @@ cdef int get_field_size(fwf, field_name):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-@dataclass(frozen=True)
-class FilterParameters:
-    field1_startpos: int = -1
-    field1_start_value: bytes
-    field1_endpos: int = -1
-    field1_end_value: bytes
-    field2_startpos: int = -1
-    field2_start_value: bytes
-    field2_endpos: int = -1
-    field2_end_value: bytes
+class FWFFilterDefinition:
+    ''' FWFFilterDefinition '''
 
-    file_id: int = None
+    startpos: int   # This is a low level API, and we do want the option to start at any position
+    value: bytes
+    upper: bool
+
+    def __init__(self, startpos: int, value: bytes, upper: bool):
+        self.startpos = startpos
+        self.value = value
+        self.upper = upper
+
+    def __repr__(self):
+        return f"FWFFilterDefinition({self.startpos}, {self.value}, {self.upper})"
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -179,6 +182,7 @@ cdef struct InternalData:
     int field1_startpos
     int field1_start_len
     int field1_start_stoppos
+    int field1_start_lastpos
     const char* field1_start_value
 
     int field1_endpos
@@ -190,6 +194,7 @@ cdef struct InternalData:
     int field2_startpos
     int field2_start_len
     int field2_start_stoppos
+    int field2_start_lastpos
     const char* field2_start_value
 
     int field2_endpos
@@ -210,41 +215,62 @@ cdef struct InternalData:
 
     int index_startpos
     int index_endpos
+    int index_size
 
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-cdef InternalData init_internal_data(fwf, args: FilterParameters, index_field: str):
+cdef InternalData init_internal_data(fwf, filters: list = None, file_id: int = None, index_field: str = None):
+    cdef InternalData params = InternalData(
+        -1, 0, -1, -1, b"",
+        -1, 0, -1, -1, b"",
+        -1, 0, -1, -1, b"",
+        -1, 0, -1, -1, b"",
+        0, 0, b"",
+        0, 0, b"", b"",
+        0, 0, 0
+    )
 
-    if args is None:
-        args = FilterParameters()
+    if filters:
+        # TODO optimize and put into a C-Array of fixed size
+        x = 1
+        upper = False
+        for f in filters:
+            if not isinstance(f, FWFFilterDefinition):
+                raise AttributeError(f"'filters' list must contain only 'FWFFilterDefinition' elements: {filters}")
 
-    cdef InternalData params
+            if f.upper != upper:
+                x += 1
+                upper = not upper
 
-    # Const doesn't work in Cython, but all these are essentially constants,
-    # aimed to speed up execution
-    params.field1_startpos = args.field1_startpos
-    params.field1_start_len = <int>len(args.field1_start_value)
-    params.field1_start_stoppos = args.field1_startpos + params.field1_start_len
-    params.field1_start_value = args.field1_start_value
+            if x == 1:
+                params.field1_startpos = f.startpos
+                params.field1_start_len = <int>len(f.value) if f.value else 0
+                params.field1_start_stoppos = params.field1_startpos + params.field1_start_len
+                params.field1_start_lastpos = params.field1_start_stoppos - 1
+                params.field1_start_value = f.value
+            elif x == 2:
+                params.field1_endpos = f.startpos
+                params.field1_end_len = <int>len(f.value) if f.value else 0
+                params.field1_end_stoppos = params.field1_endpos + params.field1_end_len
+                params.field1_end_lastpos = params.field1_end_stoppos - 1
+                params.field1_end_value = f.value
+            elif x == 3:
+                params.field2_startpos = f.startpos
+                params.field2_start_len = <int>len(f.value) if f.value else 0
+                params.field2_start_stoppos = params.field2_startpos + params.field2_start_len
+                params.field2_start_lastpos = params.field2_start_stoppos - 1
+                params.field2_start_value = f.value
+            elif x == 4:
+                params.field2_endpos = f.startpos
+                params.field2_end_len = <int>len(f.value) if f.value else 0
+                params.field2_end_stoppos = params.field2_endpos + params.field2_end_len
+                params.field2_end_lastpos = params.field2_end_stoppos - 1
+                params.field2_end_value = f.value
 
-    params.field1_endpos = args.field1_endpos
-    params.field1_end_len = <int>len(args.field1_end_value)
-    params.field1_end_stoppos = args.field1_endpos + params.field1_end_len
-    params.field1_end_lastpos = params.field1_end_stoppos - 1
-    params.field1_end_value = args.field1_end_value
-
-    params.field2_startpos = args.field2_startpos
-    params.field2_start_len = <int>len(args.field2_start_value)
-    params.field2_start_stoppos = args.field2_startpos + params.field2_start_len
-    params.field2_start_value = args.field2_start_value
-
-    params.field2_endpos = args.field2_endpos
-    params.field2_end_len = <int>len(args.field2_end_value)
-    params.field2_end_stoppos = args.field2_endpos + params.field2_end_len
-    params.field2_end_lastpos = params.field2_end_stoppos - 1
-    params.field2_end_value = args.field2_end_value
+            x += 1
+            upper = not upper
 
     # Where to start within the file, what is the file size, and line width
     params.fwidth = fwf.fwidth
@@ -273,33 +299,33 @@ cdef InternalData init_internal_data(fwf, args: FilterParameters, index_field: s
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-cdef bool cmp_start_value(const char* line, int pos, int xlen, const char* value):
-    return (pos >= 0) and (strncmp(value, line + pos, xlen) < 0)
+cdef bool cmp_start_value(const char* line, int pos, int xlen, int lastpos, const char* value):
+    #print(f"cmp_start_value: {line}, {pos}, {xlen}, {lastpos}, {value}")
+    return (pos < 0) or (strncmp(line + pos, value, xlen) >= 0) or (line[lastpos] == 32)
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
 cdef bool cmp_end_value(const char* line, int pos, int xlen, int lastpos, const char* value):
-    return (pos >= 0) and (line[lastpos] != 32) and (strncmp(value, line + pos, xlen) > 0)
+    #print(f"cmp_end_value: {line}, {pos}, {xlen}, {lastpos}, {value}")
+    return (pos < 0) or (strncmp(line + pos, value, xlen) < 0) or (line[lastpos] == 32)
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
 cdef bool cmp_values(InternalData* params):
-    if cmp_start_value(params.line, params.field1_startpos, params.field1_start_len, params.field1_start_value):
-        # print(f"{irow} - 1 - False")
-        return False
-    elif cmp_end_value(params.line, params.field1_endpos, params.field1_end_len, params.field1_end_lastpos, params.field1_end_value):
-        # print(f"{irow} - 2 - False")
-        return False
-    elif cmp_start_value(params.line, params.field2_startpos, params.field2_start_len, params.field2_start_value):
-        # print(f"{irow} - 3 - False")
-        return False
-    elif cmp_end_value(params.line, params.field2_endpos, params.field2_end_len, params.field2_end_lastpos, params.field2_end_value):
-        # print(f"{irow} - 4 - False")
-        return False
+    #print(f"cmp: start - {params.line}")
+    if cmp_start_value(params.line, params.field1_startpos, params.field1_start_len, params.field1_start_lastpos, params.field1_start_value):
+        #print(f"cmp: 1")
+        if cmp_end_value(params.line, params.field1_endpos, params.field1_end_len, params.field1_end_lastpos, params.field1_end_value):
+            #print(f"cmp: 2")
+            if cmp_start_value(params.line, params.field2_startpos, params.field2_start_len, params.field2_start_lastpos, params.field2_start_value):
+                #print(f"cmp: 3")
+                if cmp_end_value(params.line, params.field2_endpos, params.field2_end_len, params.field2_end_lastpos, params.field2_end_value):
+                    #print(f"cmp: 4")
+                    return True
 
-    return True
+    return False
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -318,6 +344,7 @@ cdef bool has_more_lines(InternalData* params):
 # -----------------------------------------------------------------------------
 
 cdef bytes field_data(InternalData* params):
+    # TODO Would love an ignore-case (convert to uppercase) flag
     return params.line[params.index_startpos : params.index_endpos]
 
 # -----------------------------------------------------------------------------
@@ -329,7 +356,7 @@ cdef int field_data_int(InternalData* params):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def retrieve_line_numbers(fwf, args: FilterParameters = None):
+def line_numbers(fwf, filters: list = None):
     """This is an optimized effective date and period filter, that shows 10-15x
     performance improvements. Doesn't sound a lot but 2-3 secs vs 20-30 secs makes a
     big difference when developing software and you need to wait for it.
@@ -345,10 +372,8 @@ def retrieve_line_numbers(fwf, args: FilterParameters = None):
     Return: an array with the line indices that passed the filters
     """
 
-    if args.file_id > 0:
-        raise AttributeError("line_numbers() does not support the 'file_id' attribute")
-
-    cdef InternalData params = init_internal_data(fwf, args, None)
+    cdef InternalData params = init_internal_data(fwf, filters)
+    # print(params)
 
     # The result array of indices (int). We pre-allocate the memory
     # and shrink it later (and only once). The allocated memory is a
@@ -375,7 +400,7 @@ def retrieve_line_numbers(fwf, args: FilterParameters = None):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def retrieve_field_data(fwf, index_field: str, args: FilterParameters = None):
+def retrieve_field_data(fwf, index_field: str, filters: list = None):
     """Return a numpy array with the data from the 'field', in the
     sequence read from the file.
 
@@ -385,10 +410,7 @@ def retrieve_field_data(fwf, index_field: str, args: FilterParameters = None):
     help us processing the data.
     """
 
-    if args.file_id > 0:
-        raise AttributeError("retrieve_field_data() does not support the 'file_id' attribute")
-
-    cdef InternalData params = init_internal_data(fwf, args, index_field)
+    cdef InternalData params = init_internal_data(fwf, filters, None, index_field)
 
     # Allocate memory for all of the data
     # We are not converting or processing the field data in any way
@@ -409,7 +431,7 @@ def retrieve_field_data(fwf, index_field: str, args: FilterParameters = None):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def retrieve_int_field_data(fwf, index_field: str, args: FilterParameters = None):
+def retrieve_int_field_data(fwf, index_field: str, filters: list = None):
     """Read the data for 'field', convert them into a int and store them in a
     numpy array
 
@@ -419,7 +441,7 @@ def retrieve_int_field_data(fwf, index_field: str, args: FilterParameters = None
     Return: Numpy int64 ndarray
     """
 
-    cdef InternalData params = init_internal_data(fwf, args, index_field)
+    cdef InternalData params = init_internal_data(fwf, filters, None, index_field)
 
     cdef numpy.ndarray[numpy.int64_t, ndim=1] values = numpy.empty(fwf.reclen + 1, dtype=numpy.int64)
 
@@ -436,7 +458,7 @@ def retrieve_int_field_data(fwf, index_field: str, args: FilterParameters = None
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def create_index(fwf, index_field: str, index_dict = collections.defaultdict(list), args: FilterParameters = None):
+def create_index(fwf, index_field: str, index_dict = collections.defaultdict(list), filters: list = None, file_id: int = None):
     """Create an index (dict: values -> [indices]) for 'field'
 
     Leverage the speed of Cython (and C) which saturates the SDD when reading
@@ -447,7 +469,7 @@ def create_index(fwf, index_field: str, index_dict = collections.defaultdict(lis
     Return: a dict mapping values to one or more lines indices
     """
 
-    cdef InternalData params = init_internal_data(fwf, args, index_field)
+    cdef InternalData params = init_internal_data(fwf, filters, file_id, index_field)
 
     while has_more_lines(&params):
         if cmp_values(&params):
@@ -463,7 +485,7 @@ def create_index(fwf, index_field: str, index_dict = collections.defaultdict(lis
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def create_unique_index(fwf, index_field: str, index_dict = dict(), args: FilterParameters = None):
+def create_unique_index(fwf, index_field: str, index_dict = dict(), filters: list = None, file_id: int = None):
     """Create an unique index (dict: value -> index) for 'field'.
 
     Note: in case the same field value is found multiple times, then the
@@ -475,7 +497,7 @@ def create_unique_index(fwf, index_field: str, index_dict = dict(), args: Filter
     Return: a dict mapping the value to its last index
     """
 
-    cdef InternalData params = init_internal_data(fwf, args, index_field)
+    cdef InternalData params = init_internal_data(fwf, filters, file_id, index_field)
 
     while has_more_lines(&params):
         if cmp_values(&params):
@@ -492,13 +514,13 @@ def create_unique_index(fwf, index_field: str, index_dict = dict(), args: Filter
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def create_int_index(fwf, index_field: str, index_dict = collections.defaultdict(list), args: FilterParameters = None):
+def create_int_index(fwf, index_field: str, index_dict = collections.defaultdict(list), filters: list = None, file_id: int = None):
     """Like create_index() except that the 'field' is converted into a int.
 
     Return: dict: int(field) -> [indices]
     """
 
-    cdef InternalData params = init_internal_data(fwf, args, index_field)
+    cdef InternalData params = init_internal_data(fwf, filters, file_id, index_field)
 
     cdef int v
     while has_more_lines(&params):
@@ -517,10 +539,13 @@ def create_int_index(fwf, index_field: str, index_dict = collections.defaultdict
 
 ## @cython.boundscheck(False)  # Deactivate bounds checking
 ## @cython.wraparound(False)   # Deactivate negative indexing.
-def create_mem_optimized_index(fwf, index_field: str, index_dict = BytesDictWithIntListValues(),
-    create_int_index = False, args: FilterParameters = None):
+def create_mem_optimized_index(fwf, index_field: str, index_dict = None,
+    create_int_index = False, filters: list = None, file_id: int = None):
 
-    cdef InternalData params = init_internal_data(fwf, args, index_field)
+    cdef InternalData params = init_internal_data(fwf, filters, file_id, index_field)
+
+    if index_dict is None:
+        index_dict = BytesDictWithIntListValues(fwf.reclen + 1)
 
     cdef int mem_dict_last = index_dict.last
     cdef dict mem_dict_dict = index_dict.index
@@ -528,7 +553,7 @@ def create_mem_optimized_index(fwf, index_field: str, index_dict = BytesDictWith
     cdef int [:] mem_dict_end = index_dict.end
     cdef signed char [:] mem_dict_file = index_dict.file
     cdef int [:] mem_dict_lineno = index_dict.lineno
-    cdef int file_id_int = 0 if args.file_id is None else int(args.file_id)
+    cdef int file_id_int = 0 if file_id is None else int(file_id)
     cdef int inext
     cdef int iend
 
@@ -565,7 +590,7 @@ def create_mem_optimized_index(fwf, index_field: str, index_dict = BytesDictWith
 
 ## @cython.boundscheck(False)  # Deactivate bounds checking
 ## @cython.wraparound(False)   # Deactivate negative indexing.
-def fwf_cython(fwf, args: FilterParameters, index_field: str = None,
+def fwf_cython(fwf, filters: list = None, file_id: int = None, index_field: str = None,
     unique_index: bool = False, integer_index: bool = False, index_dict: dict = None):
     """Putting it all together: Filter the fwf file on an effective date and a
     period, and optionally create an index on a 'field'. The index can be optionally
@@ -599,7 +624,7 @@ def fwf_cython(fwf, args: FilterParameters, index_field: str = None,
     in the tuple. This is useful when creating a single index over multiple files.
     """
 
-    cdef InternalData params = init_internal_data(fwf, args, index_field)
+    cdef InternalData params = init_internal_data(fwf, filters, file_id, index_field)
 
     # Some constants which will be tested millions of times
     cdef int create_index = index_field is not None
@@ -638,7 +663,7 @@ def fwf_cython(fwf, args: FilterParameters, index_field: str = None,
             else:
                 values = collections.defaultdict(list)
 
-    cdef int create_tuple = args.file_id is not None
+    cdef int create_tuple = file_id is not None
 
     # Enable optimizations of our memory efficient index (dict)
     cdef int is_mem_optimized_dict = isinstance(index_dict, BytesDictWithIntListValues)
@@ -659,7 +684,7 @@ def fwf_cython(fwf, args: FilterParameters, index_field: str = None,
         mem_dict_end = index_dict.end
         mem_dict_file = index_dict.file
         mem_dict_lineno = index_dict.lineno
-        file_id_int = 0 if args.file_id is None else int(args.file_id)
+        file_id_int = 0 if file_id is None else int(file_id)
 
     while has_more_lines(&params):
 
@@ -697,11 +722,11 @@ def fwf_cython(fwf, args: FilterParameters, index_field: str = None,
 
                 elif create_unique_index:
                     # Unique index: just keep the last index
-                    value = (args.file_id, params.irow) if create_tuple else params.irow
+                    value = (file_id, params.irow) if create_tuple else params.irow
                     values[key] = value
                 else:
                     # Add the index to potentially already existing indices
-                    value = (args.file_id, params.irow) if create_tuple else params.irow
+                    value = (file_id, params.irow) if create_tuple else params.irow
                     values[key].append(value)
 
         next_line(&params)

@@ -41,10 +41,10 @@ def exec_fwf_cython_empty(filedef, data):
     with fwf.open(data) as fd:
         assert len(fd) == 0
 
-        db = fwf_db_cython.FWFColumData(fwf, "any")
-        rtn = db.analyze()
+        db = fwf_db_cython.line_numbers(fwf)
         # Both return the number of records in the file
-        assert len(fd) == len(rtn)
+        assert len(fd) == len(db)
+
 
 def test_fwf_cython_empty():
     filedefs = [TestFile1, TestFile2, TestFile3]
@@ -53,6 +53,7 @@ def test_fwf_cython_empty():
     for filedef in filedefs:
         for header in headers:
             exec_fwf_cython_empty(filedef, header)
+
 
 class TestFile4:
 
@@ -67,61 +68,67 @@ class TestFile5:
         {"name": "text", "len": 4},
     ]
 
+def init_filters(fwf, filters):
+    filter_args = None
+    if filters:
+        filter_args = list()
+        for f in filters:
+            startpos = fwf.fields[f[0]].start
+            if len(f) > 1 and f[1] is not None:
+                value = bytes(f[1])
+                x = fwf_db_cython.FWFFilterDefinition(startpos, value, False)
+                filter_args.append(x)
+
+            if len(f) > 2 and f[2] is not None:
+                value = bytes(f[2])
+                x = fwf_db_cython.FWFFilterDefinition(startpos, value, True)
+                filter_args.append(x)
+
+    return filter_args
+
+
 def exec_line_number(filedef, data, filters=None):
     fwf = fwf_db.FWFFile(filedef)
-    with fwf.open(data) as fd:
-        db = fwf_db_cython.FWFLineNumber(fwf)
+    with fwf.open(data):
+        filter_args = init_filters(fwf, filters)
+        db = fwf_db_cython.line_numbers(fwf, filter_args)
+        return db.tolist()
 
-        if filters:
-            for f in filters:
-                pos = f[0]
-                values = list()
-                values.append(f[1] if len(f) > 1 else None)
-                values.append(f[2] if len(f) > 2 else None)
-                upper = False
-                for v in values:
-                    db.add_filter(pos, v, upper)
-                    upper = not upper
-
-        # TODO compare performance
-        #rtn = db.get_int_column_data("id")
-        rtn = db.analyze()
-        return rtn
 
 # TODO We need to add test with filters
 def test_line_number():
     assert len(exec_line_number(TestFile4, b"")) == 0
-    assert exec_line_number(TestFile4, b"000").tolist() == [0]
-    assert exec_line_number(TestFile4, b"000\n001").tolist() == [0, 1]
-    assert exec_line_number(TestFile4, b"000\n001\n").tolist() == [0, 1]
+    assert exec_line_number(TestFile4, b"000") == [0]
+    assert exec_line_number(TestFile4, b"000\n001") == [0, 1]
+    assert exec_line_number(TestFile4, b"000\n001\n") == [0, 1]
 
     assert len(exec_line_number(TestFile5, b"")) == 0
-    assert exec_line_number(TestFile5, b"000abcd").tolist() == [0]
-    assert exec_line_number(TestFile5, b"000abcd\n001abcd").tolist() == [0, 1]
-    assert exec_line_number(TestFile5, b"000abcd\n001abcd\n").tolist() == [0, 1]
+    assert exec_line_number(TestFile5, b"000abcd") == [0]
+    assert exec_line_number(TestFile5, b"000abcd\n001abcd") == [0, 1]
+    assert exec_line_number(TestFile5, b"000abcd\n001abcd\n") == [0, 1]
 
-    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", b"000", b"999"]]).tolist() == [0, 1, 2, 3]
-    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", b"000", b"999"], ["id", b"000", b"999"]]).tolist() == [0, 1, 2, 3]
+    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", b"000", b"999"]]) == [0, 1, 2, 3]
+    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", b"000", b"999"], ["id", b"000", b"999"]]) == [0, 1, 2, 3]
 
     # The lower bound is inclusive. The upper bound is exclusive.
-    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", b"000", b"444"]]).tolist() == [0, 1, 2]
-    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", b"112", b"444"]]).tolist() == [1, 2]
+    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", b"000", b"444"]]) == [0, 1, 2]
+    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", b"112", b"444"]]) == [1, 2]
 
     # An empty value equals lowest or highest possible value
-    assert exec_line_number(TestFile4, b"111\n   \n333\n444", [["id", b"111", b"444"]]).tolist() == [0, 1, 2]
+    assert exec_line_number(TestFile4, b"111\n   \n333\n444", [["id", b"111", b"444"]]) == [0, 1, 2]
 
     # Only filter on lower bound
-    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", b"222"]]).tolist() == [1, 2, 3]
-    assert exec_line_number(TestFile4, b"111\n   \n333\n444", [["id", b"222"]]).tolist() == [1, 2, 3]
+    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", b"222"]]) == [1, 2, 3]
+    assert exec_line_number(TestFile4, b"111\n   \n333\n444", [["id", b"222"]]) == [1, 2, 3]
 
     # Only filter on upper bound
-    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", None, b"444"]]).tolist() == [0, 1, 2]
-    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", b"000", b"444"]]).tolist() == [0, 1, 2]
-    assert exec_line_number(TestFile4, b"111\n   \n333\n444", [["id", b"000", b"444"]]).tolist() == [0, 1, 2]
-    assert exec_line_number(TestFile4, b"111\n   \n333\n444", [["id", b"000", b"444"]]).tolist() == [0, 1, 2]
+    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", None, b"444"]]) == [0, 1, 2]
+    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", b"000", b"444"]]) == [0, 1, 2]
+    assert exec_line_number(TestFile4, b"111\n   \n333\n444", [["id", b"000", b"444"]]) == [0, 1, 2]
+    assert exec_line_number(TestFile4, b"111\n   \n333\n444", [["id", b"000", b"444"]]) == [0, 1, 2]
 
-    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", b"222"], ["id", None, b"444"]]).tolist() == [1, 2]
-    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", None, b"444"], ["id", b"222"]]).tolist() == [1, 2]
+    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", b"222"], ["id", None, b"444"]]) == [1, 2]
+    assert exec_line_number(TestFile4, b"111\n222\n333\n444", [["id", None, b"444"], ["id", b"222"]]) == [1, 2]
 
 
 def exec_get_field_data(filedef, data):
@@ -210,7 +217,7 @@ def test_create_int_index():
     assert exec_create_int_index(TestFile4, b"000\n001\n") == {0: [0], 1: [1]}
     assert exec_create_int_index(TestFile4, b"000\n001\n000") == {0: [0, 2], 1: [1]}
 
-'''
+
 def exec_fwf_cython_filter(filedef, data, filters):
     fwf = fwf_db.FWFFile(filedef)
     with fwf.open(data) as fd:
@@ -323,5 +330,3 @@ def test_fwf_cython_filter_3():
     assert exec_fwf_cython_filter(TestFile7, data, [3, -1, -1, -1, b"20170201", None, None, None]).tolist() == [2, 3, 4, 5]
     assert exec_fwf_cython_filter(TestFile7, data, [3, 12, -1, -1, b"20170201", b"20170505", None, None]).tolist() == [2, 3]
     assert exec_fwf_cython_filter(TestFile7, data, [3, 12, -1, -1, b"20170201", b"20170506", None, None]).tolist() == [2, 3, 5]
-
-'''

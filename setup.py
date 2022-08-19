@@ -22,13 +22,7 @@ ext_1 = Extension(
     include_dirs=[numpy.get_include()]
 )
 
-ext_2 = Extension(
-    name="fwf_db._cython.fwf_mem_optimized_index",
-    sources=["src/fwf_db/_cython/fwf_mem_optimized_index.pyx"],
-    include_dirs=[numpy.get_include()]
-)
-
-ext_modules=cythonize([ext_1, ext_2], language_level=3)
+ext_modules=cythonize([ext_1], language_level=3)
 
 
 here = pathlib.Path(__file__).parent.resolve()
