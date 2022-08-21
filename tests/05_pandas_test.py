@@ -1,12 +1,7 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-import pytest
-
-import os
-import sys
-import io
-import numpy as np
+# pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name
 
 from fwf_db import FWFFile
 from fwf_db.fwf_pandas import FWFPandas

@@ -3,13 +3,15 @@
 
 # pylint: disable=too-few-public-methods
 
+from typing import Tuple, Iterator
+
 class FWFBaseMixin:
-    """Implements re-usable methods required in views, indexes,
+    """A mixin that implements re-usable methods required in views, indexes,
     uniques, to_pandas, ...
     """
 
     # pylint: disable=no-self-use
-    def _index1(self, parent, field, func=None):
+    def _index1(self, parent, field, func=None) -> Iterator[Tuple[int, bytes]]:
 
         field = parent.field_from_index(field)
 

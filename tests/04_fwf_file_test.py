@@ -1,16 +1,18 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+# pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name
+
+# Current version of pylint not yet working well with python type hints and is causing plenty false positiv.
+# pylint: disable=not-an-iterable, unsubscriptable-object
+
+from typing import Iterable
+
 import pytest
 
-import os
-import sys
-import io
-import numpy as np
-
-from fwf_db import FWFFile, FWFSimpleIndex, FWFMultiFile, FWFUnique
-from fwf_db.fwf_unique_np_based import FWFUniqueNpBased
-from fwf_db.fwf_index_np_based import FWFIndexNumpyBased
+from fwf_db import FWFFile
+from fwf_db.fwf_line import FWFLine
+from fwf_db.fwf_view_like import FWFViewLike
 
 
 DATA = b"""# My comment test
@@ -27,7 +29,7 @@ US       ME20080503F0f51da89a299Kelly Crose             Whatever    Comedian    
 """
 
 
-class HumanFile(object):
+class HumanFile:
 
     FIELDSPECS = [
         {"name": "location", "len": 9},
@@ -42,11 +44,10 @@ class HumanFile(object):
 
 
 def test_open():
-    
-    # We need both option: 
-    # 1) using a with statement and automatically close again
+    # We need both option:
+    # 1) using a 'with' statement and automatically close again
     # 2) manually open and close it
-    
+
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA) as fd:
         assert fd.mm is not None
@@ -62,6 +63,7 @@ def test_open():
     fd.close()
     assert fd.mm is None
     assert fwf.mm is None
+
 
 def test_bytes_input():
     fwf = FWFFile(HumanFile)
@@ -79,7 +81,7 @@ def test_bytes_input():
 
 def test_file_input():
     fwf = FWFFile(HumanFile)
-    with fwf.open("./examples/humans.txt"):
+    with fwf.open("./example_data/humans.txt"):
         assert fwf.encoding is None
         assert len(fwf.fields) == 8
         assert fwf.fwidth == 83
@@ -99,50 +101,61 @@ def test_table_iter():
             assert rec.line
             assert rec.lineno < 10 # we have 10 rows in our test data
 
-        assert rec.lineno == 9 
-
         # Same with full file slice
-        for rec in fwf[:]:
+        x = fwf[:]
+        assert isinstance(x, Iterable)
+        #for rec in fwf[:]:
+        for rec in x:
             assert rec
             assert rec.line
             assert rec.lineno < 10 # we have 10 rows in our test data
-
-        assert rec.lineno == 9 
 
 
 def test_table_line_selector():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
-        rec = fwf[0]
-        assert rec.lineno == 0
-        assert rec["birthday"] == b"19570526"
+        rec1 = fwf.fwf_by_line(0, fwf.line_at(0))   # TODO Why not just the row index?
+        assert isinstance(rec1, FWFLine)
+        assert rec1.lineno == 0
+        assert rec1["birthday"] == b"19570526"
 
-        rec = fwf[0:1]
-        assert rec.lines == slice(0, 1)
-        assert len(list(rec)) == 1
-        for r in rec:
+        rec1 = fwf[0]   # type: FWFLine
+        assert isinstance(rec1, FWFLine)
+        assert rec1.lineno == 0
+        assert rec1["birthday"] == b"19570526"
+
+        rec2 = fwf[0:1]
+        assert isinstance(rec2, FWFViewLike)
+        assert rec2.lines == slice(0, 1)
+        assert len(list(rec2)) == 1
+        for r in rec2:
             assert r["birthday"] in [b"19570526", b"19940213"]
 
-        rec = fwf[5]
-        assert rec.lineno == 5
-        assert rec["birthday"] == b"19770319"
+        rec1 = fwf[5]
+        assert isinstance(rec1, FWFLine)
+        assert rec1.lineno == 5
+        assert rec1["birthday"] == b"19770319"
 
-        rec = fwf[-1]
-        assert rec.lineno == 9
-        assert rec["birthday"] == b"20080503"
+        rec1 = fwf[-1]
+        assert isinstance(rec1, FWFLine)
+        assert rec1.lineno == 9
+        assert rec1["birthday"] == b"20080503"
 
-        rec = fwf[0:5]
-        assert rec.lines == slice(0, 5)
-        assert len(list(rec)) == 5
+        rec2 = fwf[0:5]
+        assert isinstance(rec2, FWFViewLike)
+        assert rec2.lines == slice(0, 5)
+        assert len(list(rec2)) == 5
 
-        rec = fwf[-5:]
-        assert rec.lines == slice(5, 10)
-        assert len(list(rec)) == 5
+        rec2 = fwf[-5:]
+        assert isinstance(rec2, FWFViewLike)
+        assert rec2.lines == slice(5, 10)
+        assert len(list(rec2)) == 5
 
-        rec = fwf[0:0]
-        assert rec.lines == slice(0, 0)
-        assert len(list(rec)) == 0
+        rec2 = fwf[0:0]
+        assert isinstance(rec2, FWFViewLike)
+        assert rec2.lines == slice(0, 0)
+        assert len(list(rec2)) == 0
 
 
 def test_index_selector():
@@ -151,6 +164,7 @@ def test_index_selector():
 
         # Unique on an index view
         rtn = fwf[0, 2, 5]
+        assert isinstance(rtn, FWFViewLike)
         assert len(list(rtn)) == 3
         assert len(rtn) == 3
         for r in rtn:
@@ -158,6 +172,7 @@ def test_index_selector():
             assert r["gender"] in [b"M", b"F"]
 
         rtn2 = fwf[0:6][0, 2, 5]
+        assert isinstance(rtn2, FWFViewLike)
         assert rtn.lines == rtn2.lines
 
 
@@ -290,7 +305,7 @@ def test_view_of_a_view():
         rtn = rec[2:4]
         assert len(list(rtn)) == 2
         assert len(rtn) == 2
-        for rec in rtn:       # pylint: this is a false-positive, as the code clearly works well
+        for rec in rtn:
             assert rec.lineno in [3, 4]
 
         rtn = fwf.filter_by_field("gender", b'F')
@@ -299,7 +314,7 @@ def test_view_of_a_view():
         for rec in rtn:
             assert rec.lineno in [0, 3, 5, 6, 7, 8, 9]
 
-        for rec in rtn[2:4]:  # pylint: this is a false-positive, as the code clearly works well
+        for rec in rtn[2:4]:
             assert rec.lineno in [5, 6]
 
 
@@ -309,15 +324,15 @@ def exec_empty_data(data):
     fwf = FWFFile(HumanFile)
     with fwf.open(data):
         assert len(fwf) == 0
- 
-        for rec in fwf:
+
+        for _ in fwf:
             raise Exception("Should be empty")
 
-        for rec in fwf.iter_lines():
+        for _ in fwf.iter_lines():
             raise Exception("Should be empty")
 
-        assert list(x for x in fwf) == []
-        
+        assert len(list(x for x in fwf)) == 0
+
         with pytest.raises(Exception):
             rtn = fwf[0:-1]
 
@@ -329,13 +344,7 @@ def test_empty_data():
 
     with pytest.raises(Exception):
         exec_empty_data(None)
-    
+
     exec_empty_data(b"")
     exec_empty_data(b"# Empty")
     exec_empty_data(b"# Empty\n")
-
-
-# Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":
-if __name__ == '__main__':
-
-    test_view_of_a_view()

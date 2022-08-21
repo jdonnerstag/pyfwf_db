@@ -9,3 +9,8 @@ max-line-length=120
 
 # Remove before releasing source code
 disable=fixme
+
+# Current version of pylint is not working well with python type hints
+# E1133: Non-iterable value x is used in an iterating context (not-an-iterable)
+# E1136: Value 'rec1' is unsubscriptable (unsubscriptable-object)
+#disable=E1133, E1136

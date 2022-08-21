@@ -173,7 +173,7 @@ def test_get_int_field_data():
 
 def exec_create_index(filedef, data):
     fwf = FWFFile(filedef)
-    with fwf.open(data) as fd:
+    with fwf.open(data):
         db = fwf_db_cython.create_index(fwf, "id")
         return db
 
@@ -186,7 +186,7 @@ def test_create_index():
 
 def exec_create_unique_index(filedef, data):
     fwf = FWFFile(filedef)
-    with fwf.open(data) as fd:
+    with fwf.open(data):
         db = fwf_db_cython.create_unique_index(fwf, "id")
         return db
 
@@ -199,7 +199,7 @@ def test_create_unique_index():
 
 def exec_create_int_index(filedef, data):
     fwf = FWFFile(filedef)
-    with fwf.open(data) as fd:
+    with fwf.open(data):
         db = fwf_db_cython.create_int_index(fwf, "id")
         return db
 
@@ -213,7 +213,7 @@ def test_create_int_index():
 
 def exec_fwf_cython_filter(filedef, data, filters):
     fwf = FWFFile(filedef)
-    with fwf.open(data) as fd:
+    with fwf.open(data):
         rtn = fwf_db_cython.fwf_cython(fwf,
             *filters,
             index=None,   # No index => return line numbers
