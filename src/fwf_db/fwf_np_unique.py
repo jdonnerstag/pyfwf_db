@@ -8,9 +8,10 @@ from .fwf_base_mixin import FWFBaseMixin
 
 class FWFUniqueNpBased(FWFBaseMixin):
     """A Numpy based implementation that return the unique (distinct)
-    value of a field (column)
+    value of a field (column). It returns a numpy array, not a dict.
+    It is NOT an index implementation (which is a little confusing)
 
-    Note: interestingly this is marginally slower then the pure python 
+    Note: interestingly this is marginally slower then the pure python
     implementation.
     """
 
@@ -21,7 +22,7 @@ class FWFUniqueNpBased(FWFBaseMixin):
     def unique(self, field, dtype=None, func=None):
         """Create a list of unique values found in 'field'.
 
-        Use 'func' to change the value before adding it to the index, e.g. 
+        Use 'func' to change the value before adding it to the index, e.g.
         str, lower, upper, int, ...
         """
 

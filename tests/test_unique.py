@@ -9,8 +9,8 @@ import io
 import numpy as np
 
 from fwf_db import FWFFile, FWFSimpleIndex, FWFMultiFile, FWFUnique
-from fwf_db.fwf_unique_np_based import FWFUniqueNpBased
-from fwf_db.fwf_index_np_based import FWFIndexNumpyBased
+from fwf_db.fwf_np_unique import FWFUniqueNpBased
+from fwf_db.fwf_np_index import FWFIndexNumpyBased
 
 
 DATA = b"""# My comment test
@@ -49,7 +49,7 @@ def test_unique():
         assert len(list(rtn)) == 9
         assert len(rtn) == 9
 
-        # Transform the value before adding them to unique 
+        # Transform the value before adding them to unique
         rtn = FWFUnique(fwf).unique("state", lambda x: x.decode())
         assert len(list(rtn)) == 9
         assert len(rtn) == 9

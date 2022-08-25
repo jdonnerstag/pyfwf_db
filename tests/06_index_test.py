@@ -7,12 +7,12 @@ import pytest
 
 import numpy as np
 
-from fwf_db import FWFFile, FWFSimpleIndex #, FWFMultiFile, FWFUnique
-#from fwf_db.fwf_unique_np_based import FWFUniqueNpBased
-from fwf_db.fwf_index_np_based import FWFIndexNumpyBased
+from fwf_db import FWFFile, FWFSimpleIndex
+from fwf_db.fwf_np_unique import FWFUniqueNpBased
+from fwf_db.fwf_np_index import FWFIndexNumpyBased
 from fwf_db.fwf_cython_index import FWFCythonIndex
-#from fwf_db.fwf_cython_unique_index import FWFCythonUniqueIndex
-#from fwf_db.fwf_simple_unique_index import FWFSimpleUniqueIndex
+from fwf_db.fwf_cython_unique_index import FWFCythonUniqueIndex
+from fwf_db.fwf_simple_unique_index import FWFSimpleUniqueIndex
 
 
 DATA = b"""# My comment test
@@ -90,7 +90,7 @@ def test_simple_index():
         assert len(rtn) == 5
 
 
-def test_index_numpy_based():
+def test_np_index():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
@@ -137,7 +137,7 @@ def test_index_numpy_based():
 
 
 # TODO If the tests for the different index implementations are the same, can we re-use them?
-def test_index_cython():
+def test_cython_index():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
@@ -184,7 +184,7 @@ def test_index_cython():
         with pytest.raises(Exception):
             rtn = FWFCythonIndex(x).index("state")
 
-'''
+
 def test_simple_unique_index():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
@@ -203,9 +203,12 @@ def test_simple_unique_index():
         assert len(rtn) == 2
         assert "M" in rtn
         assert "F" in rtn
+        assert "xxx" not in rtn
         assert rtn["M"]
         assert rtn["F"]
-        assert not rtn["xxx"]
+
+        with pytest.raises(IndexError):
+            _ = rtn["xxx"]
 
         # A Unique index doesn't return a list but the single record
         # for rec in rtn["M"]:
@@ -225,7 +228,7 @@ def test_simple_unique_index():
         assert len(rtn) == 5
 
 
-def test_unique_index_cython():
+def test_cython_unique_index():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
@@ -243,9 +246,12 @@ def test_unique_index_cython():
         assert len(rtn) == 2
         assert "M" in rtn
         assert "F" in rtn
+        assert "xxx" not in rtn
         assert rtn["M"]
         assert rtn["F"]
-        assert not rtn["xxx"]
+
+        with pytest.raises(IndexError):
+            _ = rtn["xxx"]
 
         # A Unique index doesn't return a list but the single record
         # for rec in rtn["M"]:
@@ -267,58 +273,32 @@ def test_unique_index_cython():
             rtn = FWFCythonUniqueIndex(x).index("state")
 
 
-def test_fwf_cython_index():
+def test_np_unique_index():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
-        rtn = FWFCython(fwf).apply(index="state")
+        rtn = FWFUniqueNpBased(fwf).index("state")
         assert len(rtn) == 9
 
-        rtn = FWFCython(fwf).apply(index="gender", func=lambda x: x.decode())
+        rtn = FWFUniqueNpBased(fwf).index("gender")
         assert len(rtn) == 2
 
-        assert "M" in rtn
-        assert "F" in rtn
-        assert rtn["M"]
-        assert rtn["F"]
-        assert not rtn["xxx"]
+        rtn = FWFUniqueNpBased(fwf).index("state", lambda x: x.decode())
+        assert "MI" in rtn
+        assert rtn["MI"]
 
-        for rec in rtn["M"]:
-            assert rec.lineno in [1, 2, 4]
-
-        x = rtn["M"]
-        x = x[2]
-        assert rtn["M"][2].lineno == 4
-
-        rtn = FWFCython(fwf).apply(index=1)  # Also works with integers == state
-        assert len(rtn) == 9
-
-        # Index on a view
-        # Cython index is only available on FWFile. It wouldn't be faster then
-        # an ordinary Index.
-        x = fwf[0:5]
-        with pytest.raises(Exception):
-            rtn = FWFCython(x).apply(index="state")
-
-
-def test_fwf_cython_unique_index():
-    fwf = FWFFile(HumanFile)
-    with fwf.open(DATA):
-
-        rtn = FWFCython(fwf).apply(index="state", unique_index=True)
-        assert len(rtn) == 9
-
-        rtn = FWFCython(fwf).apply(index="gender", func=lambda x: x.decode(), unique_index=True)
+        rtn = FWFUniqueNpBased(fwf).index("gender", lambda x: x.decode())
         assert len(rtn) == 2
-
         assert "M" in rtn
         assert "F" in rtn
+        assert "xxx" not in rtn
         assert rtn["M"]
         assert rtn["F"]
-        assert not rtn["xxx"]
 
-        # rtn["M"] return a FWFLine and iterating over a FWFLine
-        # yields one byte after another.
+        with pytest.raises(IndexError):
+            _ = rtn["xxx"]
+
+        # A Unique index doesn't return a list but the single record
         # for rec in rtn["M"]:
         #    assert rec.lineno in [1, 2, 4]
 
@@ -327,7 +307,7 @@ def test_fwf_cython_unique_index():
         # assert rtn["M"][2].lineno == 4
         assert rtn["M"].lineno == 4
 
-        rtn = FWFCython(fwf).apply(index=1, unique_index=True)  # Also works with integers == state
+        rtn = FWFUniqueNpBased(fwf).index(1)  # Also works with integers == state
         assert len(rtn) == 9
 
         # Index on a view
@@ -335,6 +315,4 @@ def test_fwf_cython_unique_index():
         # an ordinary Index.
         x = fwf[0:5]
         with pytest.raises(Exception):
-            rtn = FWFCython(x).apply(index="state", unique_index=True)
-
-'''
+            rtn = FWFUniqueNpBased (x).index("state")

@@ -15,8 +15,8 @@ from collections import defaultdict
 import ctypes
 
 from fwf_db import FWFFile, FWFSimpleIndex, FWFMultiFile, FWFUnique
-from fwf_db.fwf_unique_np_based import FWFUniqueNpBased
-from fwf_db.fwf_index_np_based import FWFIndexNumpyBased
+from fwf_db.fwf_np_unique import FWFUniqueNpBased
+from fwf_db.fwf_np_index import FWFIndexNumpyBased
 from fwf_db.fwf_cython_unique_index import FWFCythonUniqueIndex
 from fwf_db.fwf_operator import FWFOperator as op
 from fwf_db.fwf_cython import FWFCython

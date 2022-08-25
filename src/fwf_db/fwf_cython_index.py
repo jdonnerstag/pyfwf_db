@@ -44,12 +44,12 @@ class FWFCythonIndex(FWFDictIndexLike):
         return self
 
 
-    def fwf_subset(self, fwfview, key, fields) -> FWFSubset:
+    def get(self, key) -> FWFSubset:
         """Create a view based on the indices associated with the index key provided"""
 
         # self.data is a defaultdict, hence the additional 'in' test
         if key in self.data:
-            return FWFSubset(fwfview, self.data[key], fields)
+            return FWFSubset(self.fwfview, self.data[key], self.fwfview.fields)
 
         raise IndexError(f"'key' not found in Index: {key}")
 

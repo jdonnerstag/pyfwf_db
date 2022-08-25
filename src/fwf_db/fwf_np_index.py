@@ -22,9 +22,9 @@ class FWFIndexNumpyBased(FWFDictIndexLike):
         self.init_dict_index_like(fwfview)
         self.field = None   # The field to use for the index
         self.dtype = None
-        self.data = None    # defaultdict key -> [<indices>]
         self.cleanup_df: Optional[Callable] = None
 
+    # TODO I think func is also a Callable
     def index(self, field, dtype=None, func=None, log_progress: None|Callable = None, cleanup_df=None):
         if dtype is None:
             dtype = self.fwfview.field_dtype(1)
@@ -86,7 +86,7 @@ class FWFIndexNumpyBased(FWFDictIndexLike):
         return data
 
 
-    def fwf_subset(self, fwfview, key, fields):
+    def get(self, key) -> FWFSubset:
         """Create a view with the indices associated with the index key provided"""
 
         assert self.data is not None
@@ -94,6 +94,6 @@ class FWFIndexNumpyBased(FWFDictIndexLike):
         # Numpy return an empty list [], if key is not found
         if key in self.data:
             value = self.data[key]
-            return FWFSubset(fwfview, value, fields)
+            return FWFSubset(self.fwfview, value, self.fwfview.fields)
 
         raise IndexError(f"'key' not found in Index: {key}")

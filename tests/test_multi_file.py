@@ -9,8 +9,8 @@ import io
 import numpy as np
 
 from fwf_db import FWFFile, FWFSimpleIndex, FWFMultiFile, FWFUnique
-from fwf_db.fwf_unique_np_based import FWFUniqueNpBased
-from fwf_db.fwf_index_np_based import FWFIndexNumpyBased
+from fwf_db.fwf_np_unique import FWFUniqueNpBased
+from fwf_db.fwf_np_index import FWFIndexNumpyBased
 from fwf_db.fwf_operator import FWFOperator as op
 from fwf_db.fwf_cython import FWFCython
 from fwf_db.fwf_merge_index import FWFMergeIndex
@@ -148,7 +148,7 @@ def test_effective_date():
             line = refs[0]
             line = int(line["ID"].decode("utf-8"))
             assert (1 <= x <= 5) or (x == 22)
-            
+
             if len(refs) > 1:
                 line = refs[1]
                 line = int(line["ID"].decode("utf-8"))
@@ -163,7 +163,7 @@ def test_effective_date():
 
             line = refs[0]
             assert (0 <= line.lineno < 5) or (10 <= line.lineno < 15)
-            
+
             if len(refs) > 1:
                 line = refs[1]
                 assert (0 <= line.lineno < 5) or (10 <= line.lineno < 15)
@@ -214,7 +214,7 @@ def test_cython_filter():
 
 
 def test_cython_index():
-    
+
     with FWFMergeIndex(DataFile) as mi:
 
         mi.open(DATA_1, index="ID")
@@ -256,7 +256,7 @@ def test_with_statement():
     with FWFMultiFile() as mf:
         fwf1 = FWFFile(DataFile)
         fwf2 = FWFFile(DataFile)
-        
+
         fd1 = fwf1.open(DATA_1)
         fd2 = fwf2.open(DATA_2)
 

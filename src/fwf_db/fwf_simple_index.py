@@ -30,13 +30,18 @@ class FWFSimpleIndex(FWFDictIndexLike):
         # TODO May be should do self.data=dict(self.data) when done with creating the index? How do we know?
 
 
-    def fwf_subset(self, fwfview, key, fields) -> FWFSubset:
+    def __getitem__(self, key) -> FWFSubset:
+        """Create a new view with all rows matching the index key"""
+        return self.get(key)
+
+
+    def get(self, key) -> FWFSubset:
         """Create a view based on the indices associated with the index key provided"""
 
         # self.data is a defaultdict, hence the additional 'in' test
         if key in self.data:
             value = self.data[key]
-            return FWFSubset(fwfview, value, fields)
+            return FWFSubset(self.fwfview, value, self.fwfview.fields)
 
         raise IndexError(f"'key' not found in Index: {key}")
 
