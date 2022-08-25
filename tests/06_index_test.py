@@ -1,20 +1,18 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+# pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name
+
 import pytest
 
-import os
-import sys
-import io
 import numpy as np
 
-from fwf_db import FWFFile, FWFSimpleIndex, FWFMultiFile, FWFUnique
-from fwf_db.fwf_unique_np_based import FWFUniqueNpBased
+from fwf_db import FWFFile, FWFSimpleIndex #, FWFMultiFile, FWFUnique
+#from fwf_db.fwf_unique_np_based import FWFUniqueNpBased
 from fwf_db.fwf_index_np_based import FWFIndexNumpyBased
 from fwf_db.fwf_cython_index import FWFCythonIndex
-from fwf_db.fwf_cython_unique_index import FWFCythonUniqueIndex
-from fwf_db.fwf_simple_unique_index import FWFSimpleUniqueIndex
-from fwf_db.fwf_cython import FWFCython
+#from fwf_db.fwf_cython_unique_index import FWFCythonUniqueIndex
+#from fwf_db.fwf_simple_unique_index import FWFSimpleUniqueIndex
 
 
 DATA = b"""# My comment test
@@ -31,7 +29,7 @@ US       ME20080503F0f51da89a299Kelly Crose             Whatever    Comedian    
 """
 
 
-class HumanFile(object):
+class HumanFile:
 
     FIELDSPECS = [
         {"name": "location", "len": 9},
@@ -63,9 +61,12 @@ def test_simple_index():
         assert len(rtn) == 2
         assert "M" in rtn
         assert "F" in rtn
+        assert "xxx" not in rtn
         assert rtn["M"]
         assert rtn["F"]
-        assert not rtn["xxx"]
+
+        with pytest.raises(IndexError):
+            _ = rtn["xxx"]
 
         for key, value in rtn:
             assert key in ["F", "M"]
@@ -107,11 +108,14 @@ def test_index_numpy_based():
         assert len(rtn) == 2
         assert "M" in rtn
         assert "F" in rtn
+        assert "xxx" not in rtn
         assert rtn["M"]
         assert rtn["F"]
-        assert not rtn["xxx"]
 
-        for key, value in rtn:
+        with pytest.raises(IndexError):
+            _ = rtn["xxx"]
+
+        for key, _ in rtn:
             assert key in ["F", "M"]
             rec = rtn[key]
             assert len(rec) == 3 or len(rec) == 7
@@ -132,6 +136,7 @@ def test_index_numpy_based():
         assert len(rtn) == 5
 
 
+# TODO If the tests for the different index implementations are the same, can we re-use them?
 def test_index_cython():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
@@ -150,11 +155,14 @@ def test_index_cython():
         assert len(rtn) == 2
         assert "M" in rtn
         assert "F" in rtn
+        assert "xxx" not in rtn
         assert rtn["M"]
         assert rtn["F"]
-        assert not rtn["xxx"]
 
-        for key, value in rtn:
+        with pytest.raises(IndexError):
+            _ = rtn["xxx"]
+
+        for key, _ in rtn:
             assert key in ["F", "M"]
             rec = rtn[key]
             assert len(rec) == 3 or len(rec) == 7
@@ -176,7 +184,7 @@ def test_index_cython():
         with pytest.raises(Exception):
             rtn = FWFCythonIndex(x).index("state")
 
-
+'''
 def test_simple_unique_index():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
@@ -309,7 +317,7 @@ def test_fwf_cython_unique_index():
         assert rtn["F"]
         assert not rtn["xxx"]
 
-        # rtn["M"] return a FWFLine and iterating over a FWFLine 
+        # rtn["M"] return a FWFLine and iterating over a FWFLine
         # yields one byte after another.
         # for rec in rtn["M"]:
         #    assert rec.lineno in [1, 2, 4]
@@ -329,8 +337,4 @@ def test_fwf_cython_unique_index():
         with pytest.raises(Exception):
             rtn = FWFCython(x).apply(index="state", unique_index=True)
 
-
-# Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":
-if __name__ == '__main__':
-
-    test_index_numpy_based()
+'''

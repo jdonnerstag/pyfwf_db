@@ -1,3 +1,6 @@
+
+# TODO We are using wheel/setup.py. Do we still need the requirements.txt?
+
 # We are using Numpy and Pandas to create an index on a column in the
 # fixed-width file, create unique list of values, manage columns
 # transformed into int32, datetime, whatever, ...

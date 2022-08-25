@@ -6,7 +6,6 @@ from .fwf_file import FWFFile
 from .fwf_line import FWFLine
 from .fwf_region import FWFRegion
 from .fwf_subset import FWFSubset
-from .fwf_cython import FWFCython
 
 
 class FWFMultiFileMixin:

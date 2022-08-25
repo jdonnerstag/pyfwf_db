@@ -115,7 +115,7 @@ setup(
     #
     #   $ pip install sampleproject[dev]
     extras_require={
-        "dev": ["pytest", "Cython", "tox", "check-manifest"],
+        "dev": ["pytest", "Cython", "tox", "check-manifest", "pandas"],
     },
 
     # If there are data files included in your packages that need to be

@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+from typing import Callable, Optional
+
 from collections import defaultdict
 import numpy as np
 
@@ -21,9 +23,9 @@ class FWFIndexNumpyBased(FWFDictIndexLike):
         self.field = None   # The field to use for the index
         self.dtype = None
         self.data = None    # defaultdict key -> [<indices>]
+        self.cleanup_df: Optional[Callable] = None
 
-
-    def index(self, field, dtype=None, func=None, log_progress=None, cleanup_df=None):
+    def index(self, field, dtype=None, func=None, log_progress: None|Callable = None, cleanup_df=None):
         if dtype is None:
             dtype = self.fwfview.field_dtype(1)
 
@@ -33,11 +35,11 @@ class FWFIndexNumpyBased(FWFDictIndexLike):
         super().index(field, func, log_progress)
         return self
 
-
+    # TODO _index2 is a very bad name
     def _index2(self, gen):
         """Create the Index
 
-        The 'field' to base the index upon
+        The 'field' to base the index on
         'np_type' is the Numpy dtype used to create the array that initially
         holds the index data.
         'func' to process the field data before adding it to the index, e.g.
@@ -54,8 +56,7 @@ class FWFIndexNumpyBased(FWFDictIndexLike):
 
 
     def _index2a(self, gen):
-        """Create the Index
-        df.
+        """Create the Index df.
         The 'field' to base the index upon
         'np_type' is the Numpy dtype used to create the array that initially
         holds the index data.
@@ -85,7 +86,14 @@ class FWFIndexNumpyBased(FWFDictIndexLike):
         return data
 
 
-    def fwf_subset(self, fwffile, key, fields):
+    def fwf_subset(self, fwfview, key, fields):
         """Create a view with the indices associated with the index key provided"""
+
+        assert self.data is not None
+
+        # Numpy return an empty list [], if key is not found
         if key in self.data:
-            return FWFSubset(fwffile, self.data[key], fields)
+            value = self.data[key]
+            return FWFSubset(fwfview, value, fields)
+
+        raise IndexError(f"'key' not found in Index: {key}")

@@ -29,3 +29,4 @@
 - Consider using Nuitka as Python Compiler
 - Support ignore-case (convert to upper case) key and/or value.
 - Use python module "black" for formatting the source code
+- We are using setup.py. Do we still need requirements.txt?

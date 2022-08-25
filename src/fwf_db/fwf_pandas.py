@@ -1,27 +1,32 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+from typing import TYPE_CHECKING
 
-import numpy as np
 import pandas as pd
 
 from .fwf_base_mixin import FWFBaseMixin
 
+if TYPE_CHECKING:
+    from .fwf_file import FWFFile
+
 
 class FWFPandas(FWFBaseMixin):
     """Export the data to Pandas"""
-    
+
     def __init__(self, fwffile):
         self.fwffile = fwffile
 
 
-    def to_pandas(self, dtype=None):
+    def to_pandas(self, dtype=None) -> pd.DataFrame:
         """Load fields denoted by dtype into a Pandas dataframe. Please not, Pandas
         does still need a lot of memory
         """
 
         if dtype is None:
             parent = self.fwffile
+            # TODO Don't understand this test. What is it that we trying to achieve?
+            # Find the first parent with an fieldspecs attribute. But we also assume it has a fwfile attr?
             while getattr(parent, "fieldspecs", None) is None:
                 parent = parent.fwffile
 
@@ -35,13 +40,14 @@ class FWFPandas(FWFBaseMixin):
                 # In case a fieldspec has been provided...
                 dtype = {e["name"] : e["dtype"] for e in dtype if "dtype" in e}
 
-        names = dtype.keys()
+        names = list(dtype.keys())
         strs = [ftype in ["str", "string"] for ftype in dtype.items()]
 
         gen = (line.to_list(names) for line in self.fwffile)
+        # TODO fwf_file may deserve a function to create a dataclass record from a FWFLine
         gen = ([line[i].decode("utf-8") if strs[i] else line[i] for i in range(len(strs))] for line in gen)
 
-        df = pd.DataFrame(gen, columns=names, index=None)
+        df = pd.DataFrame.from_records(gen, columns=names, index=None)
 
         for field, ftype in dtype.items():
             if ftype:
