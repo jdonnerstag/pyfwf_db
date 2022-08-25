@@ -8,8 +8,8 @@ import sys
 import io
 
 from fwf_db import FWFFile, FWFSimpleIndex, FWFMultiFile, FWFUnique
-from fwf_db.fwf_np_unique import FWFUniqueNpBased
-from fwf_db.fwf_np_index import FWFIndexNumpyBased
+from fwf_db.fwf_np_unique_index import FWFUniqueNpBased
+from fwf_db.fwf_np_index import FWFNumpyIndex
 
 # TODO
 

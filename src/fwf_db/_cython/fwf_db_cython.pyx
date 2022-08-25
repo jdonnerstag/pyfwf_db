@@ -433,34 +433,6 @@ def field_data(fwf, index_field: str, filters: list = None):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def field_data_with_lineno(fwf, index_field: str, int_field: bool = False, filters: list = None):
-    """Return a numpy array with the data from the 'field' and the lineno, in the
-    sequence read from the file.
-    """
-
-    cdef InternalData params = _init_internal_data(fwf, filters, None, index_field)
-
-    # Allocate memory for all of the data
-    # We are not converting or processing the field data in any way
-    # or form => dtype for binary data types and field length
-    cdef numpy.ndarray values = numpy.empty(fwf.reclen, dtype=[('id', f"S{params.index_field_size}"), ("lineno", numpy.int32)])
-
-    # Loop over every line
-    while has_more_lines(&params):
-        if _cmp_values(&params):
-            # Add the field value and lineno to the numpy array
-            values[params.count] = (_field_data(&params), params.irow)
-            params.count += 1
-
-        next_line(&params)
-
-    # Return the numpy array
-    values.resize(params.count)
-    return values
-
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-
 def field_data_int(fwf, index_field: str, filters: list = None):
     """Read the data for 'field', convert them into a int and store them in a
     numpy array

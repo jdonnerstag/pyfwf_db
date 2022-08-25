@@ -18,7 +18,7 @@ import inspect
 
 from fwf_db import FWFFile, FWFSimpleIndex, FWFMultiFile, FWFUnique
 #from fwf_db.fwf_unique_np_based import FWFUniqueNpBased
-from fwf_db.fwf_np_index import FWFIndexNumpyBased
+from fwf_db.fwf_np_index import FWFNumpyIndex
 #from fwf_db.fwf_cython_unique_index import FWFCythonUniqueIndex
 from fwf_db.fwf_operator import FWFOperator as op
 #from fwf_db.fwf_cython import FWFCython
@@ -222,7 +222,7 @@ def test_perf_numpy_index():
     with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5889278
         t1 = time()
-        index = FWFIndexNumpyBased(fd).index("PARTY_ID")
+        index = FWFNumpyIndex(fd).index("PARTY_ID")
         log(t1, "Create_FWFIndexNumpyBased")    # Approx 16 secs
         assert len(index) == 5889278    # No duplictates, which makes sense for this data
 

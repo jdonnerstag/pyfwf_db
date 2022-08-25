@@ -155,25 +155,6 @@ def test_get_field_data():
     assert exec_get_field_data(TestFile5, b"000abcd\n001abcd\n") == [b"000", b"001"]
 
 
-def exec_get_field_data_with_lineno(filedef, data):
-    fwf = FWFFile(filedef)
-    with fwf.open(data):
-        db = fwf_db_cython.field_data_with_lineno(fwf, "id")
-        return db.tolist()
-
-# TODO We need to add test with filters
-def test_get_field_data_with_lineno():
-    assert len(exec_get_field_data_with_lineno(TestFile4, b"")) == 0
-    assert exec_get_field_data_with_lineno(TestFile4, b"000") == [(b"000", 0)]
-    assert exec_get_field_data_with_lineno(TestFile4, b"000\n001") == [(b"000", 0), (b"001", 1)]
-    assert exec_get_field_data_with_lineno(TestFile4, b"000\n001\n")== [(b"000", 0), (b"001", 1)]
-
-    assert len(exec_get_field_data_with_lineno(TestFile5, b"")) == 0
-    assert exec_get_field_data_with_lineno(TestFile5, b"000abcd") == [(b"000", 0)]
-    assert exec_get_field_data_with_lineno(TestFile5, b"000abcd\n001abcd") == [(b"000", 0), (b"001", 1)]
-    assert exec_get_field_data_with_lineno(TestFile5, b"000abcd\n001abcd\n") == [(b"000", 0), (b"001", 1)]
-
-
 def exec_get_int_field_data(filedef, data):
     fwf = FWFFile(filedef)
     with fwf.open(data):

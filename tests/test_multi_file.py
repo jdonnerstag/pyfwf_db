@@ -9,8 +9,8 @@ import io
 import numpy as np
 
 from fwf_db import FWFFile, FWFSimpleIndex, FWFMultiFile, FWFUnique
-from fwf_db.fwf_np_unique import FWFUniqueNpBased
-from fwf_db.fwf_np_index import FWFIndexNumpyBased
+from fwf_db.fwf_np_unique_index import FWFUniqueNpBased
+from fwf_db.fwf_np_index import FWFNumpyIndex
 from fwf_db.fwf_operator import FWFOperator as op
 from fwf_db.fwf_cython import FWFCython
 from fwf_db.fwf_merge_index import FWFMergeIndex

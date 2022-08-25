@@ -5,6 +5,7 @@
 
 from typing import Tuple, Iterator
 
+# TODO Why is this not part of the Index-like base class?
 class FWFBaseMixin:
     """A mixin that implements re-usable methods required in views, indexes,
     uniques, to_pandas, ...
@@ -16,6 +17,7 @@ class FWFBaseMixin:
         field = parent.field_from_index(field)
 
         # If the parent view has an optimized iterator ..
+        # TODO I'm wondering whether there really is a scenario where iter_lines_with_field is faster?
         if hasattr(parent, "iter_lines_with_field"):
             gen = parent.iter_lines_with_field(field)
         else:

@@ -10,11 +10,11 @@ from .fwf_index_like import FWFDictIndexLike
 from .fwf_subset import FWFSubset
 
 
-class FWFIndexNumpyBased(FWFDictIndexLike):
-    """A Numpy and Pandas based Index
+class FWFNumpyIndex(FWFDictIndexLike):
+    """A Numpy based Index
 
     Especially with large files with millions of records in the index,
-    a Pandas based index is (much) faster compared to pure python based on.
+    a Numpy based index is (much) faster compared to pure python based on.
     """
 
     def __init__(self, fwfview):

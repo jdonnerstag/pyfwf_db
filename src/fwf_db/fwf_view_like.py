@@ -150,7 +150,7 @@ class FWFViewLike(FWFBaseMixin, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def iter_lines(self) -> Iterator[Tuple[int, bytes]]:
-        """Iterate over all lines in the file, returning raw line data"""
+        """Iterate over all lines in the file, returning raw line data (bytes)"""
 
 
     def filter(self, arg1: str|Callable, arg2=None) -> 'FWFViewLike':
