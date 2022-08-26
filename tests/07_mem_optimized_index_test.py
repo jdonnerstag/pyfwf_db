@@ -1,16 +1,14 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-import pytest
+# pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name, protected-access
 
-import abc
-import os
-import sys
-import io
 from random import randrange
 from time import time
 
-from fwf_db._cython.fwf_mem_optimized_index import BytesDictWithIntListValues, MyIndexDict
+import pytest
+
+from fwf_db.fwf_mem_optimized_index import BytesDictWithIntListValues, MyIndexDict
 
 
 def test_constructor():
@@ -38,7 +36,7 @@ def test_get():
 
     data = BytesDictWithIntListValues(1000)
     with pytest.raises(Exception):
-        data["xxx"]
+        data["xxx"]     # pylint: disable=pointless-statement
 
     data["111"] = 1
     assert data["111"] == [(0, 1)]
@@ -46,14 +44,13 @@ def test_get():
     data["111"] = 11
     assert data["111"] == [(0, 1), (0, 11)]
     assert data.get("111") == [(0, 1), (0, 11)]
-
 
 
 def test_large():
 
     data = BytesDictWithIntListValues(int(10e6))
     with pytest.raises(Exception):
-        data["xxx"]
+        data["xxx"]     # pylint: disable=pointless-statement
 
     data["111"] = 1
     assert data["111"] == [(0, 1)]
@@ -62,18 +59,20 @@ def test_large():
     assert data["111"] == [(0, 1), (0, 11)]
     assert data.get("111") == [(0, 1), (0, 11)]
 
+    # Fill the array with 1 million random numbers
     t1 = time()
     for i in range(int(1e6)):
         key = randrange(int(1e6))
         data[key] = i
 
-    print(f'Elapsed time is {time() - t1} seconds.    {len(data):,d}')
+    print(f'Fill array: Elapsed time is {time() - t1} seconds. Added {len(data):,d} keys')
 
+    # Access the array
     t1 = time()
     for i in range(int(1e6)):
-        data[key]
+        data.get(i)     # pylint: disable=pointless-statement
 
-    print(f'Elapsed time is {time() - t1} seconds.')
+    print(f'Access array: Elapsed time is {time() - t1} seconds.')
 
 
 def test_resize():
@@ -207,24 +206,18 @@ def test_MyIndexDict_get():
     data.put(b"a", 1)
     assert data.get(b"a") == 1
 
-    assert data.get(b"#") == None
+    assert data.get(b"#") is None
 
     data._put_into_bucket(2, 0)
     data._put_into_bucket(2, 1)
     data._put_into_bucket(2, 2)
     data._put_into_bucket(2, 3)
 
-    assert data._get_from_bucket(1, b"1") == None
-    assert data._get_from_bucket(117, b"1") == None
+    assert data._get_from_bucket(1, b"1") is None
+    assert data._get_from_bucket(117, b"1") is None
 
     assert data._get_from_bucket(2, b"1") == 0
     assert data._get_from_bucket(2, b"a") == 1
     assert data._get_from_bucket(2, b"k") == 2
     assert data._get_from_bucket(2, b"u") == 3
-    assert data._get_from_bucket(2, b"#") == None
-
-
-# Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":
-if __name__ == '__main__':
-
-    test_constructor()
+    assert data._get_from_bucket(2, b"#") is None
