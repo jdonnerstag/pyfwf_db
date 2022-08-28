@@ -13,7 +13,7 @@ if typing.TYPE_CHECKING:
 
 
 class FWFLine:
-    """A dictory like convinience class to access the fields within a
+    """A dictionary like convinience class to access the fields within a
     line. Access is similar to dict() with get(), [], keys, in, ...
     """
 

@@ -172,10 +172,10 @@ def test_get_int_field_data():
     assert exec_get_int_field_data(TestFile5, b"000abcd\n001abcd") == [0, 1]
     assert exec_get_int_field_data(TestFile5, b"000abcd\n001abcd\n") == [0, 1]
 
-def exec_create_index(filedef, data):
+def exec_create_index(filedef, data, func=None):
     fwf = FWFFile(filedef)
     with fwf.open(data):
-        db = fwf_db_cython.create_index(fwf, "id")
+        db = fwf_db_cython.create_index(fwf, "id", func=func)
         return db
 
 def test_create_index():
@@ -184,6 +184,9 @@ def test_create_index():
     assert exec_create_index(TestFile4, b"000\n001") == {b"000": [0], b"001": [1]}
     assert exec_create_index(TestFile4, b"000\n001\n") == {b"000": [0], b"001": [1]}
     assert exec_create_index(TestFile4, b"000\n001\n000") == {b"000": [0, 2], b"001": [1]}
+
+    assert exec_create_index(TestFile4, b"", lambda x: int(x, base=10)) == {}
+    assert exec_create_index(TestFile4, b"000\n001\n000", lambda x: int(x, base=10)) == {0: [0, 2], 1: [1]}
 
 def exec_create_unique_index(filedef, data):
     fwf = FWFFile(filedef)

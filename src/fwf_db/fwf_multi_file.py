@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+from typing import TextIO
 from .fwf_view_like import FWFViewLike
 from .fwf_file import FWFFile
 from .fwf_line import FWFLine
@@ -9,11 +10,11 @@ from .fwf_subset import FWFSubset
 
 
 class FWFMultiFileMixin:
+    """Mix-in for common multi-file functionalities"""
 
-    def init_multi_file_mixin(self, filespec):
-
+    def __init__(self, filespec):
         self.filespec = filespec
-        self.files = []        # view-like
+        self.files: list[FWFViewLike] = []
 
 
     def __enter__(self):
@@ -25,34 +26,34 @@ class FWFMultiFileMixin:
 
 
     def close(self):
-        for f in self.files:
-            f.close()
+        """Close all open files previously registered"""
+        for file in self.files:
+            close = getattr(file, "close")
+            if callable(close):
+                close()
 
 
 
-class FWFMultiFile(FWFViewLike, FWFMultiFileMixin):
+class FWFMultiFile(FWFMultiFileMixin, FWFViewLike):
     """Create a view over multiple files and allow them to be treated
     as one file.
 
-    Regularly we receive new files every day, but must process the files
-    from the a past period. With multi-file support it is not necessary
-    to concat the files first.
+    Regularly we receive new files every day, but must process all files
+    from a past period (multiple days). With multi-file support it is not
+    necessary to concat the files first.
     """
 
     def __init__(self, filespec=None):
-
-        self.lines = None      # slice(0, <overall number of records>)
-        self.fields = None     # Dict(field name -> slice)
-
-        self.init_multi_file_mixin(filespec)
+        FWFMultiFileMixin.__init__(self, filespec)
+        FWFViewLike.__init__(self, None, None, None)
 
 
-    def open(self, file, cython=False):
+    def open(self, file):
+        """Open a file complying to the filespec provided in the
+        constructor, and register the file for auto-close"""
+
         fwf = FWFFile(self.filespec)
-        fd = fwf.open(file)
-
-        if cython:
-            fd = FWFCython(fd).apply()
+        fd = fwf.open(file)     # pylint: disable=invalid-name
 
         return self.add_file(fd)
 
@@ -71,9 +72,6 @@ class FWFMultiFile(FWFViewLike, FWFMultiFileMixin):
         if self.fields is None:
             self.fields = fwf_view_like.fields
 
-        # Re-initialize the view
-        self.init_view_like(self.lines, self.fields)
-
         return fwf_view_like
 
 
@@ -82,17 +80,14 @@ class FWFMultiFile(FWFViewLike, FWFMultiFileMixin):
         if fwf_view is None:
             return
 
-        self.files = self.files.remove(fwf_view)
+        self.files.remove(fwf_view)
 
         # Update the overall line count
         self.lines = slice(0, sum(len(x) for x in self.files))
 
-        # Re-initialize the view
-        self.init_view_like(self.lines, self.fields)
-
 
     def determine_fwf_views(self, start, stop):
-        """Based in the start and stop indexes provided, determine which
+        """Based on the start and stop indexes provided, determine which
         lines from which views are included
         """
         rtn = []
@@ -138,8 +133,10 @@ class FWFMultiFile(FWFViewLike, FWFMultiFileMixin):
 
             start_pos = fto
 
+        raise IndexError(f"Index not found: {index}")
 
-    def __len__(self):
+
+    def __len__(self) -> int:
         """Overall number of records in all files added so far"""
         return self.lines.stop - self.lines.start
 
@@ -159,19 +156,19 @@ class FWFMultiFile(FWFViewLike, FWFMultiFileMixin):
                 count += 1
 
 
-    def fwf_by_indices(self, indices):
+    def fwf_by_indices(self, indices) -> FWFSubset:
         """Create a new view based on the indices provided"""
         # TODO has this been tested already?
         return FWFSubset(self, indices, self.fields)
 
 
-    def fwf_by_slice(self, arg):
+    def fwf_by_slice(self, arg) -> FWFRegion:
         """Create a new view based on the slice provided"""
         # TODO has this been tested already?
         return FWFRegion(self, arg, self.fields)
 
 
-    def fwf_by_line(self, idx, line):
+    def fwf_by_line(self, idx, line) -> FWFLine:
         """Create a new Line based on the index and raw line data provided"""
         # TODO has this been tested already?
         return FWFLine(self, idx, line)

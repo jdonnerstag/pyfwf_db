@@ -1,53 +1,53 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-from typing import Dict, Tuple, Sequence
 from .fwf_view_like import FWFViewLike
+from .fwf_index_like import FWFIndexLike
 from .fwf_line import FWFLine
 
 
 class FWFMultiSubset(FWFViewLike):
 
-    def __init__(self, fwfviews, lines):
+    def __init__(self, fwfviews: list[FWFViewLike], lines):
         self.fwfviews = fwfviews
 
         # Lines is a list of tuples holding the index of the fwfview
         # and the index within that view.
-        self.init_view_like(lines, "dummy")
+        super().__init__(lines, "dummy", None)
 
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Get the number of indices (== rows) in the view"""
         return len(self.lines)
 
 
-    def line_at(self, index):
+    def line_at(self, index) -> bytes:
         """Get the raw line data for the line with the index"""
         pos, index = self.lines[index]
         fwfview = self.fwfviews[pos].fwfview
         return fwfview.line_at(index)
 
 
-    def fwf_by_indices(self, indices):
+    def fwf_by_indices(self, indices) -> 'FWFMultiSubset':
         """Create a view based on the indices provided."""
         lines = [self.lines[i] for i in indices]
         return FWFMultiSubset(self.fwfviews, lines)
 
 
-    def fwf_by_slice(self, arg):
+    def fwf_by_slice(self, arg) -> 'FWFMultiSubset':
         """Create a view based on the slice provided."""
         lines = self.lines[arg]
         return FWFMultiSubset(self.fwfviews, lines)
 
 
-    def fwf_by_line(self, idx, line):
+    def fwf_by_line(self, idx, line) -> FWFLine:
         """Create a line based on the index and raw line data provided."""
         pos, idx = self.lines(idx)
         fwfview = self.fwfviews[pos]
         return FWFLine(fwfview, idx, fwfview.line_at[idx])
 
 
-    def iter(self):
+    def __iter__(self):
         for pos, idx in self.lines:
             fwfview = self.fwfviews[pos]
             line = fwfview[idx]

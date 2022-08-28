@@ -2,10 +2,9 @@
 # encoding: utf-8
 
 import mmap
-from typing import Tuple, Iterator
+from typing import Optional, Iterator
 
 from .fwf_view_like import FWFViewLike
-from .fwf_line import FWFLine
 from .fwf_region import FWFRegion
 from .fwf_subset import FWFSubset
 
@@ -42,7 +41,6 @@ class FWFFile(FWFViewLike):
         self.encoding = getattr(reader, "ENCODING", None)
         self.fieldspecs = [v.copy() for v in reader.FIELDSPECS]     # fixed width file spec
         self.add_slice_info(self.fieldspecs)    # The slice for each field
-        self.fields = {x["name"] : x["slice"] for x in self.fieldspecs}
         self.newline_bytes = getattr(reader, "NEWLINE", None) or [0, 1, 10, 13]  # These bytes we recognize as newline
         self.comment_char = getattr(reader, "COMMENTS", None) or '#'
 
@@ -53,11 +51,13 @@ class FWFFile(FWFViewLike):
         self.fsize = -1       # File size (including possibly missing last newline)
         self.reclen = -1      # Number of records in the file
         self.start_pos = -1   # Position of first record, after skipping leading comment lines
-        self.lines = None      # slice(0, reclen)
 
         self.file = None        # File name
         self.fd = None          # open file handle
         self.mm = None          # memory map (read-only)
+
+        fields = {x["name"] : x["slice"] for x in self.fieldspecs}
+        super().__init__(fields)
 
 
     @classmethod
@@ -199,8 +199,6 @@ class FWFFile(FWFViewLike):
         self.start_pos = self.skip_comment_line(self.mm, self.comment_char)
         self.reclen = int((self.fsize - self.start_pos + 0.1) / self.fwidth) if len(self.mm) > 0 else 0
 
-        self.init_view_like(slice(0, self.reclen), self.fields)
-
         return self
 
 
@@ -221,7 +219,11 @@ class FWFFile(FWFViewLike):
 
     def __len__(self) -> int:
         """Return the number of records in the file"""
-        return self.lines.stop - self.lines.start  # type: ignore
+        return self.reclen
+
+
+    def get_parent(self) -> Optional['FWFViewLike']:
+        return None
 
 
     def pos_from_index(self, index: int) -> int:
@@ -237,28 +239,25 @@ class FWFFile(FWFViewLike):
         raise Exception(f"Invalid index: {index}")
 
 
-    def line_at(self, index) -> bytes:
+    def _parent_index(self, index: int) -> int:
+        return index
+
+
+    def _raw_line_at(self, index: int) -> tuple[int, bytes]:
         """Get the raw line data for the line with the index"""
         pos = self.pos_from_index(index)
-        return self.mm[pos : pos + self.fwidth]       # type: ignore
+        return index, self.mm[pos : pos + self.fwidth]       # type: ignore
 
 
-    def fwf_by_indices(self, indices) -> FWFSubset:
-        """Instantiate a new view based on the indices provided"""
+    def _fwf_by_indices(self, indices: list[int]) -> FWFSubset:
         return FWFSubset(self, indices, self.fields)
 
 
-    def fwf_by_slice(self, arg) -> FWFRegion:
-        """Instantiate a new view on the slice provided"""
-        return FWFRegion(self, arg, self.fields)
+    def _fwf_by_slice(self, start: int, stop: int) -> FWFRegion:
+        return FWFRegion(self, start, stop, self.fields)
 
 
-    def fwf_by_line(self, idx, line) -> FWFLine:
-        """instantiate a new FWFLine on the index and line data provided"""
-        return FWFLine(self, idx, line)
-
-
-    def iter_lines(self) -> Iterator[Tuple[int, bytes]]:
+    def iter_lines(self) -> Iterator[tuple[int, bytes]]:
         """Iterate over all the lines in the file"""
 
         assert self.mm is not None
@@ -270,14 +269,14 @@ class FWFFile(FWFViewLike):
         end = start_pos + fwidth
         while end <= end_pos:
             # rtn = memoryview(self.mm[start_pos : end])  # It is not getting faster
-            rtn = self.mm[start_pos : end]  # This is where python copies the memory
-            yield irow, rtn
+            # rtn = self.mm[start_pos : end]  # TODO This is where python copies the memory
+            yield irow, self.mm[start_pos : end]
             start_pos = end
             end = start_pos + fwidth
             irow += 1
 
 
-    def iter_lines_with_field(self, field) -> Iterator[Tuple[int, bytes]]:
+    def iter_lines_with_field(self, field) -> Iterator[tuple[int, bytes]]:
         """An optimized version that iterates over a single field in all lines.
         This is useful for unique and index.
         """
@@ -290,5 +289,5 @@ class FWFFile(FWFViewLike):
         end_pos = self.fsize or 0
         fwidth = self.fwidth
         for irow, start_pos in enumerate(range(start_pos, end_pos, fwidth)):
-            rtn = self.mm[start_pos : start_pos + flen]  # This is where python copies the memory
-            yield irow, rtn
+            # rtn = self.mm[start_pos : start_pos + flen]  # This is where python copies the memory
+            yield irow, self.mm[start_pos : start_pos + flen]

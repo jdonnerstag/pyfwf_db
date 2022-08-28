@@ -1,14 +1,10 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-from typing import Any, Callable
+from typing import Callable
+from .fwf_file import FWFFile
 from .fwf_index_like import FWFDictUniqueIndexLike
-from .fwf_line import FWFLine
 from ._cython import fwf_db_cython
-
-
-class FWFCythonUniqueIndexException(Exception):
-    ''' FWFCythonUniqueIndexException '''
 
 
 class FWFCythonUniqueIndex(FWFDictUniqueIndexLike):
@@ -21,34 +17,12 @@ class FWFCythonUniqueIndex(FWFDictUniqueIndexLike):
     simple takes the last entry it can find.
     """
 
-    def __init__(self, fwfview):
+    def __init__(self, fwfview: FWFFile, field: int|str, func: None|Callable=None):
+        assert isinstance(fwfview, FWFFile), f"FWFCythonUniqueIndex requires a FWFFile: {type(fwfview)}"
 
-        self.init_dict_index_like(fwfview)
-        self.field = None   # The field name to build the index
-        self.data: dict[Any, int] = {}      # dict(value -> lineno)
+        super().__init__(fwfview, field)
 
-        if getattr(self.fwfview, "mm", None) is None:
-            raise FWFCythonUniqueIndexException(f"Only FWFile parent are supported with {type(self)}")
-
-
-    def index(self, field, func:None|Callable=None, log_progress: None|Callable = None):
-        """A convience function to create the index without generator"""
-
-        assert log_progress is None, "Parameter 'log_progress' is not supported with this Indexer"
-
-        field = self.fwfview.field_from_index(field)
-        self.data = fwf_db_cython.create_unique_index(self.fwfview, field)
+        self.data = fwf_db_cython.create_unique_index(self.fwfview, self.field)
 
         if func is not None:
             self.data = {func(k) : v for k, v in self.data.items()}
-
-        return self
-
-
-    def get(self, key) -> FWFLine:
-        """Create a view based on the indices associated with the index key provided"""
-        if key in self.data:
-            idx = self.data[key]
-            return FWFLine(self.fwfview, idx, self.fwfview.line_at(idx))
-
-        raise IndexError(f"'key' not found in Index: {key}")

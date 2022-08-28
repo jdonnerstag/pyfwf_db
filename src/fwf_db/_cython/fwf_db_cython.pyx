@@ -47,6 +47,7 @@ cimport cython
 import numpy
 cimport numpy
 
+from typing import Callable
 from libc.string cimport strncmp, memcpy
 from cpython cimport array
 from libc.stdlib cimport atoi
@@ -462,7 +463,7 @@ def field_data_int(fwf, index_field: str, filters: list = None):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def create_index(fwf, index_field: str, index_dict: collections.defaultdict = None, filters: list = None, file_id: int = None):
+def create_index(fwf, index_field: str, index_dict: collections.defaultdict = None, filters: list = None, file_id: int = None, func: None|Callable = None):
     """Create an index (dict: values -> [indices]) for 'field'
 
     Leverage the speed of Cython (and C) which saturates the SDD when reading
@@ -477,12 +478,19 @@ def create_index(fwf, index_field: str, index_dict: collections.defaultdict = No
         index_dict = collections.defaultdict(list)
 
     cdef InternalData params = _init_internal_data(fwf, filters, file_id, index_field)
+    cdef bool has_func = func is not None
+    cdef cfunc = func
 
     while has_more_lines(&params):
         if _cmp_values(&params):
             # Add the value and row to the index
             value = params.irow if file_id is None else (file_id, params.irow)
-            index_dict[_field_data(&params)].append(value)
+            key = _field_data(&params)
+            if has_func:
+                # TODO Must be tested. I assume it is rather slow. May be we can predefine functions like, "str", "int", "upper", "lower", "trim"
+                key = cfunc(key)
+
+            index_dict[key].append(value)
 
         next_line(&params)
 

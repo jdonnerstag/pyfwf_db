@@ -1,18 +1,10 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-import pytest
+# pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name
 
-import os
-import sys
-import io
-import numpy as np
-
-from fwf_db import FWFFile, FWFSimpleIndex, FWFMultiFile, FWFUnique
-from fwf_db.fwf_np_unique_index import FWFUniqueNpBased
-from fwf_db.fwf_np_index import FWFNumpyIndex
+from fwf_db import FWFFile, FWFSimpleIndex, FWFMultiFile
 from fwf_db.fwf_operator import FWFOperator as op
-from fwf_db.fwf_cython import FWFCython
 from fwf_db.fwf_merge_index import FWFMergeIndex
 from fwf_db.fwf_merge_unique_index import FWFMergeUniqueIndex
 from fwf_db.fwf_line import FWFLine
@@ -112,7 +104,7 @@ def test_index():
         assert len(mf.files) == 2
         assert mf.lines == slice(0, 20)
 
-        index = FWFSimpleIndex(mf).index("ID")
+        index = FWFSimpleIndex(mf, "ID")
         assert len(index) == 11
         for key, refs in index:
             assert 1 <= len(refs) <= 3
@@ -140,7 +132,7 @@ def test_effective_date():
             assert (1 <= x <= 5) or (x == 22)
 
         # And now create an index
-        index = FWFSimpleIndex(filtered).index("ID")
+        index = FWFSimpleIndex(filtered, "ID")
         assert len(index) == 6
         for key, refs in index:
             assert 1 <= len(refs) <= 3

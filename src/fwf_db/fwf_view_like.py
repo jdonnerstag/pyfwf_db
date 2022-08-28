@@ -1,26 +1,24 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+"""A base class that defines a view-like object"""
+
 import abc
-from typing import Iterator, Tuple, Callable, overload, Iterable
+from typing import Iterator, Callable, overload, Iterable, Optional
 from itertools import islice
 
-from .fwf_base_mixin import FWFBaseMixin
 from .fwf_line import FWFLine
 
-class FWFViewLike(FWFBaseMixin, metaclass=abc.ABCMeta):
+
+class FWFViewLike:
     """A core class. Provide all the necessary basics to implement different
     kind of views, such as views based on a slice, or views based on
     indiviual indexes.
     """
 
-    # TODO Why not __init__() ??
-    def init_view_like(self, lines, fields):
-        assert lines is not None
+    def __init__(self, fields):
         assert fields is not None
-
-        self.lines = lines
-        self.fields = fields
+        self.fields = fields    # TODO what is the fields type?
 
 
     @abc.abstractmethod
@@ -28,24 +26,75 @@ class FWFViewLike(FWFBaseMixin, metaclass=abc.ABCMeta):
         """Varies depending on the view implementation"""
 
 
-    @abc.abstractmethod
-    def line_at(self, index) -> bytes:
-        """Get the raw line data for the line with the index"""
+    def validate_index(self, index: int) -> int:
+        """Validate and normalize the index"""
+
+        xlen = len(self)
+        if index < 0:
+            index = xlen + index
+
+        if 0 <= index < xlen:
+            return index
+
+        raise IndexError(f"Invalid index: 0 >= index < {xlen}: {index}")
 
 
     @abc.abstractmethod
-    def fwf_by_indices(self, indices) -> 'FWFViewLike':
-        """Initiate a FWFLine (or similar) object and return it"""
+    def get_parent(self) -> Optional['FWFViewLike']:
+        """Return the parent"""
 
 
     @abc.abstractmethod
-    def fwf_by_slice(self, arg) -> 'FWFViewLike':
+    def _parent_index(self, index: int) -> int:
+        """Determine the index in the context of the parent view"""
+
+
+    def parent_index(self, index: int) -> int:
+        """Determine the index in the context of the parent view"""
+        index = self.validate_index(index)
+        return self._parent_index(index)
+
+
+    @abc.abstractmethod
+    def _raw_line_at(self, index: int) -> tuple[int, bytes]:
+        """Get the lineno and raw line data (bytes) for the line with the index"""
+
+
+    def raw_line_at(self, index: int) -> tuple[int, bytes]:
+        """Get the raw line data (bytes) for the line with the index"""
+        index = self.validate_index(index)
+        return self._raw_line_at(index)
+
+
+    def line_at(self, index: int) -> FWFLine:
+        """Get the line data for the line with the index"""
+        lineno, data = self.raw_line_at(index)
+        return FWFLine(self, lineno, data)
+
+
+    @abc.abstractmethod
+    def _fwf_by_indices(self, indices: list[int]) -> 'FWFViewLike':
         """Initiate a FWFRegion (or similar) object and return it"""
 
 
-    @abc.abstractmethod
-    def fwf_by_line(self, idx, line) -> FWFLine:
+    def fwf_by_indices(self, indices: list[int]) -> 'FWFViewLike':
         """Initiate a FWFRegion (or similar) object and return it"""
+        indices = [self.validate_index(i) for i in indices]
+        return self._fwf_by_indices(indices)
+
+
+    @abc.abstractmethod
+    def _fwf_by_slice(self, start: int, stop: int) -> 'FWFViewLike':
+        """Initiate a FWFRegion (or similar) object and return it"""
+
+
+    def fwf_by_slice(self, region: slice) -> 'FWFViewLike':
+        """Initiate a FWFRegion (or similar) object and return it"""
+        start = self._normalize_index(region.start, 0)
+        stop = self._normalize_index(region.stop, len(self))
+        assert start <= stop, f"Invalid slice: start <= stop; start={start}, stop={stop}"
+
+        return self._fwf_by_slice(start, stop)
 
 
     def field_from_index(self, idx):
@@ -64,7 +113,7 @@ class FWFViewLike(FWFBaseMixin, metaclass=abc.ABCMeta):
         return f"S{flen}"
 
 
-    def normalize_index(self, index: int, default: int) -> int:
+    def _normalize_index(self, index: int, default: int) -> int:
         """For start and stop values of a slice, determine sensible
         default when the index is None or < 0
         """
@@ -105,13 +154,11 @@ class FWFViewLike(FWFBaseMixin, metaclass=abc.ABCMeta):
         """
 
         if isinstance(row_idx, int):
-            row_idx = self.normalize_index(row_idx, 0)
-            return self.fwf_by_line(row_idx, self.line_at(row_idx))
+            row_idx = self.validate_index(row_idx)
+            return self.line_at(row_idx)
 
         if isinstance(row_idx, slice):
-            start = self.normalize_index(row_idx.start, 0)
-            stop = self.normalize_index(row_idx.stop, len(self))
-            return self.fwf_by_slice(slice(start, stop))
+            return self.fwf_by_slice(row_idx)
 
         if all(isinstance(x, bool) for x in row_idx):
             # TODO this is rather slow for large indexes
@@ -120,37 +167,28 @@ class FWFViewLike(FWFBaseMixin, metaclass=abc.ABCMeta):
 
         if all(isinstance(x, int) for x in row_idx):
             # Don't allow the subset to grow
-            row_idx = [self.normalize_index(x, -1) for x in list(row_idx)]
+            row_idx = [i for i in row_idx]
             return self.fwf_by_indices(row_idx)
 
-        raise IndexError(f"Invalid range value: {row_idx}")
+        raise KeyError(f"Invalid range value: {row_idx}")
 
 
     def __iter__(self) -> Iterator[FWFLine]:
-        """iterate over all rows.
-
-        Return an object describing the line and providing access to
-        each field.
-        """
-
-        return self.iter()
-
-
-    def iter(self) -> Iterator[FWFLine]:
-        """iterate over all rows.
-
-        Return an object describing the line and providing access to
-        each field.
-        """
-
-        for i, line in self.iter_lines():
-            rtn = self.fwf_by_line(i, line)
-            yield rtn
+        for lineno, line in self.iter_lines():
+            yield FWFLine(self, lineno, line)
 
 
     @abc.abstractmethod
-    def iter_lines(self) -> Iterator[Tuple[int, bytes]]:
-        """Iterate over all lines in the file, returning raw line data (bytes)"""
+    def iter_lines(self) -> Iterator[tuple[int, bytes]]:
+        """Iterate over all lines in the view, returning raw line
+        number and the raw line data"""
+
+
+    def iter_lines_with_field(self, field) -> Iterator[tuple[int, bytes]]:
+        """Iterate over all lines in the file, returning the raw field data"""
+        sslice: slice = self.fields[field]
+        gen = ((i, line[sslice]) for i, line in self.iter_lines())
+        return gen
 
 
     def filter(self, arg1: str|Callable, arg2=None) -> 'FWFViewLike':
@@ -169,7 +207,7 @@ class FWFViewLike(FWFBaseMixin, metaclass=abc.ABCMeta):
         raise AttributeError(f"filter(): Invalid arguments: arg1={arg1}, arg2={arg2}")
 
 
-    def filter_by_line(self, func: Callable) -> 'FWFViewLike':
+    def filter_by_line(self, func: Callable[[FWFLine], bool]) -> 'FWFViewLike':
         """Filter lines with a condition
 
         Iterate over all lines in the file and apply 'func' to every line. Except
@@ -178,7 +216,7 @@ class FWFViewLike(FWFBaseMixin, metaclass=abc.ABCMeta):
         The result is a view on the data, rather then copies.
         """
 
-        rtn = [i for i, rec in self.iter_lines() if func(self.fwf_by_line(i, rec))]
+        rtn = [i for i, rec in enumerate(self) if func(rec)]
         return self.fwf_by_indices(rtn)
 
 
@@ -193,11 +231,11 @@ class FWFViewLike(FWFBaseMixin, metaclass=abc.ABCMeta):
         """
 
         assert isinstance(field, str), f"'field' must be a string: {field}"
-        sslice = self.fields[field]
 
+        gen = enumerate(self.iter_lines_with_field(field))
         if callable(func):
-            rtn = [i for i, rec in self.iter_lines() if func(rec[sslice])]
+            rtn = [i for i, rec in gen if func(rec[1])]
         else:
-            rtn = [i for i, rec in self.iter_lines() if rec[sslice] == func]
+            rtn = [i for i, rec in gen if rec[1] == func]
 
         return self.fwf_by_indices(rtn)

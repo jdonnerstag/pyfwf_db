@@ -1,18 +1,21 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-# pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name
+# pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name, missing-module-docstring
 
 import pytest
 
 import numpy as np
 
-from fwf_db import FWFFile, FWFSimpleIndex
-from fwf_db.fwf_np_unique_index import FWFUniqueNpBased
+from fwf_db.fwf_file import FWFFile
+from fwf_db.fwf_simple_index import FWFSimpleIndex
+from fwf_db.fwf_np_unique_index import FWFUniqueNumpyIndex
 from fwf_db.fwf_np_index import FWFNumpyIndex
 from fwf_db.fwf_cython_index import FWFCythonIndex
 from fwf_db.fwf_cython_unique_index import FWFCythonUniqueIndex
 from fwf_db.fwf_simple_unique_index import FWFSimpleUniqueIndex
+from fwf_db.fwf_subset import FWFSubset
+from fwf_db.fwf_line import FWFLine
 
 
 DATA = b"""# My comment test
@@ -47,17 +50,17 @@ def test_simple_index():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
-        rtn = FWFSimpleIndex(fwf).index("state")
+        rtn = FWFSimpleIndex(fwf, "state")
         assert len(rtn) == 9
 
-        rtn = FWFSimpleIndex(fwf).index("gender")
+        rtn = FWFSimpleIndex(fwf, "gender")
         assert len(rtn) == 2
 
-        rtn = FWFSimpleIndex(fwf).index("state", lambda x: x.decode())
+        rtn = FWFSimpleIndex(fwf, "state", lambda x: x.decode())
         assert "MI" in rtn
         assert rtn["MI"]
 
-        rtn = FWFSimpleIndex(fwf).index("gender", lambda x: x.decode())
+        rtn = FWFSimpleIndex(fwf, "gender", lambda x: x.decode())
         assert len(rtn) == 2
         assert "M" in rtn
         assert "F" in rtn
@@ -65,7 +68,7 @@ def test_simple_index():
         assert rtn["M"]
         assert rtn["F"]
 
-        with pytest.raises(IndexError):
+        with pytest.raises(KeyError):
             _ = rtn["xxx"]
 
         for key, value in rtn:
@@ -74,19 +77,33 @@ def test_simple_index():
             assert rec.lines == value.lines
             assert len(rec) == 3 or len(rec) == 7
 
-        for rec in rtn["M"]:
+        x = FWFSubset(rtn.fwfview, rtn.data["M"], rtn.fwfview.fields)
+        assert isinstance(x, FWFSubset)
+        for rec in x:
+            assert rec.lineno in [1, 2, 4]
+
+        x = rtn.get("M")
+        assert isinstance(x, FWFSubset)
+        for rec in x:
             assert rec.lineno in [1, 2, 4]
 
         x = rtn["M"]
+        assert isinstance(x, FWFSubset)
+        for rec in x:
+            assert rec.lineno in [1, 2, 4]
+
+        x = rtn["M"]
+        assert isinstance(x, FWFSubset)
         x = x[2]
+        assert isinstance(x, FWFLine)
         assert rtn["M"][2].lineno == 4
 
-        rtn = FWFSimpleIndex(fwf).index(1)  # Also works with integers == state
+        rtn = FWFSimpleIndex(fwf, 1)  # Also works with integers == state
         assert len(rtn) == 9
 
         # Index on a view
         x = fwf[0:5]
-        rtn = FWFSimpleIndex(x).index("state")
+        rtn = FWFSimpleIndex(x, "state")
         assert len(rtn) == 5
 
 
@@ -94,17 +111,17 @@ def test_np_index():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
-        rtn = FWFNumpyIndex(fwf).index("state", dtype=(np.bytes_, 2))
+        rtn = FWFNumpyIndex(fwf, "state", dtype=(np.bytes_, 2))
         assert len(rtn) == 9
 
-        rtn = FWFNumpyIndex(fwf).index("gender", dtype=(np.bytes_, 1))
+        rtn = FWFNumpyIndex(fwf, "gender", dtype=(np.bytes_, 1))
         assert len(rtn) == 2
 
-        rtn = FWFNumpyIndex(fwf).index("state", dtype="U2", func=lambda x: x.decode())
+        rtn = FWFNumpyIndex(fwf, "state", dtype="U2", func=lambda x: x.decode())
         assert "MI" in rtn
         assert rtn["MI"]
 
-        rtn = FWFNumpyIndex(fwf).index("gender", dtype="U1", func=lambda x: x.decode())
+        rtn = FWFNumpyIndex(fwf, "gender", dtype="U1", func=lambda x: x.decode())
         assert len(rtn) == 2
         assert "M" in rtn
         assert "F" in rtn
@@ -112,7 +129,7 @@ def test_np_index():
         assert rtn["M"]
         assert rtn["F"]
 
-        with pytest.raises(IndexError):
+        with pytest.raises(KeyError):
             _ = rtn["xxx"]
 
         for key, _ in rtn:
@@ -127,12 +144,12 @@ def test_np_index():
         x = x[2]
         assert rtn["M"][2].lineno == 4
 
-        rtn = FWFNumpyIndex(fwf).index(1, dtype=(np.bytes_, 8))  # Also works with integers == state
+        rtn = FWFNumpyIndex(fwf, 1, dtype=(np.bytes_, 8))  # Also works with integers == state
         assert len(rtn) == 9
 
         # Index on a view
         x = fwf[0:5]
-        rtn = FWFNumpyIndex(x).index("state", dtype=(np.bytes_, 2))
+        rtn = FWFNumpyIndex(x, "state", dtype=(np.bytes_, 2))
         assert len(rtn) == 5
 
 
@@ -141,17 +158,17 @@ def test_cython_index():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
-        rtn = FWFCythonIndex(fwf).index("state")
+        rtn = FWFCythonIndex(fwf, "state")
         assert len(rtn) == 9
 
-        rtn = FWFCythonIndex(fwf).index("gender")
+        rtn = FWFCythonIndex(fwf, "gender")
         assert len(rtn) == 2
 
-        rtn = FWFCythonIndex(fwf).index("state", lambda x: x.decode())
+        rtn = FWFCythonIndex(fwf, "state", lambda x: x.decode())
         assert "MI" in rtn
         assert rtn["MI"]
 
-        rtn = FWFCythonIndex(fwf).index("gender", lambda x: x.decode())
+        rtn = FWFCythonIndex(fwf, "gender", lambda x: x.decode())
         assert len(rtn) == 2
         assert "M" in rtn
         assert "F" in rtn
@@ -159,7 +176,7 @@ def test_cython_index():
         assert rtn["M"]
         assert rtn["F"]
 
-        with pytest.raises(IndexError):
+        with pytest.raises(KeyError):
             _ = rtn["xxx"]
 
         for key, _ in rtn:
@@ -174,32 +191,32 @@ def test_cython_index():
         x = x[2]
         assert rtn["M"][2].lineno == 4
 
-        rtn = FWFCythonIndex(fwf).index(1)  # Also works with integers == state
+        rtn = FWFCythonIndex(fwf, 1)  # Also works with integers == state
         assert len(rtn) == 9
 
         # Index on a view
         # Cython index is only available on FWFile. It wouldn't be faster then
         # an ordinary Index.
         x = fwf[0:5]
-        with pytest.raises(Exception):
-            rtn = FWFCythonIndex(x).index("state")
+        with pytest.raises(AssertionError):
+            rtn = FWFCythonIndex(x, "state")      # type: ignore
 
 
 def test_simple_unique_index():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
-        rtn = FWFSimpleUniqueIndex(fwf).index("state")
+        rtn = FWFSimpleUniqueIndex(fwf, "state")
         assert len(rtn) == 9
 
-        rtn = FWFSimpleUniqueIndex(fwf).index("gender")
+        rtn = FWFSimpleUniqueIndex(fwf, "gender")
         assert len(rtn) == 2
 
-        rtn = FWFSimpleUniqueIndex(fwf).index("state", lambda x: x.decode())
+        rtn = FWFSimpleUniqueIndex(fwf, "state", lambda x: x.decode())
         assert "MI" in rtn
         assert rtn["MI"]
 
-        rtn = FWFSimpleUniqueIndex(fwf).index("gender", lambda x: x.decode())
+        rtn = FWFSimpleUniqueIndex(fwf, "gender", lambda x: x.decode())
         assert len(rtn) == 2
         assert "M" in rtn
         assert "F" in rtn
@@ -207,7 +224,7 @@ def test_simple_unique_index():
         assert rtn["M"]
         assert rtn["F"]
 
-        with pytest.raises(IndexError):
+        with pytest.raises(KeyError):
             _ = rtn["xxx"]
 
         # A Unique index doesn't return a list but the single record
@@ -219,12 +236,12 @@ def test_simple_unique_index():
         # assert rtn["M"][2].lineno == 4
         assert rtn["M"].lineno == 4
 
-        rtn = FWFSimpleUniqueIndex(fwf).index(1)  # Also works with integers == state
+        rtn = FWFSimpleUniqueIndex(fwf, 1)  # Also works with integers == state
         assert len(rtn) == 9
 
         # Index on a view
         x = fwf[0:5]
-        rtn = FWFSimpleUniqueIndex(x).index("state")
+        rtn = FWFSimpleUniqueIndex(x, "state")
         assert len(rtn) == 5
 
 
@@ -232,17 +249,17 @@ def test_cython_unique_index():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
-        rtn = FWFCythonUniqueIndex(fwf).index("state")
+        rtn = FWFCythonUniqueIndex(fwf, "state")
         assert len(rtn) == 9
 
-        rtn = FWFCythonUniqueIndex(fwf).index("gender")
+        rtn = FWFCythonUniqueIndex(fwf, "gender")
         assert len(rtn) == 2
 
-        rtn = FWFCythonUniqueIndex(fwf).index("state", lambda x: x.decode())
+        rtn = FWFCythonUniqueIndex(fwf, "state", lambda x: x.decode())
         assert "MI" in rtn
         assert rtn["MI"]
 
-        rtn = FWFCythonUniqueIndex(fwf).index("gender", lambda x: x.decode())
+        rtn = FWFCythonUniqueIndex(fwf, "gender", lambda x: x.decode())
         assert len(rtn) == 2
         assert "M" in rtn
         assert "F" in rtn
@@ -250,7 +267,7 @@ def test_cython_unique_index():
         assert rtn["M"]
         assert rtn["F"]
 
-        with pytest.raises(IndexError):
+        with pytest.raises(KeyError):
             _ = rtn["xxx"]
 
         # A Unique index doesn't return a list but the single record
@@ -262,32 +279,32 @@ def test_cython_unique_index():
         # assert rtn["M"][2].lineno == 4
         assert rtn["M"].lineno == 4
 
-        rtn = FWFCythonUniqueIndex(fwf).index(1)  # Also works with integers == state
+        rtn = FWFCythonUniqueIndex(fwf, 1)  # Also works with integers == state
         assert len(rtn) == 9
 
         # Index on a view
         # Cython index is only available on FWFile. It wouldn't be faster then
         # an ordinary Index.
         x = fwf[0:5]
-        with pytest.raises(Exception):
-            rtn = FWFCythonUniqueIndex(x).index("state")
+        with pytest.raises(AssertionError):
+            rtn = FWFCythonUniqueIndex(x, "state")      # type: ignore
 
 
 def test_np_unique_index():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
-        rtn = FWFUniqueNpBased(fwf).index("state")
+        rtn = FWFUniqueNumpyIndex(fwf, "state")
         assert len(rtn) == 9
 
-        rtn = FWFUniqueNpBased(fwf).index("gender")
+        rtn = FWFUniqueNumpyIndex(fwf, "gender")
         assert len(rtn) == 2
 
-        rtn = FWFUniqueNpBased(fwf).index("state", lambda x: x.decode())
+        rtn = FWFUniqueNumpyIndex(fwf, "state", dtype="U2", func=lambda x: x.decode())
         assert "MI" in rtn
         assert rtn["MI"]
 
-        rtn = FWFUniqueNpBased(fwf).index("gender", lambda x: x.decode())
+        rtn = FWFUniqueNumpyIndex(fwf, "gender", dtype="U1", func=lambda x: x.decode())
         assert len(rtn) == 2
         assert "M" in rtn
         assert "F" in rtn
@@ -295,7 +312,7 @@ def test_np_unique_index():
         assert rtn["M"]
         assert rtn["F"]
 
-        with pytest.raises(IndexError):
+        with pytest.raises(KeyError):
             _ = rtn["xxx"]
 
         # A Unique index doesn't return a list but the single record
@@ -307,12 +324,11 @@ def test_np_unique_index():
         # assert rtn["M"][2].lineno == 4
         assert rtn["M"].lineno == 4
 
-        rtn = FWFUniqueNpBased(fwf).index(1)  # Also works with integers == state
+        rtn = FWFUniqueNumpyIndex(fwf, 1)  # Also works with integers == state
         assert len(rtn) == 9
 
         # Index on a view
         # Cython index is only available on FWFile. It wouldn't be faster then
         # an ordinary Index.
         x = fwf[0:5]
-        with pytest.raises(Exception):
-            rtn = FWFUniqueNpBased (x).index("state")
+        rtn = FWFUniqueNumpyIndex(x, "state")

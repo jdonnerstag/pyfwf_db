@@ -12,7 +12,8 @@ import pytest
 
 from fwf_db import FWFFile
 from fwf_db.fwf_line import FWFLine
-from fwf_db.fwf_view_like import FWFViewLike
+from fwf_db.fwf_region import FWFRegion
+from fwf_db.fwf_subset import FWFSubset
 
 
 DATA = b"""# My comment test
@@ -76,7 +77,6 @@ def test_bytes_input():
         assert fwf.start_pos == 18
         assert fwf.reclen == 10
         assert len(fwf) == 10
-        assert fwf.lines
 
 
 def test_file_input():
@@ -90,7 +90,6 @@ def test_file_input():
         assert fwf.reclen == 10012
         assert fwf.start_pos == 0
         assert len(fwf) == 10012
-        assert fwf.lines
 
 
 def test_table_iter():
@@ -115,7 +114,7 @@ def test_table_line_selector():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
-        rec1 = fwf.fwf_by_line(0, fwf.line_at(0))   # TODO Why not just the row index?
+        rec1 = fwf.line_at(0)
         assert isinstance(rec1, FWFLine)
         assert rec1.lineno == 0
         assert rec1["birthday"] == b"19570526"
@@ -126,8 +125,9 @@ def test_table_line_selector():
         assert rec1["birthday"] == b"19570526"
 
         rec2 = fwf[0:1]
-        assert isinstance(rec2, FWFViewLike)
-        assert rec2.lines == slice(0, 1)
+        assert isinstance(rec2, FWFRegion)
+        assert slice(rec2.start, rec2.stop) == slice(0, 1)
+        assert len(rec2) == 1
         assert len(list(rec2)) == 1
         for r in rec2:
             assert r["birthday"] in [b"19570526", b"19940213"]
@@ -143,19 +143,19 @@ def test_table_line_selector():
         assert rec1["birthday"] == b"20080503"
 
         rec2 = fwf[0:5]
-        assert isinstance(rec2, FWFViewLike)
-        assert rec2.lines == slice(0, 5)
-        assert len(list(rec2)) == 5
+        assert isinstance(rec2, FWFRegion)
+        assert slice(rec2.start, rec2.stop) == slice(0, 5)
+        assert len(list(rec2)) == len(rec2)
 
         rec2 = fwf[-5:]
-        assert isinstance(rec2, FWFViewLike)
-        assert rec2.lines == slice(5, 10)
-        assert len(list(rec2)) == 5
+        assert isinstance(rec2, FWFRegion)
+        assert slice(rec2.start, rec2.stop) == slice(5, 10)
+        assert len(list(rec2)) == len(rec2)
 
         rec2 = fwf[0:0]
-        assert isinstance(rec2, FWFViewLike)
-        assert rec2.lines == slice(0, 0)
-        assert len(list(rec2)) == 0
+        assert isinstance(rec2, FWFRegion)
+        assert slice(rec2.start, rec2.stop) == slice(0, 0)
+        assert len(list(rec2)) == len(rec2)
 
 
 def test_index_selector():
@@ -164,7 +164,7 @@ def test_index_selector():
 
         # Unique on an index view
         rtn = fwf[0, 2, 5]
-        assert isinstance(rtn, FWFViewLike)
+        assert isinstance(rtn, FWFSubset)
         assert len(list(rtn)) == 3
         assert len(rtn) == 3
         for r in rtn:
@@ -172,7 +172,7 @@ def test_index_selector():
             assert r["gender"] in [b"M", b"F"]
 
         rtn2 = fwf[0:6][0, 2, 5]
-        assert isinstance(rtn2, FWFViewLike)
+        assert isinstance(rtn2, FWFSubset)
         assert rtn.lines == rtn2.lines
 
 
@@ -194,11 +194,13 @@ def test_multiple_selectors():
     with fwf.open(DATA):
 
         rec = fwf[:]
-        assert rec.lines == slice(0, 10)
+        assert isinstance(rec, FWFRegion)
+        assert slice(rec.start, rec.stop) == slice(0, 10)
         assert len(rec) == 10
 
         rec = rec[:]
-        assert rec.lines == slice(0, 10)
+        assert isinstance(rec, FWFRegion)
+        assert slice(rec.start, rec.stop) == slice(0, 10)
         assert len(rec) == 10
 
         x = [1, 2, 3, 4, 5, 6]
@@ -206,25 +208,30 @@ def test_multiple_selectors():
         assert 6 not in y
 
         rec = rec[0:-1]
-        assert rec.lines == slice(0, 9)
+        assert isinstance(rec, FWFRegion)
+        assert slice(rec.start, rec.stop) == slice(0, 9)
         assert len(rec) == 9
 
         rec = rec[2:-2]
-        assert rec.lines == slice(2, 7)
+        assert isinstance(rec, FWFRegion)
+        assert slice(rec.start, rec.stop) == slice(2, 7)
         assert len(rec) == 5
 
         with pytest.raises(Exception):
-            rec = rec[1, 2, 4, 5, 6]
+            rec = rec[1, 2, 4, 5]
 
-        rec = rec[1, 2, 4, 5]
-        assert rec.lines == [3, 4, 6, 7]  # 6 is out of range
+        rec = rec[0, 1, 2, 4]
+        assert isinstance(rec, FWFSubset)
+        assert rec.lines == [2, 3, 4, 6]
         assert len(rec) == 4
 
-        rec = rec[True, False, True]
-        assert rec.lines == [3, 6]
+        rec = rec[True, False, True]    # Implicit false, if True/False list is shorter
+        assert isinstance(rec, FWFSubset)
+        assert rec.lines == [2, 4]
         assert len(rec) == 2
 
-        rec = fwf[:][:][0:-1][2:-2][1, 2, 4, 5][True, False, True]
+        rec = fwf[:][:][0:-1][2:-2][1, 2, 4][True, False, True]
+        assert isinstance(rec, FWFSubset)
         assert rec.lines == [3, 6]
         assert len(rec) == 2
 

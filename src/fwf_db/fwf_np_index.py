@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-from typing import Callable, Optional
+from typing import Callable
 
 from collections import defaultdict
 import numpy as np
 
 from .fwf_index_like import FWFDictIndexLike
-from .fwf_subset import FWFSubset
+from .fwf_view_like import FWFViewLike
 
 
 class FWFNumpyIndex(FWFDictIndexLike):
@@ -17,23 +17,21 @@ class FWFNumpyIndex(FWFDictIndexLike):
     a Numpy based index is (much) faster compared to pure python based on.
     """
 
-    def __init__(self, fwfview):
+    def __init__(self,
+        fwfview: FWFViewLike,
+        field: int|str,
+        func: None|Callable=None,
+        log_progress: None|Callable = None,
+        dtype=None,
+        cleanup_df: None|Callable =None):
 
-        self.init_dict_index_like(fwfview)
-        self.field = None   # The field to use for the index
-        self.dtype = None
-        self.cleanup_df: Optional[Callable] = None
+        super().__init__(fwfview, field)
 
-    # TODO I think func is also a Callable
-    def index(self, field, dtype=None, func=None, log_progress: None|Callable = None, cleanup_df=None):
-        if dtype is None:
-            dtype = self.fwfview.field_dtype(1)
-
-        self.dtype = dtype
+        self.dtype = dtype or self.fwfview.field_dtype(1)
         self.cleanup_df = cleanup_df
 
-        super().index(field, func, log_progress)
-        return self
+        self.index(func, log_progress)
+
 
     # TODO _index2 is a very bad name
     def _index2(self, gen):
@@ -84,16 +82,3 @@ class FWFNumpyIndex(FWFDictIndexLike):
         data = defaultdict(list)
         all(data[value].append(i) or True for i, value in enumerate(values))
         return data
-
-
-    def get(self, key) -> FWFSubset:
-        """Create a view with the indices associated with the index key provided"""
-
-        assert self.data is not None
-
-        # Numpy return an empty list [], if key is not found
-        if key in self.data:
-            value = self.data[key]
-            return FWFSubset(self.fwfview, value, self.fwfview.fields)
-
-        raise IndexError(f"'key' not found in Index: {key}")

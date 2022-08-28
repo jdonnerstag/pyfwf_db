@@ -1,26 +1,26 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-from typing import Iterator
+"""A very simple index implementation"""
+
+from typing import Iterator, Callable
 from collections import defaultdict
 
 from .fwf_index_like import FWFDictIndexLike
-from .fwf_subset import FWFSubset
-
-
-class FWFSimpleIndexException(Exception):
-    """ FWFSimpleIndexException """
+from .fwf_view_like import FWFViewLike
 
 
 class FWFSimpleIndex(FWFDictIndexLike):
     """A simple index implementation, based on pure python"""
 
-    def __init__(self, fwfview):
+    def __init__(self,
+        fwfview: FWFViewLike,
+        field: int|str,
+        func: None|Callable=None,
+        log_progress: None|Callable = None):
 
-        self.init_dict_index_like(fwfview)
-
-        self.field = None   # The field name to build the index
-        self.data = {}      # dict(value -> [lineno])
+        super().__init__(fwfview, field)
+        self.index(func, log_progress)
 
 
     def _index2(self, gen: Iterator[tuple[int, bytes]]):
@@ -28,35 +28,3 @@ class FWFSimpleIndex(FWFDictIndexLike):
         self.data = values = defaultdict(list)
         all(values[value].append(i) or True for i, value in gen)
         # TODO May be should do self.data=dict(self.data) when done with creating the index? How do we know?
-
-
-    def __getitem__(self, key) -> FWFSubset:
-        """Create a new view with all rows matching the index key"""
-        return self.get(key)
-
-
-    def get(self, key) -> FWFSubset:
-        """Create a view based on the indices associated with the index key provided"""
-
-        # self.data is a defaultdict, hence the additional 'in' test
-        if key in self.data:
-            value = self.data[key]
-            return FWFSubset(self.fwfview, value, self.fwfview.fields)
-
-        raise IndexError(f"'key' not found in Index: {key}")
-
-
-    def delevel(self):
-        """In case the index has been created on top of a view, then it is
-        possible to reduce the level of indirection by one.
-        """
-        # The current implementation is rather specific and may not work with
-        # all kind of parents.
-
-        data = {key : [self.fwfview.lines[i] for i in values] for key, values in self.data.items()}
-
-        rtn = FWFSimpleIndex(self.fwfview.fwffile)
-        rtn.data = data
-        rtn.field = self.field
-
-        return rtn

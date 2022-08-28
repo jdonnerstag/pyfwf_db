@@ -1,55 +1,58 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+"""Define a view that represents a region of its parent view"""
 
-from typing import Iterator, Tuple
+from typing import Iterator
 
 from .fwf_view_like import FWFViewLike
-from .fwf_line import FWFLine
 from .fwf_subset import FWFSubset
 
 
-class FWFRegion(FWFViewLike):
+class FWFRegion(FWFViewLike,):
     """A view on the parents data based on a slice with start
     and stop indexes
     """
 
-    def __init__(self, fwffile, lines, fields):
-        assert fwffile
-        self.fwffile = fwffile
+    def __init__(self, fwffile: FWFViewLike, start: int, stop: int, fields):
+        super().__init__(fields)
 
-        self.init_view_like(lines, fields)
+        assert start >= 0
+        assert start <= stop
+
+        self.parent = fwffile
+        self.start = start
+        self.stop = stop
 
 
     def __len__(self) -> int:
-        return self.lines.stop - self.lines.start
+        return self.stop - self.start
 
 
-    def line_at(self, index: int) -> bytes:
-        """Get the raw line data for the line with the index"""
-        return self.fwffile.line_at(self.lines.start + index)
+    def get_parent(self) -> 'FWFViewLike':
+        return self.parent
 
 
-    def fwf_by_indices(self, indices: list[int]) -> FWFSubset:
-        """Create a new view based on the indices provided"""
-        lines = [self.lines.start + i for i in indices]
-        return FWFSubset(self.fwffile, lines, self.fields)
+    def _parent_index(self, index: int) -> int:
+        return self.start + index
 
 
-    def fwf_by_slice(self, arg: slice) -> 'FWFRegion':
-        """Create a new view based on the slice provided"""
-        lines = slice(self.lines.start + arg.start, self.lines.start + arg.stop)
-        return FWFRegion(self.fwffile, lines, self.fields)
+    def _raw_line_at(self, index: int) -> tuple[int, bytes]:
+        index = self.parent_index(index)
+        return self.get_parent().raw_line_at(index)
 
 
-    def fwf_by_line(self, idx: int, line: bytes) -> FWFLine:
-        """Create a new Line based on the index and raw line provided"""
-        return FWFLine(self.fwffile, idx, line)
+    def _fwf_by_indices(self, indices: list[int]) -> FWFSubset:
+        indices = [self.parent_index(i) for i in indices]
+        return FWFSubset(self.parent, indices, self.fields)
 
 
-    def iter_lines(self) -> Iterator[Tuple[int, bytes]]:
-        """Iterate over all lines in the view, returning raw line data"""
+    def _fwf_by_slice(self, start: int, stop: int) -> 'FWFRegion':
+        start = self._normalize_index(self._parent_index(start), 0)
+        stop = self._normalize_index(self._parent_index(stop), len(self))
+        return FWFRegion(self.parent, start, stop, self.fields)
 
-        for i in range(self.lines.start, self.lines.stop):
-            line = self.fwffile.line_at(i)
-            yield i, line
+
+    def iter_lines(self) -> Iterator[tuple[int, bytes]]:
+        for i in range(self.start, self.stop):
+            yield self.get_parent().raw_line_at(i)
