@@ -2,12 +2,14 @@
 # encoding: utf-8
 
 from typing import Callable
+from deprecated import deprecated
 import numpy as np
 
 from fwf_db.fwf_index_like import FWFDictUniqueIndexLike
 from .fwf_view_like import FWFViewLike
 
 
+@deprecated(reason="It mainly exists to compare different implementations")
 class FWFUniqueNumpyIndex(FWFDictUniqueIndexLike):
     """A Numpy unique Index
 

@@ -9,3 +9,5 @@ numpy
 
 setuptools
 Cython
+
+Deprecated

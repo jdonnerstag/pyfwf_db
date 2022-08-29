@@ -2,14 +2,15 @@
 # encoding: utf-8
 
 from typing import Callable
-
 from collections import defaultdict
+from deprecated import deprecated
 import numpy as np
 
 from .fwf_index_like import FWFDictIndexLike
 from .fwf_view_like import FWFViewLike
 
 
+@deprecated(reason="It mainly exists to compare different implementations")
 class FWFNumpyIndex(FWFDictIndexLike):
     """A Numpy based Index
 
