@@ -198,7 +198,7 @@ def test_cython_index():
         # Cython index is only available on FWFile. It wouldn't be faster then
         # an ordinary Index.
         x = fwf[0:5]
-        with pytest.raises(AssertionError):
+        with pytest.raises(TypeError):
             rtn = FWFCythonIndex(x, "state")      # type: ignore
 
 
@@ -286,7 +286,7 @@ def test_cython_unique_index():
         # Cython index is only available on FWFile. It wouldn't be faster then
         # an ordinary Index.
         x = fwf[0:5]
-        with pytest.raises(AssertionError):
+        with pytest.raises(TypeError):
             rtn = FWFCythonUniqueIndex(x, "state")      # type: ignore
 
 

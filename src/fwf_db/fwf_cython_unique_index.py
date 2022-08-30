@@ -3,6 +3,7 @@
 
 from typing import Callable
 from .fwf_file import FWFFile
+from .fwf_multi_file import FWFMultiFile
 from .fwf_index_like import FWFDictUniqueIndexLike
 from ._cython import fwf_db_cython
 
@@ -17,17 +18,21 @@ class FWFCythonUniqueIndex(FWFDictUniqueIndexLike):
     simple takes the last entry it can find.
     """
 
-    def __init__(self, fwfview: FWFFile, field: int|str, func: None|Callable=None):
-        assert isinstance(fwfview, FWFFile), f"FWFCythonUniqueIndex requires a FWFFile: {type(fwfview)}"
-
+    def __init__(self, fwfview: FWFFile|FWFMultiFile, field: int|str, func: None|Callable=None):
         super().__init__(fwfview, field)
 
-        self.data = fwf_db_cython.create_unique_index(self.fwfview, self.field)
+        if isinstance(fwfview, FWFFile):
+            fwf_db_cython.create_unique_index(self.fwfview, self.field, self.data)
+        elif isinstance(fwfview, FWFMultiFile):
+            offset = 0
+            for file in fwfview.files:
+                fwf_db_cython.create_unique_index(file, self.field, self.data, offset)
+                offset += file.line_count
+        else:
+            raise TypeError(f"FWFCythonIndex requires either a FWFFile or FWFMultiFile: {type(fwfview)}")
 
         if func is not None:
             self.data = {func(k) : v for k, v in self.data.items()}
 
-
-    # Implement abstract method, but it is not used
-    def _index2(self, gen):
-        pass
+        if func is not None:
+            self.data = {func(k) : v for k, v in self.data.items()}

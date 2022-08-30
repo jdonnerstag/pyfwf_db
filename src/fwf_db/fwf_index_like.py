@@ -49,7 +49,6 @@ class FWFIndexLike(Generic[T]):
         return self.fwfview.iter_lines_with_field(self.field)
 
 
-    @abc.abstractmethod
     def _index2(self, gen) -> None:
         """Consume the iterator or generator and create the index"""
 

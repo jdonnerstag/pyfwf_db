@@ -3,11 +3,13 @@
 
 # pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name, missing-module-docstring
 
+from fwf_db.fwf_line import FWFLine
 from fwf_db.fwf_multi_file import FWFMultiFile
 from fwf_db.fwf_operator import FWFOperator as op
 from fwf_db.fwf_simple_index import FWFSimpleIndex
-#from fwf_db.fwf_merge_index import FWFMergeIndex
-#from fwf_db.fwf_merge_unique_index import FWFMergeUniqueIndex
+from fwf_db.fwf_simple_unique_index import FWFSimpleUniqueIndex
+from fwf_db.fwf_cython_index import FWFCythonIndex
+from fwf_db.fwf_cython_unique_index import FWFCythonUniqueIndex
 
 
 DATA_1 = b"""#
@@ -83,13 +85,13 @@ def test_multi_file():
             assert rec.rooted().lineno < 10  # Each file has max 10 records
 
         for line in iter(mf[8:12]):     # TODO: iter(x) is only to make pylint happy. It actually works without as well.
-            assert line.rooted().lineno >= 8
-            assert line.rooted().lineno < 12
+            assert line.rooted(mf).lineno >= 8
+            assert line.rooted(mf).lineno < 12
 
         x = mf[8:12]
         for line in iter(x):     # TODO: iter(x) is only to make pylint happy. It actually works without as well.
-            assert line.rooted().lineno >= 8
-            assert line.rooted().lineno < 12
+            assert line.rooted(mf).lineno >= 8
+            assert line.rooted(mf).lineno < 12
 
         assert mf[0].lineno == 0
         assert mf[5].lineno == 5
@@ -164,12 +166,12 @@ def test_cython_filter():
             assert rec.lineno < 20
 
         for rec in iter(mf[8:12]):
-            assert rec.rooted().lineno >= 8
-            assert rec.rooted().lineno < 12
+            assert rec.rooted(mf).lineno >= 8
+            assert rec.rooted(mf).lineno < 12
 
         for rec in iter(mf[8:12]):        # Note: iter(x) is only to make pylint happy. It actually works without as well.
-            assert rec.rooted().lineno >= 8
-            assert rec.rooted().lineno < 12
+            assert rec.rooted(mf).lineno >= 8
+            assert rec.rooted(mf).lineno < 12
 
         assert mf[0].lineno == 0
         assert mf[5].lineno == 5
@@ -180,41 +182,64 @@ def test_cython_filter():
         assert len(mf[-5:]) == 5
         assert len(mf[5:15]) == 10
 
-"""
+
 def test_cython_index():
+    with FWFMultiFile(DataFile) as mf:
+        fwf1 = mf.open_and_add(DATA_1)
+        fwf2 = mf.open_and_add(DATA_2)
 
-    with FWFMergeIndex(DataFile) as mi:
-
-        mi.open(DATA_1, index="ID")
-        mi.open(DATA_2, index="ID")
-
+        mi = FWFSimpleIndex(mf, "ID")
         assert len(mi) == 11
-        assert len(mi.files) == 2
 
-        for key, recs in mi:
-            for l in recs:
-                assert isinstance(l, FWFLine)
-
-            for l, line in recs.iter_lines():
-                assert isinstance(line, bytes)
-
-        assert len(mi[b"2    "]) == 1
+        assert len(mi[b"1    "]) == 2
         assert len(mi[b"22   "]) == 1
+
+        assert mi[b"1    "][0].rooted().fwf_view == fwf1
+        assert mi[b"1    "][1].rooted().fwf_view == fwf2
+        assert mi[b"2    "][0].rooted().fwf_view == fwf1
+        assert mi[b"22   "][0].rooted().fwf_view == fwf2
+
+        assert mi[b"1    "][0].rooted().lineno == 0
+        assert mi[b"1    "][1].rooted().lineno == 0
+        assert mi[b"2    "][0].rooted().lineno == 1
+        assert mi[b"22   "][0].rooted().lineno == 1
+
+        # TODO same tests, different index implementation => restructure
+        mi = FWFCythonIndex(mf, "ID")
+        assert len(mi) == 11
+
+        assert len(mi[b"1    "]) == 2
+        assert len(mi[b"22   "]) == 1
+
+        assert mi[b"1    "][0].rooted().fwf_view == fwf1
+        assert mi[b"1    "][1].rooted().fwf_view == fwf2
+        assert mi[b"2    "][0].rooted().fwf_view == fwf1
+        assert mi[b"22   "][0].rooted().fwf_view == fwf2
+
+        assert mi[b"1    "][0].rooted().lineno == 0
+        assert mi[b"1    "][1].rooted().lineno == 0
+        assert mi[b"2    "][0].rooted().lineno == 1
+        assert mi[b"22   "][0].rooted().lineno == 1
 
 
 def test_cython_unique_index():
+    with FWFMultiFile(DataFile) as mf:
+        fwf1 = mf.open_and_add(DATA_1)
+        fwf2 = mf.open_and_add(DATA_2)
 
-    with FWFMergeUniqueIndex(DataFile) as mi:
-
-        mi.open(DATA_1, index="ID")
-        mi.open(DATA_2, index="ID")
-
+        mi = FWFSimpleUniqueIndex(mf, "ID")
         assert len(mi) == 11
-        assert len(mi.files) == 2
 
-        for _, line in mi:
-            assert isinstance(line, FWFLine)
+        assert mi[b"1    "].lineno == 10
+        assert mi[b"2    "].lineno == 1
+        assert mi[b"22   "].lineno == 11
 
-        assert mi.data[b"2    "] == (0, 1)
-        assert mi.data[b"22   "] == (1, 1)
-"""
+        assert mi[b"1    "].rooted().fwf_view is fwf2
+        assert mi[b"2    "].rooted().fwf_view is fwf1
+        assert mi[b"22   "].rooted().fwf_view is fwf2
+
+        assert mi[b"1    "].rooted().lineno == 0
+        assert mi[b"2    "].rooted().lineno == 1
+        assert mi[b"22   "].rooted().lineno == 1
+
+# TODO We need multi-file tests with mem-optimized index

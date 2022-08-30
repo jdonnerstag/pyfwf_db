@@ -222,7 +222,7 @@ cdef struct InternalData:
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-cdef InternalData _init_internal_data(fwf, filters: list = None, file_id: int = None, index_field: str = None):
+cdef InternalData _init_internal_data(fwf, filters: list, index_field: str, offset: int):
     cdef InternalData params = InternalData(
         -1, 0, -1, -1, b"",
         -1, 0, -1, -1, b"",
@@ -281,7 +281,7 @@ cdef InternalData _init_internal_data(fwf, filters: list = None, file_id: int = 
     params.mm = _get_virtual_address(fwf.mm)
 
     params.count = 0      # Position within the target array
-    params.irow = 0       # Row / line count in the file
+    params.irow = offset  # Row / line count in the file
     params.line = params.mm + <long>fwf.start_pos   # Current line
     params.file_end = params.mm + <long>fwf.fsize
 
@@ -373,7 +373,7 @@ def line_numbers(fwf, filters: list = None):
     Return: an array with the line indices that passed the filters
     """
 
-    cdef InternalData params = _init_internal_data(fwf, filters)
+    cdef InternalData params = _init_internal_data(fwf, filters, None, 0)
     # print(params)
 
     # The result array of indices (int). We pre-allocate the memory
@@ -411,7 +411,7 @@ def field_data(fwf, index_field: str, filters: list = None):
     help us processing the data.
     """
 
-    cdef InternalData params = _init_internal_data(fwf, filters, None, index_field)
+    cdef InternalData params = _init_internal_data(fwf, filters, index_field, 0)
 
     # Allocate memory for all of the data
     # We are not converting or processing the field data in any way
@@ -444,7 +444,7 @@ def field_data_int(fwf, index_field: str, filters: list = None):
     Return: Numpy int64 ndarray
     """
 
-    cdef InternalData params = _init_internal_data(fwf, filters, None, index_field)
+    cdef InternalData params = _init_internal_data(fwf, filters, index_field, 0)
 
     cdef numpy.ndarray[numpy.int64_t, ndim=1] values = numpy.empty(fwf.line_count, dtype=numpy.int64)
 
@@ -463,7 +463,7 @@ def field_data_int(fwf, index_field: str, filters: list = None):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def create_index(fwf, index_field: str, index_dict: collections.defaultdict = None, filters: list = None, file_id: int = None, func: None|Callable = None):
+def create_index(fwf, index_field: str, index_dict: collections.defaultdict = None, offset: int = 0, filters: list = None, func: None|Callable = None):
     """Create an index (dict: values -> [indices]) for 'field'
 
     Leverage the speed of Cython (and C) which saturates the SDD when reading
@@ -477,20 +477,19 @@ def create_index(fwf, index_field: str, index_dict: collections.defaultdict = No
     if index_dict is None:
         index_dict = collections.defaultdict(list)
 
-    cdef InternalData params = _init_internal_data(fwf, filters, file_id, index_field)
+    cdef InternalData params = _init_internal_data(fwf, filters, index_field, offset)
     cdef bool has_func = func is not None
     cdef cfunc = func
 
     while has_more_lines(&params):
         if _cmp_values(&params):
             # Add the value and row to the index
-            value = params.irow if file_id is None else (file_id, params.irow)
             key = _field_data(&params)
             if has_func:
                 # TODO Must be tested. I assume it is rather slow. May be we can predefine functions like, "str", "int", "upper", "lower", "trim"
                 key = cfunc(key)
 
-            index_dict[key].append(value)
+            index_dict[key].append(params.irow)
 
         next_line(&params)
 
@@ -500,7 +499,7 @@ def create_index(fwf, index_field: str, index_dict: collections.defaultdict = No
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def create_unique_index(fwf, index_field: str, index_dict: dict = None, filters: list = None, file_id: int = None):
+def create_unique_index(fwf, index_field: str, index_dict: dict = None, offset: int = 0, filters: list = None):
     """Create an unique index (dict: value -> index) for 'field'.
 
     Note: in case the same field value is found multiple times, then the
@@ -515,14 +514,13 @@ def create_unique_index(fwf, index_field: str, index_dict: dict = None, filters:
     if index_dict is None:
         index_dict = dict()
 
-    cdef InternalData params = _init_internal_data(fwf, filters, file_id, index_field)
+    cdef InternalData params = _init_internal_data(fwf, filters, index_field, offset)
 
     while has_more_lines(&params):
         if _cmp_values(&params):
             # Update the index. This is Python and thus rather slow. But I
             # also don't know how to further optimize.
-            value = params.irow if file_id is None else (file_id, params.irow)
-            index_dict[_field_data(&params)] = value
+            index_dict[_field_data(&params)] = params.irow
 
         next_line(&params)
 
@@ -532,7 +530,7 @@ def create_unique_index(fwf, index_field: str, index_dict: dict = None, filters:
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def create_int_index(fwf, index_field: str, index_dict: collections.defaultdict = None, filters: list = None, file_id: int = None):
+def create_int_index(fwf, index_field: str, index_dict: collections.defaultdict = None, offset: int = 0, filters: list = None):
     """Like create_index() except that the 'field' is converted into a int.
 
     Return: dict: int(field) -> [indices]
@@ -541,14 +539,13 @@ def create_int_index(fwf, index_field: str, index_dict: collections.defaultdict 
     if index_dict is None:
         index_dict = collections.defaultdict(list)
 
-    cdef InternalData params = _init_internal_data(fwf, filters, file_id, index_field)
-
+    cdef InternalData params = _init_internal_data(fwf, filters, index_field, offset)
     cdef int v
+
     while has_more_lines(&params):
         if _cmp_values(&params):
             # Convert the field value into an int and add it to the index
-            value = params.irow if file_id is None else (file_id, params.irow)
-            index_dict[_field_data_int(&params)].append(value)
+            index_dict[_field_data_int(&params)].append(params.irow)
 
         next_line(&params)
 
@@ -561,9 +558,9 @@ def create_int_index(fwf, index_field: str, index_dict: collections.defaultdict 
 ## @cython.boundscheck(False)  # Deactivate bounds checking
 ## @cython.wraparound(False)   # Deactivate negative indexing.
 def create_mem_optimized_index(fwf, index_field: str, index_dict: BytesDictWithIntListValues = None,
-    create_int_index = False, filters: list = None, file_id: int = None):
+    offset: int = 0, create_int_index = False, filters: list = None):
 
-    cdef InternalData params = _init_internal_data(fwf, filters, file_id, index_field)
+    cdef InternalData params = _init_internal_data(fwf, filters, index_field, 0)
 
     if index_dict is None:
         index_dict = BytesDictWithIntListValues(fwf.line_count + 1)
@@ -572,9 +569,7 @@ def create_mem_optimized_index(fwf, index_field: str, index_dict: BytesDictWithI
     cdef dict mem_dict_dict = index_dict.index
     cdef int [:] mem_dict_next = index_dict.next
     cdef int [:] mem_dict_end = index_dict.end
-    cdef signed char [:] mem_dict_file = index_dict.file
     cdef int [:] mem_dict_lineno = index_dict.lineno
-    cdef int file_id_int = 0 if file_id is None else int(file_id)
     cdef int inext
     cdef int iend
 
@@ -596,7 +591,6 @@ def create_mem_optimized_index(fwf, index_field: str, index_dict: BytesDictWithI
                 mem_dict_end[iend] = mem_dict_last
                 inext = mem_dict_last
 
-            mem_dict_file[inext] = file_id_int
             mem_dict_lineno[inext] = params.irow
 
         next_line(&params)
@@ -611,7 +605,7 @@ def create_mem_optimized_index(fwf, index_field: str, index_dict: BytesDictWithI
 
 ## @cython.boundscheck(False)  # Deactivate bounds checking
 ## @cython.wraparound(False)   # Deactivate negative indexing.
-def fwf_cython(fwf, filters: list = None, file_id: int = None, index_field: str = None,
+def fwf_cython(fwf, filters: list = None, offset: int = 0, index_field: str = None,
     unique_index: bool = False, integer_index: bool = False, index_dict: dict = None):
     """Putting it all together: Filter the fwf file on an effective date and a
     period, and optionally create an index on a 'field'. The index can be optionally
@@ -639,13 +633,9 @@ def fwf_cython(fwf, filters: list = None, file_id: int = None, index_field: str 
     dict is updated rather then a new one generated. This is useful when creating a
     single index over multiple files. Be careful to provide the correct dict type,
     depending on whether a unique or normal index is requested.
-
-    If index is a field and 'file_id' is not None (usually it is an int), then a tuple will
-    be added to the dict, rather then only the index. The index will be the 2nd value
-    in the tuple. This is useful when creating a single index over multiple files.
     """
 
-    cdef InternalData params = _init_internal_data(fwf, filters, file_id, index_field)
+    cdef InternalData params = _init_internal_data(fwf, filters, index_field, offset)
 
     # Some constants which will be tested millions of times
     cdef int create_index = index_field is not None
@@ -684,17 +674,13 @@ def fwf_cython(fwf, filters: list = None, file_id: int = None, index_field: str 
             else:
                 values = collections.defaultdict(list)
 
-    cdef int create_tuple = file_id is not None
-
     # Enable optimizations of our memory efficient index (dict)
     cdef int is_mem_optimized_dict = isinstance(index_dict, BytesDictWithIntListValues)
     cdef int mem_dict_last
     cdef dict mem_dict_dict
     cdef int [:] mem_dict_next
     cdef int [:] mem_dict_end
-    cdef signed char [:] mem_dict_file
     cdef int [:] mem_dict_lineno
-    cdef int file_id_int
     cdef int inext
     cdef int iend
 
@@ -703,9 +689,7 @@ def fwf_cython(fwf, filters: list = None, file_id: int = None, index_field: str 
         mem_dict_dict = index_dict.index
         mem_dict_next = index_dict.next
         mem_dict_end = index_dict.end
-        mem_dict_file = index_dict.file
         mem_dict_lineno = index_dict.lineno
-        file_id_int = 0 if file_id is None else int(file_id)
 
     while has_more_lines(&params):
 
@@ -738,17 +722,14 @@ def fwf_cython(fwf, filters: list = None, file_id: int = None, index_field: str 
                         mem_dict_end[iend] = mem_dict_last
                         inext = mem_dict_last
 
-                    mem_dict_file[inext] = file_id_int
                     mem_dict_lineno[inext] = params.irow
 
                 elif create_unique_index:
                     # Unique index: just keep the last index
-                    value = (file_id, params.irow) if create_tuple else params.irow
-                    values[key] = value
+                    values[key] = params.irow
                 else:
                     # Add the index to potentially already existing indices
-                    value = (file_id, params.irow) if create_tuple else params.irow
-                    values[key].append(value)
+                    values[key].append(params.irow)
 
         next_line(&params)
 

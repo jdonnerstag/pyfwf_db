@@ -13,7 +13,7 @@ what all the index implementations (base class: FWFIndexLike)
 depend on.
 """
 
-from typing import Iterator
+from typing import Iterator, Optional
 
 from .fwf_view_like import FWFViewLike
 from .fwf_subset import FWFSubset
@@ -34,7 +34,7 @@ class FWFMultiFile(FWFViewLike):
         super().__init__(None)
 
         self.filespec = filespec
-        self.files: list[FWFViewLike] = []
+        self.files: list[FWFFile] = []
 
         self.line_count = 0
 
@@ -80,50 +80,7 @@ class FWFMultiFile(FWFViewLike):
             self.fields = view_like.fields
 
 
-    def remove_file(self, fwf_view: FWFFile):
-        """Remove a file"""
-        if fwf_view is None:
-            return
-
-        self.files.remove(fwf_view)
-
-        # Update the overall line count
-        self.line_count = sum(len(x) for x in self.files)
-
-
-    def determine_fwf_views(self, start: int, stop: int) -> list[FWFViewLike]:
-        """Based on the start and stop indexes provided, determine which
-        lines from which views are included
-        """
-        rtn: list[FWFViewLike] = []
-        start_pos = 0
-        for file in self.files:
-            flen = len(file)
-            ffrom = start_pos
-            fto = ffrom + flen
-
-            view = None
-            if (start >= ffrom) and (stop <= fto):
-                view = file[start - ffrom : stop - ffrom]
-            elif ffrom <= start < fto < stop:
-                view = file[start - ffrom : flen]
-            elif start < ffrom <= stop <= fto:
-                view = file[0 : stop - ffrom]
-            elif (start < ffrom) and (stop > fto):
-                view = file[:]
-
-            if view is not None:
-                rtn.append(view)
-
-            if fto >= stop:
-                break
-
-            start_pos = fto
-
-        return rtn
-
-
-    def determine_fwf_table_index(self, index: int) -> tuple[int, int]:
+    def _determine_fwfview_index(self, index: int) -> tuple[int, int]:
         """Translate the index provided into the file and index
         within the file required to access the line.
         """
@@ -154,7 +111,7 @@ class FWFMultiFile(FWFViewLike):
 
 
     def _raw_line_at(self, index: int) -> bytes:
-        idx, start = self.determine_fwf_table_index(index)
+        idx, start = self._determine_fwfview_index(index)
         return self.files[idx].raw_line_at(start)
 
 
@@ -174,6 +131,9 @@ class FWFMultiFile(FWFViewLike):
                 count += 1
 
 
-    def root(self, index: int) -> tuple['FWFViewLike', int]:
-        idx, start = self.determine_fwf_table_index(index)
+    def root(self, index: int, stop_view: Optional['FWFViewLike'] = None) -> tuple['FWFViewLike', int]:
+        if (stop_view is not None) and (self == stop_view):
+            return self, index
+
+        idx, start = self._determine_fwfview_index(index)
         return self.files[idx], start

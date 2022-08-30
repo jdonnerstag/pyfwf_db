@@ -59,23 +59,22 @@ class FWFViewLike:
         return self._parent_index(index)
 
 
-    def root(self, index: int) -> tuple['FWFViewLike', int]:
+    def root(self, index: int, stop_view: Optional['FWFViewLike'] = None) -> tuple['FWFViewLike', int]:
         """Walk up the parent path and determine the most outer
         view-like object and the line number.
 
         Note that this function is NOT validating the index value. It
         simply applies the mapping from one view to its parent.
         """
-        parent = self
-        while True:
-            # Do not validate. Just perform the mapping. This way it also
-            # works for empty views.
-            index = parent._parent_index(index) # pylint: disable=protected-access
-            newp = parent.get_parent()
-            if newp is None:
-                return (parent, index)
+        if (stop_view is not None) and (self == stop_view):
+            return self, index
 
-            parent = newp
+        parent = self.get_parent()
+        if parent is None:
+            return self, index
+
+        index = self._parent_index(index)
+        return parent.root(index, stop_view)
 
 
     @abc.abstractmethod

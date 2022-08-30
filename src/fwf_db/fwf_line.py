@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-import typing
-from typing import Iterator, Tuple, Union, overload
+from typing import Iterator, Tuple, Union, Optional, overload, TYPE_CHECKING
 
 import sys
 from datetime import datetime
 
 # To prevent circular dependencies only during type checking
-if typing.TYPE_CHECKING:
+if TYPE_CHECKING:
     from .fwf_view_like import FWFViewLike
 
 
@@ -116,14 +115,14 @@ class FWFLine:
         return [self._get(key) for key in keys]
 
 
-    def rooted(self) -> 'FWFLine':
+    def rooted(self, stop_view: Optional['FWFViewLike'] = None) -> 'FWFLine':
         """Walk up the parent path and determine the most outer
         view-like object and the line number.
 
         Note that this function is NOT validating the index value. It
         simply applies the mapping from one view to its parent.
         """
-        view, lineno = self.fwf_view.root(self.lineno)
+        view, lineno = self.fwf_view.root(self.lineno, stop_view)
         return FWFLine(view, lineno, self.line)
 
 
