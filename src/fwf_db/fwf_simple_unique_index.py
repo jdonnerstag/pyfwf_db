@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-from typing import Any, Sequence, Callable
+from typing import Iterator, Callable
 
 from .fwf_index_like import FWFDictUniqueIndexLike
 from .fwf_view_like import FWFViewLike
@@ -15,6 +15,6 @@ class FWFSimpleUniqueIndex(FWFDictUniqueIndexLike):
         self.index(func, log_progress)
 
 
-    def _index2(self, gen: Sequence[tuple[int, Any]]):
+    def _index2(self, gen: Iterator[bytes]):
         # Create the index
-        self.data = {value : i for i, value in gen}
+        self.data = {value : i for i, value in enumerate(gen)}

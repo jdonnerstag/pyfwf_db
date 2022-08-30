@@ -23,8 +23,8 @@ class FWFSimpleIndex(FWFDictIndexLike):
         self.index(func, log_progress)
 
 
-    def _index2(self, gen: Iterator[tuple[int, bytes]]):
+    def _index2(self, gen: Iterator[bytes]):
         # Create the index
         self.data = values = defaultdict(list)
-        all(values[value].append(i) or True for i, value in gen)
+        all(values[value].append(i) or True for i, value in enumerate(gen))
         # TODO May be should do self.data=dict(self.data) when done with creating the index? How do we know?

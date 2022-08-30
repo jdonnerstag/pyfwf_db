@@ -31,12 +31,12 @@ class FWFIndexLike(Generic[T]):
 
         # Do we need to apply any transformations...
         if func:
-            gen = ((i, func(v)) for i, v in gen)
+            gen = (func(v) for v in gen)
 
         # Print some log-progress if requested, possible with every line
         if log_progress is not None:
             view = self.fwfview
-            gen = (log_progress(view, i) or (i, v) for i, v in gen)
+            gen = (log_progress(view, i) or v for i, v in enumerate(gen))
 
         # Consume the iterator and create the index
         self._index2(gen)
@@ -44,14 +44,14 @@ class FWFIndexLike(Generic[T]):
         return self
 
 
-    def _index1(self) -> Iterator[tuple[int, bytes]]:
+    def _index1(self) -> Iterator[bytes]:
         '''Provide an iterator (e.g generator) which iterates over all relevant records'''
         return self.fwfview.iter_lines_with_field(self.field)
 
 
-    def _index2(self, gen):
+    @abc.abstractmethod
+    def _index2(self, gen) -> None:
         """Consume the iterator or generator and create the index"""
-        return gen
 
 
     def keys(self) -> Iterable[Any]:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-from typing import Callable
+from typing import Callable, Iterator
 from deprecated import deprecated
 import numpy as np
 
@@ -35,7 +35,7 @@ class FWFUniqueNumpyIndex(FWFDictUniqueIndexLike):
 
 
     # TODO _index2 is a very bad name
-    def _index2(self, gen):
+    def _index2(self, gen: Iterator[bytes]):
         """Create the Index
 
         The 'field' to base the index on
@@ -45,34 +45,20 @@ class FWFUniqueNumpyIndex(FWFDictUniqueIndexLike):
         lower, upper, str, int, etc..
         """
 
-        values = self._index2a(gen)
-
-        if self.cleanup_df is not None:
-            values = self.cleanup_df(values)
-
-        self.data = groups = self._index2b(values)
-        return groups
-
-
-    def _index2a(self, gen):
-        """Create the Index df"""
-
         # Create the full size index all at once => number of records
         reclen = len(self.fwfview)
         values = np.empty(reclen, dtype=self.dtype)
 
-        for i, value in gen:
+        for i, value in enumerate(gen):
             values[i] = value
 
-        return values
+        if self.cleanup_df is not None:
+            values = self.cleanup_df(values)
 
-
-    def _index2b(self, values) -> dict:
         # I tested all sort of numpy and pandas ways, but nothing was as
         # fast as python generators. Any test needs to consider (a) how
         # long it takes to create the "index" and (b) how long it takes
         # to lookup values. For any meaningful performance indication, (a)
         # the array must have at least 10 mio entries and (b) you must
         # execute at least 1 mio lookups against the 10 mio entties.
-        data = {value : i for i, value in enumerate(values)}
-        return data
+        self.data = {value : i for i, value in enumerate(values)}

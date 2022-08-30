@@ -7,21 +7,17 @@ from itertools import islice
 from .fwf_index_like import FWFDictIndexLike
 from .fwf_multi_subset import FWFMultiSubset
 from .fwf_file import FWFFile
-from .fwf_cython import FWFCython
+from ._cython import fwf_db_cython
 from .fwf_multi_file import FWFMultiFileMixin
-from ._cython.fwf_mem_optimized_index import BytesDictWithIntListValues
-
-
-class FWFMergeIndexException(Exception):
-    pass
+from .fwf_mem_optimized_index import BytesDictWithIntListValues
 
 
 class FWFMergeIndex(FWFMultiFileMixin, FWFDictIndexLike):
 
     def __init__(self, filespec=None, index=None, integer_index=False):
 
-        self.init_multi_file_mixin(filespec)
-        self.init_dict_index_like(None)
+        FWFMultiFileMixin.__init__(self, filespec)
+        FWFDictIndexLike.__init__(self, None)
 
         self.index = index
         self.integer_index = integer_index

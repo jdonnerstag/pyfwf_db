@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-# pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name
+# pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name, missing-module-docstring
 
 # Current version of pylint not yet working well with python type hints and is causing plenty false positiv.
 # pylint: disable=not-an-iterable, unsubscriptable-object
@@ -10,7 +10,7 @@ from typing import Iterable
 
 import pytest
 
-from fwf_db import FWFFile
+from fwf_db.fwf_file import FWFFile
 from fwf_db.fwf_line import FWFLine
 from fwf_db.fwf_region import FWFRegion
 from fwf_db.fwf_subset import FWFSubset
@@ -75,7 +75,7 @@ def test_bytes_input():
         assert fwf.fd is None
         assert fwf.mm is not None
         assert fwf.start_pos == 18
-        assert fwf.reclen == 10
+        assert fwf.line_count == 10
         assert len(fwf) == 10
 
 
@@ -87,7 +87,7 @@ def test_file_input():
         assert fwf.fwidth == 83
         assert fwf.fd is not None
         assert fwf.mm is not None
-        assert fwf.reclen == 10012
+        assert fwf.line_count == 10012
         assert fwf.start_pos == 0
         assert len(fwf) == 10012
 
@@ -168,7 +168,7 @@ def test_index_selector():
         assert len(list(rtn)) == 3
         assert len(rtn) == 3
         for r in rtn:
-            assert r.lineno in [0, 2, 5]
+            assert r.rooted().lineno in [0, 2, 5]
             assert r["gender"] in [b"M", b"F"]
 
         rtn2 = fwf[0:6][0, 2, 5]
@@ -185,7 +185,7 @@ def test_boolean_selector():
         assert len(list(rtn)) == 3
         assert len(rtn) == 3
         for r in rtn:
-            assert r.lineno in [0, 2, 5]
+            assert r.rooted().lineno in [0, 2, 5]
             assert r["gender"] in [b"M", b"F"]
 
 
@@ -313,16 +313,16 @@ def test_view_of_a_view():
         assert len(list(rtn)) == 2
         assert len(rtn) == 2
         for rec in rtn:
-            assert rec.lineno in [3, 4]
+            assert rec.rooted().lineno in [3, 4]
 
         rtn = fwf.filter_by_field("gender", b'F')
         assert len(list(rtn)) == 7
         assert len(rtn) == 7
         for rec in rtn:
-            assert rec.lineno in [0, 3, 5, 6, 7, 8, 9]
+            assert rec.rooted().lineno in [0, 3, 5, 6, 7, 8, 9]
 
         for rec in rtn[2:4]:
-            assert rec.lineno in [5, 6]
+            assert rec.rooted().lineno in [5, 6]
 
 
 

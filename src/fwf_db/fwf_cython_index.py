@@ -25,3 +25,8 @@ class FWFCythonIndex(FWFDictIndexLike):
 
         if func is not None:
             self.data = {func(k) : v for k, v in self.data.items()}
+
+
+    # Implement abstract method, but it is not used
+    def _index2(self, gen):
+        pass

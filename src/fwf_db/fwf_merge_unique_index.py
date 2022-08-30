@@ -7,20 +7,16 @@ from itertools import islice
 from .fwf_index_like import FWFDictIndexLike
 from .fwf_line import FWFLine
 from .fwf_file import FWFFile
-from .fwf_cython import FWFCython
+from ._cython import fwf_db_cython
 from .fwf_multi_file import FWFMultiFileMixin
-
-
-class FWFMergeUniqueIndexException(Exception):
-    pass
 
 
 class FWFMergeUniqueIndex(FWFMultiFileMixin, FWFDictIndexLike):
 
     def __init__(self, filespec=None, index=None, integer_index=False):
 
-        self.init_multi_file_mixin(filespec)
-        self.init_dict_index_like(None)
+        FWFMultiFileMixin.__init__(self, filespec)
+        FWFDictIndexLike.__init__(self, None)
 
         self.index = index
         self.integer_index = integer_index
@@ -34,8 +30,8 @@ class FWFMergeUniqueIndex(FWFMultiFileMixin, FWFDictIndexLike):
         fd = fwf.open(file)
 
         FWFCython(fd).apply(
-            index=index or self.index, 
-            unique_index=True, 
+            index=index or self.index,
+            unique_index=True,
             integer_index=self.integer_index,
             index_dict=self.data,       # Update this dict
             index_tuple=len(self.files)

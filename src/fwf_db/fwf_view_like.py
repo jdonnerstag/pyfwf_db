@@ -4,7 +4,7 @@
 """A base class that defines a view-like object"""
 
 import abc
-from typing import Iterator, Callable, overload, Iterable, Optional
+from typing import overload, Callable, Iterator, Iterable, Optional
 from itertools import islice
 
 from .fwf_line import FWFLine
@@ -17,13 +17,17 @@ class FWFViewLike:
     """
 
     def __init__(self, fields):
-        assert fields is not None
         self.fields = fields    # TODO what is the fields type?
 
 
     @abc.abstractmethod
     def __len__(self) -> int:
         """Varies depending on the view implementation"""
+
+
+    def get_fields(self):
+        """Provide the fieldspec for the fields"""
+        return self.fields
 
 
     def validate_index(self, index: int) -> int:
@@ -55,12 +59,31 @@ class FWFViewLike:
         return self._parent_index(index)
 
 
+    def root(self, index: int) -> tuple['FWFViewLike', int]:
+        """Walk up the parent path and determine the most outer
+        view-like object and the line number.
+
+        Note that this function is NOT validating the index value. It
+        simply applies the mapping from one view to its parent.
+        """
+        parent = self
+        while True:
+            # Do not validate. Just perform the mapping. This way it also
+            # works for empty views.
+            index = parent._parent_index(index) # pylint: disable=protected-access
+            newp = parent.get_parent()
+            if newp is None:
+                return (parent, index)
+
+            parent = newp
+
+
     @abc.abstractmethod
-    def _raw_line_at(self, index: int) -> tuple[int, bytes]:
-        """Get the lineno and raw line data (bytes) for the line with the index"""
+    def _raw_line_at(self, index: int) -> bytes:
+        """Get the raw line data (bytes) for the line with the index"""
 
 
-    def raw_line_at(self, index: int) -> tuple[int, bytes]:
+    def raw_line_at(self, index: int) -> bytes:
         """Get the raw line data (bytes) for the line with the index"""
         index = self.validate_index(index)
         return self._raw_line_at(index)
@@ -68,17 +91,17 @@ class FWFViewLike:
 
     def line_at(self, index: int) -> FWFLine:
         """Get the line data for the line with the index"""
-        lineno, data = self.raw_line_at(index)
-        return FWFLine(self, lineno, data)
+        data = self.raw_line_at(index)
+        return FWFLine(self, index, data)
 
 
     @abc.abstractmethod
     def _fwf_by_indices(self, indices: list[int]) -> 'FWFViewLike':
-        """Initiate a FWFRegion (or similar) object and return it"""
+        """Initiate a FWFSubset (or similar) object and return it"""
 
 
     def fwf_by_indices(self, indices: list[int]) -> 'FWFViewLike':
-        """Initiate a FWFRegion (or similar) object and return it"""
+        """Initiate a FWFSubset (or similar) object and return it"""
         indices = [self.validate_index(i) for i in indices]
         return self._fwf_by_indices(indices)
 
@@ -99,7 +122,7 @@ class FWFViewLike:
 
     def field_from_index(self, idx):
         """Determine the field name from the index"""
-        fields = self.fields
+        fields = self.get_fields()
         if isinstance(idx, int):
             return next(islice(fields.keys(), idx, None))
 
@@ -108,7 +131,7 @@ class FWFViewLike:
 
     def field_dtype(self, field) -> str:
         """Return the dtype for the field. NOTE: currently on string types are returned"""
-        field = self.fields[self.field_from_index(1)]
+        field = self.get_fields()[self.field_from_index(1)]
         flen = field.stop - field.start
         return f"S{flen}"
 
@@ -174,20 +197,19 @@ class FWFViewLike:
 
 
     def __iter__(self) -> Iterator[FWFLine]:
-        for lineno, line in self.iter_lines():
+        for lineno, line in enumerate(self.iter_lines()):
             yield FWFLine(self, lineno, line)
 
 
     @abc.abstractmethod
-    def iter_lines(self) -> Iterator[tuple[int, bytes]]:
-        """Iterate over all lines in the view, returning raw line
-        number and the raw line data"""
+    def iter_lines(self) -> Iterator[bytes]:
+        """Iterate over all lines in the view, returning the raw line data"""
 
 
-    def iter_lines_with_field(self, field) -> Iterator[tuple[int, bytes]]:
-        """Iterate over all lines in the file, returning the raw field data"""
-        sslice: slice = self.fields[field]
-        gen = ((i, line[sslice]) for i, line in self.iter_lines())
+    def iter_lines_with_field(self, field) -> Iterator[bytes]:
+        """Iterate over all lines in the file returning the raw field data"""
+        sslice: slice = self.get_fields()[field]
+        gen = (line[sslice] for line in self.iter_lines())
         return gen
 
 
@@ -234,8 +256,8 @@ class FWFViewLike:
 
         gen = enumerate(self.iter_lines_with_field(field))
         if callable(func):
-            rtn = [i for i, rec in gen if func(rec[1])]
+            rtn = [i for i, rec in gen if func(rec)]
         else:
-            rtn = [i for i, rec in gen if rec[1] == func]
+            rtn = [i for i, rec in gen if rec == func]
 
         return self.fwf_by_indices(rtn)

@@ -382,7 +382,7 @@ def line_numbers(fwf, filters: list = None):
     # respective index. The pointer gets initialize to point at the
     # first index.
     cdef array.array result = array.array('i', [])
-    array.resize(result, fwf.reclen + 1)
+    array.resize(result, fwf.line_count + 1)
     cdef int* result_ptr = result.data.as_ints
 
     while has_more_lines(&params):
@@ -416,7 +416,7 @@ def field_data(fwf, index_field: str, filters: list = None):
     # Allocate memory for all of the data
     # We are not converting or processing the field data in any way
     # or form => dtype for binary data types and field length
-    cdef numpy.ndarray values = numpy.empty(fwf.reclen, dtype=f"S{params.index_field_size}")
+    cdef numpy.ndarray values = numpy.empty(fwf.line_count, dtype=f"S{params.index_field_size}")
 
     # Loop over every line
     while has_more_lines(&params):
@@ -446,7 +446,7 @@ def field_data_int(fwf, index_field: str, filters: list = None):
 
     cdef InternalData params = _init_internal_data(fwf, filters, None, index_field)
 
-    cdef numpy.ndarray[numpy.int64_t, ndim=1] values = numpy.empty(fwf.reclen, dtype=numpy.int64)
+    cdef numpy.ndarray[numpy.int64_t, ndim=1] values = numpy.empty(fwf.line_count, dtype=numpy.int64)
 
     while has_more_lines(&params):
         if _cmp_values(&params):
@@ -566,7 +566,7 @@ def create_mem_optimized_index(fwf, index_field: str, index_dict: BytesDictWithI
     cdef InternalData params = _init_internal_data(fwf, filters, file_id, index_field)
 
     if index_dict is None:
-        index_dict = BytesDictWithIntListValues(fwf.reclen + 1)
+        index_dict = BytesDictWithIntListValues(fwf.line_count + 1)
 
     cdef int mem_dict_last = index_dict.last
     cdef dict mem_dict_dict = index_dict.index
@@ -667,7 +667,7 @@ def fwf_cython(fwf, filters: list = None, file_id: int = None, index_field: str 
     cdef int* result_ptr
     if not create_index:
         result = array.array('i', [])
-        array.resize(result, fwf.reclen + 1)
+        array.resize(result, fwf.line_count + 1)
         result_ptr = result.data.as_ints
 
     # If an index is requested, create an respective dict that

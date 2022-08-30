@@ -9,7 +9,7 @@ from .fwf_view_like import FWFViewLike
 from .fwf_subset import FWFSubset
 
 
-class FWFRegion(FWFViewLike,):
+class FWFRegion(FWFViewLike):
     """A view on the parents data based on a slice with start
     and stop indexes
     """
@@ -37,7 +37,7 @@ class FWFRegion(FWFViewLike,):
         return self.start + index
 
 
-    def _raw_line_at(self, index: int) -> tuple[int, bytes]:
+    def _raw_line_at(self, index: int) -> bytes:
         index = self.parent_index(index)
         return self.get_parent().raw_line_at(index)
 
@@ -53,6 +53,6 @@ class FWFRegion(FWFViewLike,):
         return FWFRegion(self.parent, start, stop, self.fields)
 
 
-    def iter_lines(self) -> Iterator[tuple[int, bytes]]:
+    def iter_lines(self) -> Iterator[bytes]:
         for i in range(self.start, self.stop):
             yield self.get_parent().raw_line_at(i)

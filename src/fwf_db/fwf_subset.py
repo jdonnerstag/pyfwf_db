@@ -30,12 +30,12 @@ class FWFSubset(FWFViewLike):
         return self.lines[index]
 
 
-    def _raw_line_at(self, index: int) -> tuple[int, bytes]:
+    def _raw_line_at(self, index: int) -> bytes:
         index = self._parent_index(index)
         return self.get_parent().raw_line_at(index)
 
 
-    def iter_lines(self) -> Iterator[tuple[int, bytes]]:
+    def iter_lines(self) -> Iterator[bytes]:
         for idx in self.lines:
             yield self.get_parent().raw_line_at(idx)
 

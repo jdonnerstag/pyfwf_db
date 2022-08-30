@@ -56,6 +56,7 @@ from .fwf_view_like import FWFViewLike
 from .fwf_subset import FWFSubset
 from .fwf_region import FWFRegion
 from .fwf_file import FWFFile
+from .fwf_multi_file import FWFMultiFile
 
 
 version = (0, 1, 0, 'rc1')

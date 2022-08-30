@@ -80,23 +80,23 @@ def test_simple_index():
         x = FWFSubset(rtn.fwfview, rtn.data["M"], rtn.fwfview.fields)
         assert isinstance(x, FWFSubset)
         for rec in x:
-            assert rec.lineno in [1, 2, 4]
+            assert rec.rooted().lineno in [1, 2, 4]
 
         x = rtn.get("M")
         assert isinstance(x, FWFSubset)
         for rec in x:
-            assert rec.lineno in [1, 2, 4]
+            assert rec.rooted().lineno in [1, 2, 4]
 
         x = rtn["M"]
         assert isinstance(x, FWFSubset)
         for rec in x:
-            assert rec.lineno in [1, 2, 4]
+            assert rec.rooted().lineno in [1, 2, 4]
 
         x = rtn["M"]
         assert isinstance(x, FWFSubset)
         x = x[2]
         assert isinstance(x, FWFLine)
-        assert rtn["M"][2].lineno == 4
+        assert rtn["M"][2].rooted().lineno == 4
 
         rtn = FWFSimpleIndex(fwf, 1)  # Also works with integers == state
         assert len(rtn) == 9
@@ -138,11 +138,11 @@ def test_np_index():
             assert len(rec) == 3 or len(rec) == 7
 
         for rec in rtn["M"]:
-            assert rec.lineno in [1, 2, 4]
+            assert rec.rooted().lineno in [1, 2, 4]
 
         x = rtn["M"]
         x = x[2]
-        assert rtn["M"][2].lineno == 4
+        assert rtn["M"][2].rooted().lineno == 4
 
         rtn = FWFNumpyIndex(fwf, 1, dtype=(np.bytes_, 8))  # Also works with integers == state
         assert len(rtn) == 9
@@ -185,11 +185,11 @@ def test_cython_index():
             assert len(rec) == 3 or len(rec) == 7
 
         for rec in rtn["M"]:
-            assert rec.lineno in [1, 2, 4]
+            assert rec.rooted().lineno in [1, 2, 4]
 
         x = rtn["M"]
         x = x[2]
-        assert rtn["M"][2].lineno == 4
+        assert rtn["M"][2].rooted().lineno == 4
 
         rtn = FWFCythonIndex(fwf, 1)  # Also works with integers == state
         assert len(rtn) == 9
@@ -332,3 +332,5 @@ def test_np_unique_index():
         # an ordinary Index.
         x = fwf[0:5]
         rtn = FWFUniqueNumpyIndex(x, "state")
+
+# TODO Add tests that validate that the indexes also work correctly with views (instead of FWFile)

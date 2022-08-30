@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-from typing import Callable
+from typing import Callable, Iterator
 from collections import defaultdict
 from deprecated import deprecated
 import numpy as np
@@ -35,7 +35,7 @@ class FWFNumpyIndex(FWFDictIndexLike):
 
 
     # TODO _index2 is a very bad name
-    def _index2(self, gen):
+    def _index2(self, gen: Iterator[bytes]):
         """Create the Index
 
         The 'field' to base the index on
@@ -45,35 +45,19 @@ class FWFNumpyIndex(FWFDictIndexLike):
         lower, upper, str, int, etc..
         """
 
-        values = self._index2a(gen)
+        # Create the full size index all at once => number of records
+        line_count = len(self.fwfview)
+        values = np.empty(line_count, dtype=self.dtype)
+
+        # Note: I'm wondering if that safes memory: store the data in a numpy array
+        # and add it later to the dict. It's only an improvement, if the data
+        #  remain in numpy and are merely references.
+        for i, value in enumerate(gen):
+            values[i] = value
 
         if self.cleanup_df is not None:
             values = self.cleanup_df(values)
 
-        self.data = groups = self._index2b(values)
-        return groups
-
-
-    def _index2a(self, gen):
-        """Create the Index df.
-        The 'field' to base the index upon
-        'np_type' is the Numpy dtype used to create the array that initially
-        holds the index data.
-        'func' to process the field data before adding it to the index, e.g.
-        lower, upper, str, int, etc..
-        """
-
-        # Create the full size index all at once => number of records
-        reclen = len(self.fwfview)
-        values = np.empty(reclen, dtype=self.dtype)
-
-        for i, value in gen:
-            values[i] = value
-
-        return values
-
-
-    def _index2b(self, values):
         # I tested all sort of numpy and pandas ways, but nothing was as
         # fast as python generators. Any test needs to consider (a) how
         # long it takes to create the "index" and (b) how long it takes
@@ -82,4 +66,5 @@ class FWFNumpyIndex(FWFDictIndexLike):
         # execute at least 1 mio lookups against the 10 mio entties.
         data = defaultdict(list)
         all(data[value].append(i) or True for i, value in enumerate(values))
-        return data
+
+        self.data = data

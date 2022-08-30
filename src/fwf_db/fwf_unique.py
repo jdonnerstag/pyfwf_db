@@ -20,7 +20,7 @@ class FWFUniqueMixin(FWFIndexLike, abc.ABC):
         str, lower, upper, int, ...
         """
 
-        gen = self._index1(self.fwfview, field, func)
+        gen = self._index1()
 
         # Create the set() with the unique values
         return {value for _, value in gen}

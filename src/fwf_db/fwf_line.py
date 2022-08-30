@@ -18,12 +18,12 @@ class FWFLine:
     """
 
     # Note: 'int' and 'str' is required because of str() and int()
-    def __init__(self, fwf_file_like: 'FWFViewLike', lineno: 'int', line: bytes):
-        assert fwf_file_like is not None
+    def __init__(self, fwf_view: 'FWFViewLike', lineno: 'int', line: bytes):
+        assert fwf_view is not None
         #assert isinstance(lineno, int)     Numpy provides a int-like object
 
-        self.fwf_file_like = fwf_file_like
-        self.lineno = lineno
+        self.fwf_view = fwf_view
+        self.lineno = lineno    # Line number in the context of 'fwf_view'
         self.line = line
 
     @overload
@@ -49,22 +49,21 @@ class FWFLine:
         if isinstance(arg, slice):
             return self.line[arg]
 
-        raise IndexError(f"Invalid Index: {arg}")
+        raise KeyError(f"Invalid Index: {arg}")
 
 
     def _get(self, field: 'str') -> bytes:
         """Get the binary data for the field"""
-        field_slice: slice = self.fwf_file_like.fields[field]
+        field_slice: slice = self.fwf_view.fields[field]
         return self.line[field_slice]
 
 
     def get(self, field, default:bytes|None=None) -> bytes|None:
         """Get the binary data for the field"""
-        rtn = self._get(field)
-        if rtn:
-            return rtn
+        if field not in self:
+            return default
 
-        return default
+        return self._get(field)
 
 
     def str(self, field, encoding=None) -> str:
@@ -72,7 +71,7 @@ class FWFLine:
         applying an encoding
         """
         encoding = encoding or sys.getdefaultencoding()
-        return str(self._get(field), encoding)
+        return self._get(field).decode(encoding)
 
 
     def int(self, field) -> int:
@@ -91,12 +90,12 @@ class FWFLine:
 
     def __contains__(self, key) -> bool:
         """suppot pythons 'in' operator"""
-        return key in self.fwf_file_like.fields
+        return key in self.fwf_view.fields
 
 
     def keys(self) -> Iterator['str']:
         """Like dict's keys() method, return all field names"""
-        return self.fwf_file_like.fields.keys()
+        return self.fwf_view.fields.keys()
 
 
     def items(self) -> Iterator[Tuple['str', bytes]]:
@@ -115,6 +114,17 @@ class FWFLine:
         """Provide a values in a a list"""
         keys = keys or self.keys()
         return [self._get(key) for key in keys]
+
+
+    def rooted(self) -> 'FWFLine':
+        """Walk up the parent path and determine the most outer
+        view-like object and the line number.
+
+        Note that this function is NOT validating the index value. It
+        simply applies the mapping from one view to its parent.
+        """
+        view, lineno = self.fwf_view.root(self.lineno)
+        return FWFLine(view, lineno, self.line)
 
 
     def __repr__(self) -> 'str':
