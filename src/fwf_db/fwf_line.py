@@ -1,10 +1,13 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-from typing import Iterator, Tuple, Union, Optional, overload, TYPE_CHECKING
+from typing import Iterable, Tuple, Union, Optional, overload, TYPE_CHECKING
 
 import sys
 from datetime import datetime
+
+from .fwf_fieldspecs import FWFFieldSpec
+
 
 # To prevent circular dependencies only during type checking
 if TYPE_CHECKING:
@@ -21,9 +24,9 @@ class FWFLine:
         assert fwf_view is not None
         #assert isinstance(lineno, int)     Numpy provides a int-like object
 
-        self.fwf_view = fwf_view
-        self.lineno = lineno    # Line number in the context of 'fwf_view'
-        self.line = line
+        self.fwf_view: 'FWFViewLike' = fwf_view
+        self.lineno: int = lineno    # Line number in the context of 'fwf_view'
+        self.line: bytes = line
 
     @overload
     def __getitem__(self, arg: 'int') -> 'int': ...
@@ -32,15 +35,20 @@ class FWFLine:
     def __getitem__(self, arg: 'str') -> bytes: ...
 
     @overload
+    def __getitem__(self, arg: FWFFieldSpec) -> bytes: ...
+
+    @overload
     def __getitem__(self, arg: slice) -> bytes: ...
 
-    def __getitem__(self, arg: Union['str', 'int', slice]) -> Union['int', bytes]:
+    def __getitem__(self, arg: Union['str', 'int', slice, FWFFieldSpec]) -> Union['int', bytes]:
         """Get a field or range of bytes from the line.
 
         string: representing a field name, get the data associated with it.
         int: get the byte at the position
         slice: get a bytearray for that slice
         """
+        if isinstance(arg, FWFFieldSpec):
+            return self._get(arg.name)
         if isinstance(arg, str):
             return self._get(arg)
         if isinstance(arg, int):
@@ -53,7 +61,7 @@ class FWFLine:
 
     def _get(self, field: 'str') -> bytes:
         """Get the binary data for the field"""
-        field_slice: slice = self.fwf_view.fields[field]
+        field_slice: slice = self.fwf_view.fields[field].fslice
         return self.line[field_slice]
 
 
@@ -92,12 +100,12 @@ class FWFLine:
         return key in self.fwf_view.fields
 
 
-    def keys(self) -> Iterator['str']:
+    def keys(self) -> Iterable['str']:
         """Like dict's keys() method, return all field names"""
         return self.fwf_view.fields.keys()
 
 
-    def items(self) -> Iterator[Tuple['str', bytes]]:
+    def items(self) -> Iterable[Tuple['str', bytes]]:
         """Like dict's items(), return field name and value tuples"""
         for key in self.keys():
             rtn = self._get(key)

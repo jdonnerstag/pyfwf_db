@@ -7,6 +7,7 @@ import abc
 from typing import overload, Callable, Iterator, Iterable, Optional
 from itertools import islice
 
+from .fwf_fieldspecs import FWFFileFieldSpecs
 from .fwf_line import FWFLine
 
 
@@ -16,8 +17,8 @@ class FWFViewLike:
     indiviual indexes.
     """
 
-    def __init__(self, fields):
-        self.fields = fields    # TODO what is the fields type?
+    def __init__(self, fields: FWFFileFieldSpecs):
+        self.fields = fields
 
 
     @abc.abstractmethod
@@ -25,7 +26,7 @@ class FWFViewLike:
         """Varies depending on the view implementation"""
 
 
-    def get_fields(self):
+    def get_fields(self) -> FWFFileFieldSpecs:
         """Provide the fieldspec for the fields"""
         return self.fields
 
@@ -207,7 +208,7 @@ class FWFViewLike:
 
     def iter_lines_with_field(self, field) -> Iterator[bytes]:
         """Iterate over all lines in the file returning the raw field data"""
-        sslice: slice = self.get_fields()[field]
+        sslice: slice = self.get_fields()[field].fslice
         gen = (line[sslice] for line in self.iter_lines())
         return gen
 

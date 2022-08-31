@@ -278,7 +278,7 @@ cdef InternalData _init_internal_data(fwf, filters: list, index_field: str, offs
     params.min_fwidth = params.fwidth - fwf.number_of_newline_bytes
 
     # Provide access to the (read-only) memory map
-    params.mm = _get_virtual_address(fwf.mm)
+    params.mm = _get_virtual_address(fwf._mm)
 
     params.count = 0      # Position within the target array
     params.irow = offset  # Row / line count in the file

@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+"""Define an index which leverages a small piece of cython code
+to speed up index creation."""
+
 import collections
 from typing import Callable
 

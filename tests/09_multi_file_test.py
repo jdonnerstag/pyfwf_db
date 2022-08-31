@@ -2,6 +2,7 @@
 # encoding: utf-8
 
 # pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name, missing-module-docstring
+# pylint: disable=protected-access
 
 from fwf_db.fwf_multi_file import FWFMultiFile
 from fwf_db.fwf_operator import FWFOperator as op
@@ -58,11 +59,11 @@ def test_with_statement():
         assert len(mf.files) == 2
         assert mf.line_count == 20
 
-        assert fwf1.mm is not None
-        assert fwf2.mm is not None
+        assert fwf1._mm is not None
+        assert fwf2._mm is not None
 
-    assert fwf1.mm is None
-    assert fwf2.mm is None
+    assert fwf1._mm is None
+    assert fwf2._mm is None
 
 
 def test_multi_file():

@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+"""Define an unique index which leverages a small piece of cython code
+to speed up index creation."""
+
 from typing import Callable
 from .fwf_file import FWFFile
 from .fwf_multi_file import FWFMultiFile

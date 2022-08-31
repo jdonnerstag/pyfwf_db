@@ -2,6 +2,7 @@
 # encoding: utf-8
 
 # pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name, missing-module-docstring
+# pylint: disable=protected-access
 
 # Current version of pylint not yet working well with python type hints and is causing plenty false positiv.
 # pylint: disable=not-an-iterable, unsubscriptable-object
@@ -51,19 +52,19 @@ def test_open():
 
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA) as fd:
-        assert fd.mm is not None
+        assert fd._mm is not None
 
-    assert fd.mm is None
-    assert fwf.mm is None
+    assert fd._mm is None
+    assert fwf._mm is None
 
     fd = fwf.open(DATA)
     assert fd is not None
     assert fd is fwf
-    assert fd.mm is not None
+    assert fd._mm is not None
 
     fd.close()
-    assert fd.mm is None
-    assert fwf.mm is None
+    assert fd._mm is None
+    assert fwf._mm is None
 
 
 def test_bytes_input():
@@ -72,8 +73,8 @@ def test_bytes_input():
         assert fwf.encoding is None
         assert len(fwf.fields) == 8
         assert fwf.fwidth == 83
-        assert fwf.fd is None
-        assert fwf.mm is not None
+        assert fwf._fd is None
+        assert fwf._mm is not None
         assert fwf.start_pos == 18
         assert fwf.line_count == 10
         assert len(fwf) == 10
@@ -85,8 +86,8 @@ def test_file_input():
         assert fwf.encoding is None
         assert len(fwf.fields) == 8
         assert fwf.fwidth == 83
-        assert fwf.fd is not None
-        assert fwf.mm is not None
+        assert fwf._fd is not None
+        assert fwf._mm is not None
         assert fwf.line_count == 10012
         assert fwf.start_pos == 0
         assert len(fwf) == 10012
@@ -248,11 +249,11 @@ def test_table_filter_by_line():
         assert len(list(rtn)) == 3
         assert len(rtn) == 3
 
-        rtn = fwf.filter(lambda l: l[fwf.fields["state"]] == b'AR')
+        rtn = fwf.filter(lambda l: l[fwf.fields["state"].fslice] == b'AR')
         assert len(list(rtn)) == 2
         assert len(rtn) == 2
 
-        rtn = fwf.filter(lambda l: l[fwf.fields["state"]] == b'XX')
+        rtn = fwf.filter(lambda l: l[fwf.fields["state"].fslice] == b'XX')
         assert len(list(rtn)) == 0
         assert len(rtn) == 0
 

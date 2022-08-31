@@ -25,7 +25,7 @@ class FWFPandas:
 
             assert isinstance(parent, FWFFile)
             fieldspec = parent.fieldspecs
-            dtype = {e["name"] : e.get("dtype", None) for e in fieldspec}
+            dtype = {e.name : e.get("dtype", None) for e in fieldspec}
         elif isinstance(dtype, list):
             list_of_strings = all(isinstance(x, str) for x in dtype)
             if list_of_strings:
