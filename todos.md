@@ -30,3 +30,4 @@
 - Support ignore-case (convert to upper case) key and/or value.
 - Use python module "black" for formatting the source code
 - We are using setup.py. Do we still need requirements.txt?
+- use "_" for protected variables and methods, and __ for private ones

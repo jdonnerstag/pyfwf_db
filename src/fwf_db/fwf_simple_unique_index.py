@@ -11,7 +11,7 @@ class FWFSimpleUniqueIndex(FWFDictUniqueIndexLike):
     """A simple unique index implementation, based on pure python"""
 
     def __init__(self, fwfview: FWFViewLike, field: int|str, func: None|Callable=None, log_progress: None|Callable = None):
-        super().__init__(fwfview, field)
+        super().__init__(fwfview, field, {})
         self.index(func, log_progress)
 
 

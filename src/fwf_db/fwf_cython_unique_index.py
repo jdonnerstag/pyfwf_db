@@ -19,7 +19,7 @@ class FWFCythonUniqueIndex(FWFDictUniqueIndexLike):
     """
 
     def __init__(self, fwfview: FWFFile|FWFMultiFile, field: int|str, func: None|Callable=None):
-        super().__init__(fwfview, field)
+        super().__init__(fwfview, field, {})
 
         if isinstance(fwfview, FWFFile):
             fwf_db_cython.create_unique_index(self.fwfview, self.field, self.data)
@@ -30,9 +30,6 @@ class FWFCythonUniqueIndex(FWFDictUniqueIndexLike):
                 offset += file.line_count
         else:
             raise TypeError(f"FWFCythonIndex requires either a FWFFile or FWFMultiFile: {type(fwfview)}")
-
-        if func is not None:
-            self.data = {func(k) : v for k, v in self.data.items()}
 
         if func is not None:
             self.data = {func(k) : v for k, v in self.data.items()}

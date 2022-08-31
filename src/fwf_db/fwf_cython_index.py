@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+import collections
 from typing import Callable
 
 from ._cython import fwf_db_cython
@@ -18,7 +19,7 @@ class FWFCythonIndex(FWFDictIndexLike):
     """
 
     def __init__(self, fwfview: FWFFile|FWFMultiFile, field: int|str, func: None|Callable=None):
-        super().__init__(fwfview, field)
+        super().__init__(fwfview, field, collections.defaultdict(list))
 
         if isinstance(fwfview, FWFFile):
             fwf_db_cython.create_index(self.fwfview, self.field, self.data)

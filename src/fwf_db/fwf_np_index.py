@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+import collections
 from typing import Callable, Iterator
 from collections import defaultdict
 from deprecated import deprecated
@@ -26,7 +27,7 @@ class FWFNumpyIndex(FWFDictIndexLike):
         dtype=None,
         cleanup_df: None|Callable =None):
 
-        super().__init__(fwfview, field)
+        super().__init__(fwfview, field, collections.defaultdict(list))
 
         self.dtype = dtype or self.fwfview.field_dtype(1)
         self.cleanup_df = cleanup_df

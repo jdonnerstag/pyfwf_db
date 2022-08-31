@@ -1,33 +1,21 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+# pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name, missing-module-docstring
+
 from time import time
 import pytest
 
-import abc
-import os
-import sys
-import io
 import datetime
 from random import randrange
 import numpy as np
-#import pandas as pd
 from collections import defaultdict
-import ctypes
 import inspect
 
-from fwf_db import FWFFile, FWFSimpleIndex, FWFMultiFile, FWFUnique
-#from fwf_db.fwf_unique_np_based import FWFUniqueNpBased
+from fwf_db import FWFFile
 from fwf_db.fwf_np_index import FWFNumpyIndex
-#from fwf_db.fwf_cython_unique_index import FWFCythonUniqueIndex
 from fwf_db.fwf_operator import FWFOperator as op
-#from fwf_db.fwf_cython import FWFCython
 from fwf_db._cython import fwf_db_cython
-#from fwf_db.fwf_merge_index import FWFMergeIndex
-#from fwf_db._cython.fwf_mem_optimized_index import BytesDictWithIntListValues, MyIndexDict
-
-# pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name, global-statement
-# pylint: disable=
 
 # ---------------------------------------------
 # Performance Log

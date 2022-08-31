@@ -17,10 +17,10 @@ class FWFIndexLike(Generic[T]):
     required core functionalities of every index class.
     """
 
-    def __init__(self, fwfview: FWFViewLike, field: int|str):
+    def __init__(self, fwfview: FWFViewLike, field: int|str, data: dict):
         self.fwfview = fwfview
         self.field = fwfview.field_from_index(field)
-        self.data: dict
+        self.data: dict = data
 
 
     def index(self, func: None|Callable = None, log_progress: None|Callable = None):
@@ -100,19 +100,18 @@ class FWFDictIndexLike(FWFIndexLike[FWFSubset]):
     required core functionalities of a dict like index class
     """
 
-    def __init__(self, fwfview: FWFViewLike, field: int|str):
-        super().__init__(fwfview, field)
-        self.data: dict[Any, list[int]] = collections.defaultdict(list)
+    def __init__(self, fwfview: FWFViewLike, field: int|str, data: dict[Any, list[int]]):
+        super().__init__(fwfview, field, data)
 
 
     def get(self, key, default=None) -> None | FWFSubset:
         """Create a view based on the indices associated with the index key provided"""
 
-        # self.data is a defaultdict, hence the additional 'in' test
-        if key not in self.data:
+        value = self.data.get(key)
+        if value is None:
             return default
 
-        return FWFSubset(self.fwfview, self.data[key], self.fwfview.fields)
+        return FWFSubset(self.fwfview, value, self.fwfview.fields)
 
 
     # Pylint has still issues with Generics. This is to prevent false positive warnings
@@ -128,17 +127,17 @@ class FWFDictUniqueIndexLike(FWFIndexLike[FWFLine]):
     required core functionalities of a dict like index class
     """
 
-    def __init__(self, fwfview: FWFViewLike, field: int|str):
-        super().__init__(fwfview, field)
-        self.data: dict[Any, int] = {}
+    def __init__(self, fwfview: FWFViewLike, field: int|str, data: dict[Any, int]):
+        super().__init__(fwfview, field, data)
 
 
     def get(self, key, default=None) -> None|FWFLine:
         """Create a view based on the indices associated with the index key provided"""
-        if key not in self.data:
+
+        idx = self.data.get(key)
+        if idx is None:
             return default
 
-        idx = self.data[key]
         return self.fwfview.line_at(idx)
 
 

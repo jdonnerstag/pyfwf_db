@@ -6,8 +6,8 @@ far, but the dict generated for an Index quickly grows large and consumes all
 my 24 GB memory. Just summing up the raw bytes, the ints and addresses, it
 should theoretically be possible to consume much less. I assume that Python's
 generic approach to variables is causing that. Just consider 15 mio keys in the
-dict and multiple tuples of (file-ID, lineno). This specialised dict reduced
-my memory consumption by 7 GB !!!
+dict and multiple lineno ints. This specialised dict reduced memory consumption
+by 7 GB !!!
 
 This class is an attempt to overcome the challenge. Lets assume for now
 Python dicts are great and we possibly gain more by optimizing the list
@@ -18,20 +18,19 @@ within an array, e.g. dict(index, index-start-pos).
 
 The array is a memory efficient numpy integer array. The array consists
 of a) the index-pos of the next elem in the list or 0 for end-of-list,.
-and b) either 1 or 2 ints for lineno and file-ID. file-ID only in case
-of multi-files.
+and b) an int for the lineno.
 
 This special dict is only useful for non-unique indicies. For unique
 indices a standard python dict is perfectly fine.
 """
 
-from typing import Any
+from typing import Any, Iterator
 import collections.abc
 import struct
 import numpy as np
 
 
-class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=missing-class-docstring)
+class BytesDictWithIntListValues(collections.abc.Mapping[Any, list[int]]):  # pylint: disable=missing-class-docstring)
     __doc__ = globals()["__doc__"]      # Apply the module doc to the class as well
 
     def __init__(self, maxsize: int):
@@ -62,7 +61,11 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
         # is likely almost never the case. What is the fastest way to read not-aligned
         # 64 bits? Does it make sense to add an extra comment line to align on the PK
         # field?
-        # We may use 32 bit line no or 64 bit pointers
+        # We may use 32 bit lineno or 64 bit pointers
+        # After initially creating the dict, we may perform an optimization step, to
+        # a) decrease mem and b) improve list read performance.
+        # Create a simple "len", ["lineno"]* integer list, which should be possible
+        # WITHOUT creting a new array. It should be possible in-place.
         self.index: dict[Any, int] = {} # key -> start_pos
 
         maxsize += 1  # We are not using the '0' entry. 0 means end-of-list.
@@ -76,7 +79,6 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
 
         # Every list entry is a tuple of 1 or 2 integers: lineno and file-id (optional)
         self.lineno = np.zeros(maxsize, dtype="int32")
-        self.file_ids = np.zeros(maxsize, dtype="int8")
 
         # The position in the arrays where to add the next values
         self.last = 0
@@ -101,24 +103,24 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
         if newlen > len(self.next):
             self.next = self.resize_array(self.next, newlen)
             self.end = self.resize_array(self.end, newlen)
-            self.file_ids = self.resize_array(self.file_ids, newlen)
             self.lineno = self.resize_array(self.lineno, newlen)
 
         return self
 
 
-    def __getitem__(self, key):
+    def __getitem__(self, key) -> list[int]:
         """Please see get() for more details. the only difference is that
         the [] selector will throw an exception if the key does not exist.
         """
-        if key not in self.index:
-            # TODO I like KeyError better. I think we are using IndexError in some other classes
-            raise KeyError(f"Key not found: {key}")
 
-        return self.get(key)
+        value = self.get(key)
+        if value is not None:
+            return value
+
+        raise KeyError(f"Key not found: {key}")
 
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator:
         """Iterate over all keys in the dict."""
         return iter(self.keys())
 
@@ -136,19 +138,19 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
         return self.index.keys()
 
 
-    def items(self):
+    def items(self) -> Iterator[tuple[Any, list[int]]]:
         for k in self.index:
-            yield k, self.get(k)
+            yield k, self[k]
 
 
-    def values(self):
+    def values(self) -> Iterator[list[int]]:
         for k in self.index:
-            yield self.get(k)
+            yield self[k]
 
 
-    def get(self, key, default=None):
+    def get(self, key, default=None) -> None | list[int]:
         """Get the list associated with the key. If key does not exist, then
-        return None. The list contains tuples which consists of two integers.
+        return 'default'. The list contains the lineno (int).
 
         This is a typical scenario for an index that is not unique. The key
         may refer to 1 or more records in the data set.
@@ -162,11 +164,10 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
             return default
 
         # We found an entry. Every entry (list) has at least 1 tuple
-        rtn = []
+        rtn: list[int] = []
         while inext > 0:
-            file_id = int(self.file_ids[inext])
             lineno = int(self.lineno[inext])
-            rtn.append((file_id, lineno))
+            rtn.append(lineno)
 
             inext = self.next[inext]
 
@@ -192,13 +193,7 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
         return last
 
 
-    def __setitem__(self, key, value: int | tuple[int, int]) -> None:
-        if isinstance(value, tuple):
-            file_id, lineno = value
-        else:
-            file_id = 0
-            lineno = value
-
+    def __setitem__(self, key, lineno: int) -> None:
         self.last += 1
         inext = self.index.get(key, None)
         if inext is None:
@@ -207,7 +202,6 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
             inext = self.last_pos(inext)
             self.next[inext] = inext = self.last
 
-        self.file_ids[inext] = file_id
         self.lineno[inext] = lineno
 
 
@@ -220,13 +214,12 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
         return np.count_nonzero(self.next) == 0
 
 
-
 class MyIndexDict:
 
-    def __init__(self, size: int, mm, reclen: int, field_pos: int, field_len: int, align: str="left", capacity: int=0):
+    def __init__(self, size: int, mm, line_count: int, field_pos: int, field_len: int, align: str="left", capacity: int=0):
         self._size = size
         self._mm = mm
-        self._reclen = reclen
+        self._line_count = line_count
         self._field_pos = field_pos
         self._field_len = field_len
         self._align = align
@@ -237,7 +230,7 @@ class MyIndexDict:
         elif align == "right":
             self._field_pos2 = field_pos + self._field_len - self._field_len2
         else:
-            raise Exception(f"Invalid value for 'align': {align}. Must be 'left' or 'right'")
+            raise ValueError(f"Invalid value for 'align': {align}. Must be 'left' or 'right'")
 
         if self._field_len <= 4:
             size = min(size, pow(2, self._field_len * 8))
@@ -315,7 +308,7 @@ class MyIndexDict:
             # TODO This is the unique index use case only
             lineno = self._lineno[idx]
 
-            line_pos = lineno * self._reclen
+            line_pos = lineno * self._line_count
             start = line_pos + self._field_pos
             end = start + self._field_len
             value = self._mm[start : end]

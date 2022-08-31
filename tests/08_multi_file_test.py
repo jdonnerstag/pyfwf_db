@@ -3,13 +3,11 @@
 
 # pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name, missing-module-docstring
 
-from fwf_db.fwf_line import FWFLine
 from fwf_db.fwf_multi_file import FWFMultiFile
 from fwf_db.fwf_operator import FWFOperator as op
 from fwf_db.fwf_simple_index import FWFSimpleIndex
 from fwf_db.fwf_simple_unique_index import FWFSimpleUniqueIndex
 from fwf_db.fwf_cython_index import FWFCythonIndex
-from fwf_db.fwf_cython_unique_index import FWFCythonUniqueIndex
 
 
 DATA_1 = b"""#

@@ -23,7 +23,7 @@ def test_add():
     assert len(data) == 0
 
     data["111"] = 1
-    data["222"] = (2, 22)
+    data["222"] = 2
     data["111"] = 11
     data["111"] = 111
 
@@ -39,11 +39,11 @@ def test_get():
         data["xxx"]     # pylint: disable=pointless-statement
 
     data["111"] = 1
-    assert data["111"] == [(0, 1)]
+    assert data["111"] == [1]
 
     data["111"] = 11
-    assert data["111"] == [(0, 1), (0, 11)]
-    assert data.get("111") == [(0, 1), (0, 11)]
+    assert data["111"] == [1, 11]
+    assert data.get("111") == [1, 11]
 
 
 def test_large():
@@ -53,11 +53,11 @@ def test_large():
         data["xxx"]     # pylint: disable=pointless-statement
 
     data["111"] = 1
-    assert data["111"] == [(0, 1)]
+    assert data["111"] == [1]
 
     data["111"] = 11
-    assert data["111"] == [(0, 1), (0, 11)]
-    assert data.get("111") == [(0, 1), (0, 11)]
+    assert data["111"] == [1, 11]
+    assert data.get("111") == [1, 11]
 
     # Fill the array with 1 million random numbers
     t1 = time()
@@ -91,18 +91,18 @@ def test_resize():
 
 
 def test_MyIndexDict_constructor():
-    data = MyIndexDict(size=100, mm=" " * 100, reclen=20, field_pos=0, field_len=1, align="left")
+    data = MyIndexDict(size=100, mm=" " * 100, line_count=20, field_pos=0, field_len=1, align="left")
     assert data
 
 
 def test_MyIndexDict_hash():
-    data = MyIndexDict(size=100, mm=b" " * 100, reclen=20, field_pos=0, field_len=1, align="left")
+    data = MyIndexDict(size=100, mm=b" " * 100, line_count=20, field_pos=0, field_len=1, align="left")
     assert data
 
     assert data.hash(b"1") == 356613032893705355295
     assert data.hash(b"1234567") == 358040167757824373535
 
-    data = MyIndexDict(size=100, mm=b" " * 100, reclen=20, field_pos=0, field_len=2, align="left")
+    data = MyIndexDict(size=100, mm=b" " * 100, line_count=20, field_pos=0, field_len=2, align="left")
     assert data
 
     assert data.hash(b" 1") == 234283163590324125727
@@ -115,7 +115,7 @@ def test_MyIndexDict_hash():
 
 
 def test_MyIndexDict_put():
-    data = MyIndexDict(size=100, mm=b" " * 100, reclen=20, field_pos=0, field_len=1, align="left")
+    data = MyIndexDict(size=100, mm=b" " * 100, line_count=20, field_pos=0, field_len=1, align="left")
     assert data
 
     data.put(b"1 34567890", 1)
@@ -129,7 +129,7 @@ def test_MyIndexDict_put():
     assert data._lineno[2] == 2    # first k/v => first index (0 is reserved for end-of-list)
 
 
-    data = MyIndexDict(size=100, mm=b" " * 100, reclen=20, field_pos=0, field_len=3, align="left")
+    data = MyIndexDict(size=100, mm=b" " * 100, line_count=20, field_pos=0, field_len=3, align="left")
     for i in range(100):
         key = bytes(str(i), "utf-8")
         data.put(key, i)
@@ -143,7 +143,7 @@ def test_MyIndexDict_put():
     assert count == 100
 
     # This test gives a pretty bad result: 40% utilisation and max-depth of 6
-    data = MyIndexDict(size=100000, mm=b" " * 10000, reclen=20, field_pos=0, field_len=6, align="left")
+    data = MyIndexDict(size=100000, mm=b" " * 10000, line_count=20, field_pos=0, field_len=6, align="left")
     for i in range(100000):
         key = bytes(str(i), "utf-8")
         data.put(key, i)
@@ -152,7 +152,7 @@ def test_MyIndexDict_put():
     print(f"precentage filled: {percentage_filled}, max_length: {max_length}, distibution: {buckets_by_length}")
 
     # Better: 60% utilisation and max-depth 4
-    data = MyIndexDict(size=100111, mm=b" " * 10000, reclen=20, field_pos=0, field_len=6, align="left")
+    data = MyIndexDict(size=100111, mm=b" " * 10000, line_count=20, field_pos=0, field_len=6, align="left")
     for i in range(100000):
         key = bytes(str(i), "utf-8")
         data.put(key, i)
@@ -162,7 +162,7 @@ def test_MyIndexDict_put():
 
 
     # Bad: 39% utilisation and max-depth 5.  Simply increasing size doesn't solve the issue
-    data = MyIndexDict(size=110111, mm=b" " * 10000, reclen=20, field_pos=0, field_len=6, align="left")
+    data = MyIndexDict(size=110111, mm=b" " * 10000, line_count=20, field_pos=0, field_len=6, align="left")
     for i in range(100000):
         key = bytes(str(i), "utf-8")
         data.put(key, i)
@@ -172,7 +172,7 @@ def test_MyIndexDict_put():
 
 
     # Bad: Not getting better without shuffling the initial hash value
-    data = MyIndexDict(size=110111, mm=b" " * 10000, reclen=20, field_pos=0, field_len=6, align="left")
+    data = MyIndexDict(size=110111, mm=b" " * 10000, line_count=20, field_pos=0, field_len=6, align="left")
     data.hash_calc = lambda data: data
 
     for i in range(100000):
@@ -184,7 +184,7 @@ def test_MyIndexDict_put():
 
 
     # 58% utilisation and max-depth 5.
-    data = MyIndexDict(size=1000000, mm=b" " * 10000, reclen=20, field_pos=0, field_len=7, align="left")
+    data = MyIndexDict(size=1000000, mm=b" " * 10000, line_count=20, field_pos=0, field_len=7, align="left")
     for i in range(1000000):
         key = bytes(str(i), "utf-8")
         data.put(key, i)
@@ -200,7 +200,7 @@ def test_MyIndexDict_put():
 
 
 def test_MyIndexDict_get():
-    data = MyIndexDict(size=100, mm=b"1234567890\nabcdefghij\nklmnopqrst\nuvwxyzABCD" * 100, reclen=11, field_pos=0, field_len=1, align="left")
+    data = MyIndexDict(size=100, mm=b"1234567890\nabcdefghij\nklmnopqrst\nuvwxyzABCD" * 100, line_count=11, field_pos=0, field_len=1, align="left")
     assert data
 
     data.put(b"a", 1)

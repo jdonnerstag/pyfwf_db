@@ -26,7 +26,7 @@ class FWFUniqueNumpyIndex(FWFDictUniqueIndexLike):
         cleanup_df: None|Callable = None
     ):
 
-        super().__init__(fwfview, field)
+        super().__init__(fwfview, field, {})
 
         self.dtype = dtype or self.fwfview.field_dtype(1)
         self.cleanup_df = cleanup_df    # TODO still not convinced this is a good idea

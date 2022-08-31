@@ -1,28 +1,15 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+# pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name, missing-module-docstring
+
 import pytest
 
-import abc
-import os
-import sys
-import io
 from random import randrange
 from time import time
-import numpy as np
-import pandas as pd
 from collections import defaultdict
-import ctypes
 
-from fwf_db import FWFFile, FWFSimpleIndex, FWFMultiFile, FWFUnique
-from fwf_db.fwf_np_unique_index import FWFUniqueNpBased
-from fwf_db.fwf_np_index import FWFNumpyIndex
-from fwf_db.fwf_cython_unique_index import FWFCythonUniqueIndex
-from fwf_db.fwf_operator import FWFOperator as op
-from fwf_db.fwf_cython import FWFCython
-from fwf_db.cython import fwf_db_ext
-from fwf_db.fwf_merge_index import FWFMergeIndex
-from fwf_db._cython.fwf_mem_optimized_index import BytesDictWithIntListValues
+from fwf_db import FWFFile
 
 
 class CENT_PARTY:
@@ -121,12 +108,3 @@ def test_mem_optimized_dict():
             index_tuple=None
         )
         assert len(rtn) == 3152698
-
-
-# Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":
-if __name__ == '__main__':
-
-    # pytest.main(["-v", "./tests"])
-
-    # test_merge_unique_index()
-    test_merge_non_unique_index()
