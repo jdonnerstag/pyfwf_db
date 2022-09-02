@@ -75,21 +75,6 @@ def test_large():
     print(f'Access array: Elapsed time is {time() - t1} seconds.')
 
 
-def test_resize():
-
-    data = BytesDictWithIntListValues(0)
-    with pytest.raises(Exception):
-        data["1"] = 1
-
-    data = data.resize(10)
-    data["1"] = 1
-    assert len(data.next) == 12  # 2 used plus 10
-
-    data = data.resize(10)
-    data["1"] = 1
-    assert len(data.next) == 13  # 3 used plus 10
-
-
 def test_MyIndexDict_constructor():
     data = MyIndexDict(size=100, mm=" " * 100, line_count=20, field_pos=0, field_len=1, align="left")
     assert data

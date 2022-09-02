@@ -79,7 +79,7 @@ class BytesDictWithIntListValues(collections.abc.Mapping[Any, list[int]]):  # py
         # Can be released when all data are loaded.
         self.end = np.zeros(maxsize, dtype="int32")
 
-        # Every list entry is a tuple of 1 or 2 integers: lineno and file-id (optional)
+        # The actual dict value => line number
         self.lineno = np.zeros(maxsize, dtype="int32")
 
         # The position in the arrays where to add the next values
@@ -91,23 +91,6 @@ class BytesDictWithIntListValues(collections.abc.Mapping[Any, list[int]]):  # py
         release some memory that is only needed for fast appends.
         """
         self.end = None
-
-
-    def resize_array(self, data, newsize: int):
-        newdata = np.zeros(newsize, dtype=data.dtype)
-        newdata[:len(data)] = data
-        return newdata
-
-
-    def resize(self, grow_by: int):
-        newlen = self.last + 1 + grow_by
-
-        if newlen > len(self.next):
-            self.next = self.resize_array(self.next, newlen)
-            self.end = self.resize_array(self.end, newlen)
-            self.lineno = self.resize_array(self.lineno, newlen)
-
-        return self
 
 
     def __getitem__(self, key) -> list[int]:
