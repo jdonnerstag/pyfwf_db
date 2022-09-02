@@ -2,28 +2,30 @@
 # encoding: utf-8
 
 """fwf_db is about (very) fast access to (very) large fixed width files
-including lookups by some index-field.
+(>10 GB) including filters and index views (lookup by key).
 
 Large files can have hundreds of millions of records and often are too large
 to fit into memory. And even if your production system might be large enough,
-the dev & test servers often are not. 'fwf_db' leverages (read-only) memory
-mapping to avoid any out-of-memory issues.
+the dev & test servers often are not. For local files, 'fwf_db' leverages
+(read-only) memory mapping to avoid any out-of-memory issues.
 
 fwf_db is not a replacement for an RDBMS or analytics engine, but is able
-to handled efficiently millions of millions of lookups. To achieve good
-performance an (in-memory) indexes is supportted. Creating these indexes
+to handle efficiently millions of millions of lookups. To achieve good
+lookup performance, (in-memory) indexes (unique and none-unique) - holding
+only the key and line numbers - can be created. Creating these indexes
 requires processing millions of records, and as validated by test cases,
-compilations into native code (e.g. Cython) are useful in these tight loops
+compilation into native code (Cython) is benefical for these tight loops
 of millions of iterations.
 
 Similarly we had the requirement to filter certain records (events), e.g.
 records which were provided or updated after or before a certain date
 (travel in time). Or records which are valid during a specific period
-determined by record fields such as VALID_FROM and VALID_UNTIL. Again a
-tight loop executing millions of times.
+determined by record fields such as VALID_FROM and VALID_UNTIL. Performing
+filtering inline while scanning the file, slows down creating the index
+only by a very small amount of time.
 
 This Cython module is not a complete standalone module. It just contains
-few extension methods which have proved worthwhile. These functions are
+few extension methods which have proven worthwhile. These functions are
 rather low level and not intended for end-users directly.
 
 Focus has been on performance. E.g. we had versions that were leveraging
@@ -599,148 +601,3 @@ def create_mem_optimized_index(fwf, index_field: str, index_dict: BytesDictWithI
 
     # Else, return the index
     return index_dict
-
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-
-## @cython.boundscheck(False)  # Deactivate bounds checking
-## @cython.wraparound(False)   # Deactivate negative indexing.
-def fwf_cython(fwf, filters: list = None, offset: int = 0, index_field: str = None,
-    unique_index: bool = False, integer_index: bool = False, index_dict: dict = None):
-    """Putting it all together: Filter the fwf file on an effective date and a
-    period, and optionally create an index on a 'field'. The index can be optionally
-    be made unique and the field value can be converted into an int.
-
-    If index is None, the indices of the filtered lines are return in an array.
-    If index is a field name and unique_index is false => dict: value -> [indices].
-    If index is a field name and unique_index is true => dict: value -> last index.
-    If index is a field name and integer_index is true, then convert the field value
-    into an int.
-
-    This is an optimized effective date and period filter, that shows 10-15x
-    performance improvements. Doesn't sound a lot but 2-3 secs vs 20-30 secs makes a
-    big difference when developing software and you need to wait for it.
-
-    The method has certain (sensible) requirements:
-    - Since it is working on the raw data, the values must be bytes or strings.
-    - If startpos respectively endpos == -1 it'll be ignored
-    - startpos and endpos are relativ to line start
-    - the field length is determined by the length of the value (bytes)
-    - The comparison is pre-configured: start_value <= value <= end_value
-    - Empty values in the line have predetermined meaning: beginning and end of time
-
-    If index is a field and 'index_dict' is provided (must be a subclass of dict), then this
-    dict is updated rather then a new one generated. This is useful when creating a
-    single index over multiple files. Be careful to provide the correct dict type,
-    depending on whether a unique or normal index is requested.
-    """
-
-    cdef InternalData params = _init_internal_data(fwf, filters, index_field, offset)
-
-    # Some constants which will be tested millions of times
-    cdef int create_index = index_field is not None
-    cdef int create_unique_index = unique_index is True
-    cdef int create_integer_index = integer_index is True
-
-    # If index is a field name, then determine the fields position within a line
-    cdef index_slice
-    cdef int index_start
-    cdef int index_stop
-    if index_field is not None:
-        index_slice = fwf.fields[index_field]
-        index_start = index_slice.start
-        index_stop = index_slice.stop
-
-    # Pre-allocate memory of the result arrary, if no indexing
-    # is required
-    cdef array.array result
-    cdef int* result_ptr
-    if not create_index:
-        result = array.array('i', [])
-        array.resize(result, fwf.line_count + 1)
-        result_ptr = result.data.as_ints
-
-    # If an index is requested, create an respective dict that
-    # eventually will contain the index.
-    cdef values
-    cdef key
-    cdef value
-    if index_field is not None:
-        if index_dict is not None:
-            values = index_dict
-        else:
-            if create_unique_index:
-                values = dict()
-            else:
-                values = collections.defaultdict(list)
-
-    # Enable optimizations of our memory efficient index (dict)
-    cdef int is_mem_optimized_dict = isinstance(index_dict, BytesDictWithIntListValues)
-    cdef int mem_dict_last
-    cdef dict mem_dict_dict
-    cdef int [:] mem_dict_next
-    cdef int [:] mem_dict_end
-    cdef int [:] mem_dict_lineno
-    cdef int inext
-    cdef int iend
-
-    if is_mem_optimized_dict:
-        mem_dict_last = index_dict.last
-        mem_dict_dict = index_dict.index
-        mem_dict_next = index_dict.next
-        mem_dict_end = index_dict.end
-        mem_dict_lineno = index_dict.lineno
-
-    while has_more_lines(&params):
-
-        if _cmp_values(&params):
-            # If no index, then added the index to the result array
-            if not create_index:
-                result_ptr[params.count] = params.irow
-                params.count += 1
-            else:
-                # Get the field data (as bytes)ß
-                key = params.line[index_start : index_stop]
-                if create_integer_index:
-                    key = atoi(key)
-
-                if is_mem_optimized_dict:
-                    # Cython is all about performance and this little bit of
-                    # code specific to the memory optimized dict for indices,
-                    # allows Cython to apply it's magic.
-
-                    mem_dict_last += 1
-                    value = mem_dict_dict.get(key, None)
-                    if value is None:
-                        inext = mem_dict_last
-                        mem_dict_dict[key] = inext
-                        mem_dict_end[inext] = inext
-                    else:
-                        iend = value
-                        inext = mem_dict_end[iend]
-                        mem_dict_next[inext] = mem_dict_last
-                        mem_dict_end[iend] = mem_dict_last
-                        inext = mem_dict_last
-
-                    mem_dict_lineno[inext] = params.irow
-
-                elif create_unique_index:
-                    # Unique index: just keep the last index
-                    values[key] = params.irow
-                else:
-                    # Add the index to potentially already existing indices
-                    values[key].append(params.irow)
-
-        next_line(&params)
-
-    # If only filters are provided but no index is requested, then return
-    # the array with the line indices.
-    if not create_index:
-        array.resize(result, params.count)
-        return result
-
-    if is_mem_optimized_dict:
-        values.last = mem_dict_last
-
-    # Else, return the index
-    return values

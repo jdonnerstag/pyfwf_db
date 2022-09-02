@@ -71,6 +71,8 @@ class BytesDictWithIntListValues(collections.abc.Mapping[Any, list[int]]):  # py
         maxsize += 1  # We are not using the '0' entry. 0 means end-of-list.
 
         # Linked list: position of the next node. 0 for end-of-list
+        # TODO In the cython module we are using array.array instead of numpy. Also for easier resize.
+        #      But in array.array the itemsize is more blurred.
         self.next = np.zeros(maxsize, dtype="int32")
 
         # The last node in the list for quick additions to the list
