@@ -37,7 +37,7 @@ class BytesDictWithIntListValues(collections.abc.Mapping[Any, list[int]]):  # py
         """Create the dict.
 
         A key maintains a list of integers. Maxsize does not refer to the
-        number of dict keys, but to the overall number of integers.
+        number of dict keys, but to the overall number of records (lines in file).
 
         NOTE: Please be careful with changes to this class, due to the
         dependency with our Cython module. That Cython module assumes
@@ -66,6 +66,7 @@ class BytesDictWithIntListValues(collections.abc.Mapping[Any, list[int]]):  # py
         # a) decrease mem and b) improve list read performance.
         # Create a simple "len", ["lineno"]* integer list, which should be possible
         # WITHOUT creting a new array. It should be possible in-place.
+        # TODO move to _cython and combine with special source code already in cython
         self.index: dict[Any, int] = {} # key -> start_pos
 
         maxsize += 1  # We are not using the '0' entry. 0 means end-of-list.
@@ -73,14 +74,21 @@ class BytesDictWithIntListValues(collections.abc.Mapping[Any, list[int]]):  # py
         # Linked list: position of the next node. 0 for end-of-list
         # TODO In the cython module we are using array.array instead of numpy. Also for easier resize.
         #      But in array.array the itemsize is more blurred.
-        self.next = np.zeros(maxsize, dtype="int32")
+        self.next = np.zeros(maxsize, dtype=np.int32)
 
         # The last node in the list for quick additions to the list
         # Can be released when all data are loaded.
-        self.end = np.zeros(maxsize, dtype="int32")
+        self.end = np.zeros(maxsize, dtype=np.int32)
 
         # The actual dict value => line number
-        self.lineno = np.zeros(maxsize, dtype="int32")
+        self.lineno = np.zeros(maxsize, dtype=np.int32)
+
+        # TODO This is still an incomplete implementation
+        # Index finalization changes the structure to: len, followed by an int for each entry (lineno)
+        #    which requires less memory and is faster to access.
+        self.data = np.zeros(0, dtype=np.int32)
+        self.finalized: bool = False
+        self.unique: bool = False
 
         # The position in the arrays where to add the next values
         self.last = 0
@@ -90,7 +98,25 @@ class BytesDictWithIntListValues(collections.abc.Mapping[Any, list[int]]):  # py
         """Once all all data have been added to the dict, it is possible to
         release some memory that is only needed for fast appends.
         """
+
+        if self.lineno is not None:
+            maxsize = len(self.lineno) + len(self.index)
+            self.data = np.zeros(maxsize, dtype=np.int32)
+            idx = 0
+            for key, values in self.index:
+                ilen = 1
+                for value in values:
+                    self.data[idx + ilen] = value
+                    ilen += 1
+
+                self.data[idx] = ilen - 1
+                self.index[key] = idx
+                idx += ilen
+
+        self.finalized = True
+        self.next = None
         self.end = None
+        self.lineno = None
 
 
     def __getitem__(self, key) -> list[int]:
@@ -103,6 +129,32 @@ class BytesDictWithIntListValues(collections.abc.Mapping[Any, list[int]]):  # py
             return value
 
         raise KeyError(f"Key not found: {key}")
+
+
+    def _last_pos(self, inext: int) -> int:
+        assert self.next is not None
+
+        last = inext
+        while inext > 0:
+            last = inext
+            inext = self.next[inext]
+
+        return last
+
+
+    def __setitem__(self, key, lineno: int) -> None:
+        assert self.next is not None
+        assert self.lineno is not None
+
+        self.last += 1
+        inext = self.index.get(key, None)
+        if inext is None:
+            self.index[key] = inext = self.last
+        else:
+            inext = self._last_pos(inext)
+            self.next[inext] = inext = self.last
+
+        self.lineno[inext] = lineno
 
 
     def __iter__(self) -> Iterator:
@@ -143,12 +195,21 @@ class BytesDictWithIntListValues(collections.abc.Mapping[Any, list[int]]):  # py
         For unique indices a standard python dict is all that is needed.
         """
 
-        # Get the starting posiiton from the dict
+        # Get the starting position from the dict
         inext = self.index.get(key, None)
         if inext is None:
             return default
 
-        # We found an entry. Every entry (list) has at least 1 tuple
+        if self.data.size > 0:
+            start = inext + 1
+            stop = start + self.data[inext]
+            return list(self.data[start:stop])  # TODO I only want a wrapper. No need to copy into a list
+
+
+        # If not yet finalized continue with the somewhat slower approach
+        assert self.lineno is not None
+        assert self.next is not None
+
         rtn: list[int] = []
         while inext > 0:
             lineno = int(self.lineno[inext])
@@ -169,34 +230,16 @@ class BytesDictWithIntListValues(collections.abc.Mapping[Any, list[int]]):  # py
         return True
 
 
-    def last_pos(self, inext: int) -> int:
-        last = inext
-        while inext > 0:
-            last = inext
-            inext = self.next[inext]
-
-        return last
-
-
-    def __setitem__(self, key, lineno: int) -> None:
-        self.last += 1
-        inext = self.index.get(key, None)
-        if inext is None:
-            self.index[key] = inext = self.last
-        else:
-            inext = self.last_pos(inext)
-            self.next[inext] = inext = self.last
-
-        self.lineno[inext] = lineno
-
-
     def is_unique(self) -> bool:
         """Determine if all index entries refer to only 1 line. If that is
         the case, then the index is unique. Unique indices do not benefit
         from the mem optimized index: performance is worse and memory
         is wasted. For unique indices prefer a plan python dict.
         """
-        return np.count_nonzero(self.next) == 0
+        if self.next is not None:
+            return np.count_nonzero(self.next) == 0
+
+        return self.unique
 
 
 class MyIndexDict:

@@ -4,35 +4,38 @@
 """Define an index which leverages a small piece of cython code
 to speed up index creation."""
 
-import collections
 from typing import Callable
 
 from ._cython import fwf_db_cython
-from .fwf_index_like import FWFDictIndexLike
+from .fwf_index_like import FWFIndexLike
 from .fwf_file import FWFFile
 from .fwf_multi_file import FWFMultiFile
 
 
-class FWFCythonIndex(FWFDictIndexLike):
+class FWFCythonIndexBuilder:
     """An index implementation, that leverages Cython for performance
     reasons. The larger the files, the larger are the performance gains.
 
-    In case you know that your key is unique (as in Primary Key), then
-    you can further improve the performance by using e.g. FWFCythonUniqueIndex.
+    Depending on the 'unique' argument, either a unique or none-unique
+    index will be created. None-unique indexes are using lists to hold
+    multiple values.
     """
 
-    def __init__(self, fwfview: FWFFile|FWFMultiFile, field: int|str, func: None|Callable=None):
-        super().__init__(fwfview, field, collections.defaultdict(list))
+    def __init__(self, data: FWFIndexLike):
+        self.data = data
+
+
+    def index(self, fwfview: FWFFile|FWFMultiFile, field: int|str, func: None|Callable=None):
+        """Create the index"""
+
+        field = fwfview.field_from_index(field)
 
         if isinstance(fwfview, FWFFile):
-            fwf_db_cython.create_index(self.fwfview, self.field, self.data)
+            fwf_db_cython.create_index(fwfview, field, self.data, func=func)
         elif isinstance(fwfview, FWFMultiFile):
             offset = 0
             for file in fwfview.files:
-                fwf_db_cython.create_index(file, self.field, self.data, offset)
+                fwf_db_cython.create_index(file, field, self.data, offset, func=func)
                 offset += file.line_count
         else:
             raise TypeError(f"FWFCythonIndex requires either a FWFFile or FWFMultiFile: {type(fwfview)}")
-
-        if func is not None:
-            self.data = {func(k) : v for k, v in self.data.items()}

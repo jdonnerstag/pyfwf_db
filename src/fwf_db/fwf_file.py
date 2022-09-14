@@ -36,6 +36,7 @@ class FWFFile(FWFViewLike):
         Please see the unit tests for an example.
         """
 
+        # TODO Currently 'reader' is fully dynamic. Would like something more explicit.
         self._reader = reader
 
         # Used when automatically decoding bytes into strings
@@ -291,6 +292,6 @@ class FWFFile(FWFViewLike):
         start_pos = self.start_pos + fslice.start
         end_pos = self.fsize or 0
         fwidth = self.fwidth
-        for irow, start_pos in enumerate(range(start_pos, end_pos, fwidth)):
+        for start_pos in range(start_pos, end_pos, fwidth):
             # rtn = self._mm[start_pos : start_pos + flen]  # This is where python copies the memory
             yield self._mm[start_pos : start_pos + flen]

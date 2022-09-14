@@ -6,9 +6,10 @@
 
 from fwf_db.fwf_multi_file import FWFMultiFile
 from fwf_db.fwf_operator import FWFOperator as op
-from fwf_db.fwf_simple_index import FWFSimpleIndex
-from fwf_db.fwf_simple_unique_index import FWFSimpleUniqueIndex
-from fwf_db.fwf_cython_index import FWFCythonIndex
+from fwf_db.fwf_index_like import FWFIndexDict, FWFUniqueIndexDict
+from fwf_db.fwf_simple_index import FWFSimpleIndexBuilder
+from fwf_db.fwf_np_index import FWFNumpyIndexBuilder
+from fwf_db.fwf_cython_index import FWFCythonIndexBuilder
 
 
 DATA_1 = b"""#
@@ -39,7 +40,7 @@ DATA_2 = b"""#
 """
 
 
-class DataFile(object):
+class DataFile:
 
     FIELDSPECS = [
         {"name": "ID", "len": 5},
@@ -111,7 +112,8 @@ def test_index():
         assert len(mf.files) == 2
         assert mf.line_count == 20
 
-        index = FWFSimpleIndex(mf, "ID")
+        index = FWFIndexDict(mf, {})
+        FWFSimpleIndexBuilder(index).index(mf, "ID")
         assert len(index) == 11
         for _, refs in index:
             assert 1 <= len(refs) <= 3
@@ -135,7 +137,8 @@ def test_effective_date():
             assert x in [1, 2, 3, 4, 5, 22]
 
         # And now create an index
-        index = FWFSimpleIndex(filtered, "ID")
+        index = FWFIndexDict(filtered, {})
+        FWFSimpleIndexBuilder(index).index(filtered, "ID")
         assert len(index) == 6      # 1, 2, 3, 4, 5 and 22
         for _, refs in index:
             assert 1 <= len(refs) <= 2
@@ -187,7 +190,8 @@ def test_cython_index():
         fwf1 = mf.open_and_add(DATA_1)
         fwf2 = mf.open_and_add(DATA_2)
 
-        mi = FWFSimpleIndex(mf, "ID")
+        mi = FWFIndexDict(mf, {})
+        FWFSimpleIndexBuilder(mi).index(mf, "ID")
         assert len(mi) == 11
 
         assert len(mi[b"1    "]) == 2
@@ -204,7 +208,8 @@ def test_cython_index():
         assert mi[b"22   "][0].rooted().lineno == 1
 
         # TODO same tests, different index implementation => restructure
-        mi = FWFCythonIndex(mf, "ID")
+        mi = FWFIndexDict(mf, {})
+        FWFCythonIndexBuilder(mi).index(mf, "ID")
         assert len(mi) == 11
 
         assert len(mi[b"1    "]) == 2
@@ -226,7 +231,8 @@ def test_cython_unique_index():
         fwf1 = mf.open_and_add(DATA_1)
         fwf2 = mf.open_and_add(DATA_2)
 
-        mi = FWFSimpleUniqueIndex(mf, "ID")
+        mi = FWFUniqueIndexDict(mf, {})
+        FWFCythonIndexBuilder(mi).index(mf, "ID")
         assert len(mi) == 11
 
         assert mi[b"1    "].lineno == 10

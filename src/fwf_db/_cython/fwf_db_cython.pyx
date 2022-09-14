@@ -40,7 +40,6 @@ want to avoid this uncertainty, prefer cdef which definitely uses C-conventions.
 """
 
 import sys
-import collections
 import ctypes
 import array
 
@@ -57,6 +56,7 @@ from libc.stdint cimport uint32_t
 
 # TODO I really don't like this dependency
 from ..fwf_mem_optimized_index import BytesDictWithIntListValues
+from ..fwf_index_like import FWFIndexLike
 
 ctypedef bint bool
 
@@ -67,6 +67,14 @@ def say_hello_to(name):
     """Health check"""
 
     return f"Hello {name}!"
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+# I couldn't find a way in (pure) python to resize an array, or create it with
+# an initial length.
+def resize_array(ar, int newlen):
+    array.resize(ar, newlen)
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -403,7 +411,7 @@ def line_numbers(fwf, filters: list = None):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def field_data(fwf, index_field: str, filters: list = None):
+def field_data(fwf, index_field: str, int_value: bool = False, filters: list = None):
     """Return a numpy array with the data from the 'field', in the
     sequence read from the file.
 
@@ -418,13 +426,19 @@ def field_data(fwf, index_field: str, filters: list = None):
     # Allocate memory for all of the data
     # We are not converting or processing the field data in any way
     # or form => dtype for binary data types and field length
-    cdef numpy.ndarray values = numpy.empty(fwf.line_count, dtype=f"S{params.index_field_size}")
+    cdef dtype = f"S{params.index_field_size}" if int_value == False else numpy.int32
+    cdef numpy.ndarray values = numpy.empty(fwf.line_count, dtype=dtype)
+    cdef bool convert_to_int = int_value
 
     # Loop over every line
     while has_more_lines(&params):
         if _cmp_values(&params):
             # Add the field value to the numpy array
-            values[params.count] = _field_data(&params)
+            if convert_to_int:
+                values[params.count] = _field_data_int(&params)
+            else:
+                values[params.count] = _field_data(&params)
+
             params.count += 1
 
         next_line(&params)
@@ -436,126 +450,53 @@ def field_data(fwf, index_field: str, filters: list = None):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def field_data_int(fwf, index_field: str, filters: list = None):
-    """Read the data for 'field', convert them into a int and store them in a
-    numpy array
+def create_index(fwf, index_field: str, index_dict: FWFIndexLike, offset: int = 0, filters: list = None, func: None|Callable|str = None) -> None:
+    """Create a unique or none-unique index on 'field'
 
-    Doing that millions times is a nice use case for Cython. It add's no
-    measurable delay.
-
-    Return: Numpy int64 ndarray
-    """
-
-    cdef InternalData params = _init_internal_data(fwf, filters, index_field, 0)
-
-    cdef numpy.ndarray[numpy.int64_t, ndim=1] values = numpy.empty(fwf.line_count, dtype=numpy.int64)
-
-    while has_more_lines(&params):
-        if _cmp_values(&params):
-            # Convert the field string data into int and add to the array
-            values[params.count] = _field_data_int(&params)
-            params.count += 1
-
-        next_line(&params)
-
-    # Return the numpy array
-    values.resize(params.count)
-    return values
-
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-
-def create_index(fwf, index_field: str, index_dict: collections.defaultdict = None, offset: int = 0, filters: list = None, func: None|Callable = None):
-    """Create an index (dict: values -> [indices]) for 'field'
+    Whether the index is unique or none-unique depends on the 'index_dict'
+    provided. If a normal dict, values are replaced. Hence it'll generate a
+    unique index. A defaultdict(list) automatically adds a list, if an entry
+    is missing. Hence a none-unique index could be created. There is only
+    one subtle issue to be solved: 'dict[key] = value' replaces the entry (list).
+    FWFDefaultDict is a tiny extension, replacing __setitem__ with something
+    like 'dict[key].append(value)'
 
     Leverage the speed of Cython (and C) which saturates the SDD when reading
     the data and thus allows to do some minimal processing in between, such as
     updating the index. It's not perfect, it adds some delay (e.g. 6 sec),
     however it is still much better then creating the index afterwards (14 secs).
 
-    Return: a dict mapping values to one or more lines indices
+    Please note that the 'index_dict' argument will be modified.
     """
 
-    if index_dict is None:
-        index_dict = collections.defaultdict(list)
-
     cdef InternalData params = _init_internal_data(fwf, filters, index_field, offset)
-    cdef bool has_func = func is not None
+    cdef bool has_func = func is not None and isinstance(func, Callable)
     cdef cfunc = func
+    cdef bool create_int_index = isinstance(func, str) and func == "int"
 
     while has_more_lines(&params):
         if _cmp_values(&params):
             # Add the value and row to the index
-            key = _field_data(&params)
-            if has_func:
-                # TODO Must be tested. I assume it is rather slow. May be we can predefine functions like, "str", "int", "upper", "lower", "trim"
-                key = cfunc(key)
+            if create_int_index:
+                key = _field_data_int(&params)
+            else:
+                key = _field_data_int(&params) if create_int_index else _field_data(&params)
+                if has_func:
+                    # TODO Must be tested. I assume it is rather slow. May be we can predefine functions like, "str", "int", "upper", "lower", "trim"
+                    key = cfunc(key)
 
-            index_dict[key].append(params.irow)
-
-        next_line(&params)
-
-    # Return the index
-    return index_dict
-
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-
-def create_unique_index(fwf, index_field: str, index_dict: dict = None, offset: int = 0, filters: list = None):
-    """Create an unique index (dict: value -> index) for 'field'.
-
-    Note: in case the same field value is found multiple times, then the
-    last will replace any previous value. This is by purpose, as in our
-    use case we often need to find the last change before a certain date
-    or within a specific period of time, and this is the fastest way of
-    doing it.
-
-    Return: a dict mapping the value to its last index
-    """
-
-    if index_dict is None:
-        index_dict = dict()
-
-    cdef InternalData params = _init_internal_data(fwf, filters, index_field, offset)
-
-    while has_more_lines(&params):
-        if _cmp_values(&params):
-            # Update the index. This is Python and thus rather slow. But I
-            # also don't know how to further optimize.
-            index_dict[_field_data(&params)] = params.irow
+            # Note: FWFIndexLike will do an append(), if the key is missing (and the index none-unique)
+            index_dict[key] = params.irow
 
         next_line(&params)
 
-    # Return the index
-    return index_dict
-
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def create_int_index(fwf, index_field: str, index_dict: collections.defaultdict = None, offset: int = 0, filters: list = None):
-    """Like create_index() except that the 'field' is converted into a int.
-
-    Return: dict: int(field) -> [indices]
-    """
-
-    if index_dict is None:
-        index_dict = collections.defaultdict(list)
-
-    cdef InternalData params = _init_internal_data(fwf, filters, index_field, offset)
-    cdef int v
-
-    while has_more_lines(&params):
-        if _cmp_values(&params):
-            # Convert the field value into an int and add it to the index
-            index_dict[_field_data_int(&params)].append(params.irow)
-
-        next_line(&params)
-
-    # The index: int(field) -> [indices]
-    return index_dict
-
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
+# TODO I don't like that parts of BytesDictWithIntListValues are here and others in
+#   the python module. May be create a separate Cython module for BytesDictWithIntListValues
+#   to benefit from the performance improvement, but use 'create_index' to create
+#   the index. No extra code. Just a different dict implementation.
 
 ## @cython.boundscheck(False)  # Deactivate bounds checking
 ## @cython.wraparound(False)   # Deactivate negative indexing.

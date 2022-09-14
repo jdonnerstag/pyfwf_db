@@ -11,6 +11,7 @@ It should not be necessary by user code to use it directly.
 
 from fwf_db import FWFFile
 from fwf_db._cython import fwf_db_cython
+from fwf_db.fwf_index_like import FWFIndexDict, FWFUniqueIndexDict
 
 
 def test_say_hello():
@@ -160,7 +161,7 @@ def test_get_field_data():
 def exec_get_int_field_data(filedef, data):
     fwf = FWFFile(filedef)
     with fwf.open(data):
-        db = fwf_db_cython.field_data_int(fwf, "id")
+        db = fwf_db_cython.field_data(fwf, "id", int_value=True)
         return db.tolist()
 
 
@@ -178,29 +179,32 @@ def test_get_int_field_data():
 
 def exec_create_index(filedef, data, func=None):
     fwf = FWFFile(filedef)
+    index = FWFIndexDict(fwf, {})
     with fwf.open(data):
-        db = fwf_db_cython.create_index(fwf, "id", func=func)
-        return db
-
+        fwf_db_cython.create_index(fwf, "id", index, func=func)
+        return index.data
 
 def test_create_index():
-    assert exec_create_index(TestFile4, b"") == {}
+    assert not exec_create_index(TestFile4, b"")
+    assert exec_create_index(TestFile4, b"000\n001") == {b"000": [0], b"001": [1]}
     assert exec_create_index(TestFile4, b"000") == {b"000": [0]}
     assert exec_create_index(TestFile4, b"000\n001") == {b"000": [0], b"001": [1]}
     assert exec_create_index(TestFile4, b"000\n001\n") == {b"000": [0], b"001": [1]}
     assert exec_create_index(TestFile4, b"000\n001\n000") == {b"000": [0, 2], b"001": [1]}
 
-    assert exec_create_index(TestFile4, b"", lambda x: int(x, base=10)) == {}
+    assert not exec_create_index(TestFile4, b"", lambda x: int(x, base=10))
     assert exec_create_index(TestFile4, b"000\n001\n000", lambda x: int(x, base=10)) == {0: [0, 2], 1: [1]}
+
 
 def exec_create_unique_index(filedef, data):
     fwf = FWFFile(filedef)
+    index = FWFUniqueIndexDict(fwf, {})
     with fwf.open(data):
-        db = fwf_db_cython.create_unique_index(fwf, "id")
-        return db
+        fwf_db_cython.create_index(fwf, "id", index)
+        return index.data
 
 def test_create_unique_index():
-    assert exec_create_unique_index(TestFile4, b"") == {}
+    assert not exec_create_unique_index(TestFile4, b"")
     assert exec_create_unique_index(TestFile4, b"000") == {b"000": 0}
     assert exec_create_unique_index(TestFile4, b"000\n001") == {b"000": 0, b"001": 1}
     assert exec_create_unique_index(TestFile4, b"000\n001\n") == {b"000": 0, b"001": 1}
@@ -209,29 +213,18 @@ def test_create_unique_index():
 
 def exec_create_int_index(filedef, data):
     fwf = FWFFile(filedef)
+    index = FWFIndexDict(fwf, {})
     with fwf.open(data):
-        db = fwf_db_cython.create_int_index(fwf, "id")
-        return db
+        fwf_db_cython.create_index(fwf, "id", index, func="int")
+        return index.data
 
 
 def test_create_int_index():
-    assert exec_create_int_index(TestFile4, b"") == {}
+    assert not exec_create_int_index(TestFile4, b"")
     assert exec_create_int_index(TestFile4, b"000") == {0: [0]}
     assert exec_create_int_index(TestFile4, b"000\n001") == {0: [0], 1: [1]}
     assert exec_create_int_index(TestFile4, b"000\n001\n") == {0: [0], 1: [1]}
     assert exec_create_int_index(TestFile4, b"000\n001\n000") == {0: [0, 2], 1: [1]}
-
-
-def exec_fwf_cython_filter(filedef, data, filters):
-    fwf = FWFFile(filedef)
-    with fwf.open(data):
-        rtn = fwf_db_cython.fwf_cython(fwf,
-            *filters,
-            index=None,   # No index => return line numbers
-            unique_index=False,
-            integer_index=False
-        )
-        return rtn
 
 
 class TestFile6:
