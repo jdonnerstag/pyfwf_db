@@ -54,8 +54,6 @@ from cpython cimport array
 from libc.stdlib cimport atoi
 from libc.stdint cimport uint32_t
 
-# TODO I really don't like this dependency
-from ..fwf_mem_optimized_index import BytesDictWithIntListValues
 from ..fwf_index_like import FWFIndexLike
 
 ctypedef bint bool
@@ -489,56 +487,3 @@ def create_index(fwf, index_field: str, index_dict: FWFIndexLike, offset: int = 
             index_dict[key] = params.irow
 
         next_line(&params)
-
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-
-# TODO I don't like that parts of BytesDictWithIntListValues are here and others in
-#   the python module. May be create a separate Cython module for BytesDictWithIntListValues
-#   to benefit from the performance improvement, but use 'create_index' to create
-#   the index. No extra code. Just a different dict implementation.
-
-## @cython.boundscheck(False)  # Deactivate bounds checking
-## @cython.wraparound(False)   # Deactivate negative indexing.
-def create_mem_optimized_index(fwf, index_field: str, index_dict: BytesDictWithIntListValues = None,
-    offset: int = 0, create_int_index = False, filters: list = None):
-
-    cdef InternalData params = _init_internal_data(fwf, filters, index_field, 0)
-
-    if index_dict is None:
-        index_dict = BytesDictWithIntListValues(fwf.line_count + 1)
-
-    cdef int mem_dict_last = index_dict.last
-    cdef dict mem_dict_dict = index_dict.index
-    cdef int [:] mem_dict_next = index_dict.next
-    cdef int [:] mem_dict_end = index_dict.end
-    cdef int [:] mem_dict_lineno = index_dict.lineno
-    cdef int inext
-    cdef int iend
-
-    while has_more_lines(&params):
-        if _cmp_values(&params):
-
-            key = _field_data_int(&params) if create_int_index else _field_data(&params)
-
-            mem_dict_last += 1
-            value = mem_dict_dict.get(key, None)
-            if value is None:
-                inext = mem_dict_last
-                mem_dict_dict[key] = inext
-                mem_dict_end[inext] = inext
-            else:
-                iend = value
-                inext = mem_dict_end[iend]
-                mem_dict_next[inext] = mem_dict_last
-                mem_dict_end[iend] = mem_dict_last
-                inext = mem_dict_last
-
-            mem_dict_lineno[inext] = params.irow
-
-        next_line(&params)
-
-    index_dict.last = mem_dict_last
-
-    # Else, return the index
-    return index_dict

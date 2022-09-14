@@ -112,7 +112,7 @@ def test_index():
         assert len(mf.files) == 2
         assert mf.line_count == 20
 
-        index = FWFIndexDict(mf, {})
+        index = FWFIndexDict(mf)
         FWFSimpleIndexBuilder(index).index(mf, "ID")
         assert len(index) == 11
         for _, refs in index:
@@ -137,7 +137,7 @@ def test_effective_date():
             assert x in [1, 2, 3, 4, 5, 22]
 
         # And now create an index
-        index = FWFIndexDict(filtered, {})
+        index = FWFIndexDict(filtered)
         FWFSimpleIndexBuilder(index).index(filtered, "ID")
         assert len(index) == 6      # 1, 2, 3, 4, 5 and 22
         for _, refs in index:
@@ -190,7 +190,7 @@ def test_cython_index():
         fwf1 = mf.open_and_add(DATA_1)
         fwf2 = mf.open_and_add(DATA_2)
 
-        mi = FWFIndexDict(mf, {})
+        mi = FWFIndexDict(mf)
         FWFSimpleIndexBuilder(mi).index(mf, "ID")
         assert len(mi) == 11
 
@@ -208,7 +208,7 @@ def test_cython_index():
         assert mi[b"22   "][0].rooted().lineno == 1
 
         # TODO same tests, different index implementation => restructure
-        mi = FWFIndexDict(mf, {})
+        mi = FWFIndexDict(mf)
         FWFCythonIndexBuilder(mi).index(mf, "ID")
         assert len(mi) == 11
 
@@ -231,7 +231,7 @@ def test_cython_unique_index():
         fwf1 = mf.open_and_add(DATA_1)
         fwf2 = mf.open_and_add(DATA_2)
 
-        mi = FWFUniqueIndexDict(mf, {})
+        mi = FWFUniqueIndexDict(mf)
         FWFCythonIndexBuilder(mi).index(mf, "ID")
         assert len(mi) == 11
 

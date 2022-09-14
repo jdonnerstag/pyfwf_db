@@ -56,5 +56,6 @@ class FWFNumpyIndexBuilder(FWFIndexBuilder):
         # to lookup values. For any meaningful performance indication, (a)
         # the array must have at least 10 mio entries and (b) you must
         # execute at least 1 mio lookups against the 10 mio entties.
+        # TODO May be move to cython for speed?
         for i, value in enumerate(values):
             self.data[value] = i

@@ -30,7 +30,9 @@ import struct
 import numpy as np
 
 
-class BytesDictWithIntListValues(collections.abc.Mapping[Any, list[int]]):  # pylint: disable=missing-class-docstring)
+# TODO Not yet support by Cython (0.29.32)
+# class BytesDictWithIntListValues(collections.abc.Mapping[Any, list[int]]):  # pylint: disable=missing-class-docstring)
+class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=missing-class-docstring)
     __doc__ = globals()["__doc__"]      # Apply the module doc to the class as well
 
     def __init__(self, maxsize: int):
@@ -119,7 +121,7 @@ class BytesDictWithIntListValues(collections.abc.Mapping[Any, list[int]]):  # py
         self.lineno = None
 
 
-    def __getitem__(self, key) -> list[int]:
+    def __getitem__(self, key) -> list: # list[int]:
         """Please see get() for more details. the only difference is that
         the [] selector will throw an exception if the key does not exist.
         """
@@ -130,29 +132,20 @@ class BytesDictWithIntListValues(collections.abc.Mapping[Any, list[int]]):  # py
 
         raise KeyError(f"Key not found: {key}")
 
-
-    def _last_pos(self, inext: int) -> int:
-        assert self.next is not None
-
-        last = inext
-        while inext > 0:
-            last = inext
-            inext = self.next[inext]
-
-        return last
-
-
-    def __setitem__(self, key, lineno: int) -> None:
-        assert self.next is not None
-        assert self.lineno is not None
+    ## @cython.boundscheck(False)  # Deactivate bounds checking
+    ## @cython.wraparound(False)   # Deactivate negative indexing.
+    def __setitem__(self, key: str|int, lineno: int) -> None:
+        assert self.finalized == False
 
         self.last += 1
-        inext = self.index.get(key, None)
-        if inext is None:
+        value = self.index.get(key, None)
+        if value is None:
             self.index[key] = inext = self.last
+            self.end[inext] = inext
         else:
-            inext = self._last_pos(inext)
+            inext = self.end[value]
             self.next[inext] = inext = self.last
+            self.end[value] = inext
 
         self.lineno[inext] = lineno
 
@@ -175,17 +168,17 @@ class BytesDictWithIntListValues(collections.abc.Mapping[Any, list[int]]):  # py
         return self.index.keys()
 
 
-    def items(self) -> Iterator[tuple[Any, list[int]]]:
+    def items(self) -> Iterator: # Iterator[tuple[Any, list[int]]]:
         for k in self.index:
             yield k, self[k]
 
 
-    def values(self) -> Iterator[list[int]]:
+    def values(self) -> Iterator: # Iterator[list[int]]:
         for k in self.index:
             yield self[k]
 
 
-    def get(self, key, default=None) -> None | list[int]:
+    def get(self, key, default=None) -> None | list: # list[int]:
         """Get the list associated with the key. If key does not exist, then
         return 'default'. The list contains the lineno (int).
 
@@ -241,6 +234,8 @@ class BytesDictWithIntListValues(collections.abc.Mapping[Any, list[int]]):  # py
 
         return self.unique
 
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 
 class MyIndexDict:
 

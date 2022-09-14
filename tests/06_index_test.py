@@ -14,6 +14,7 @@ from fwf_db.fwf_index_like import FWFIndexDict, FWFUniqueIndexDict
 from fwf_db.fwf_simple_index import FWFSimpleIndexBuilder
 from fwf_db.fwf_np_index import FWFNumpyIndexBuilder
 from fwf_db.fwf_cython_index import FWFCythonIndexBuilder
+from fwf_db._cython.fwf_mem_optimized_index import BytesDictWithIntListValues
 
 
 DATA = b"""# My comment test
@@ -48,20 +49,20 @@ def test_simple_index():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
-        rtn = FWFIndexDict(fwf, {})
+        rtn = FWFIndexDict(fwf)
         FWFSimpleIndexBuilder(rtn).index(fwf, "state")
         assert len(rtn) == 9
 
-        rtn = FWFIndexDict(fwf, {})
+        rtn = FWFIndexDict(fwf)
         FWFSimpleIndexBuilder(rtn).index(fwf, "gender")
         assert len(rtn) == 2
 
-        rtn = FWFIndexDict(fwf, {})
+        rtn = FWFIndexDict(fwf)
         FWFSimpleIndexBuilder(rtn).index(fwf, "state", func=lambda x: x.decode())
         assert "MI" in rtn
         assert rtn["MI"]
 
-        rtn = FWFIndexDict(fwf, {})
+        rtn = FWFIndexDict(fwf)
         FWFSimpleIndexBuilder(rtn).index(fwf, "gender", func=lambda x: x.decode())
         assert len(rtn) == 2
         assert "M" in rtn
@@ -100,13 +101,80 @@ def test_simple_index():
         assert isinstance(x, FWFLine)
         assert rtn["M"][2].rooted().lineno == 4
 
-        rtn = FWFIndexDict(fwf, {})
+        rtn = FWFIndexDict(fwf)
         FWFSimpleIndexBuilder(rtn).index(fwf, 1)  # Also works with integers == state
         assert len(rtn) == 9
 
         # Index on a view
         x = fwf[0:5]
-        rtn = FWFIndexDict(fwf, {})
+        rtn = FWFIndexDict(fwf)
+        FWFSimpleIndexBuilder(rtn).index(x, "state")
+        assert len(rtn) == 5
+
+
+def test_simple_index_with_mem_optimized_dict():
+    fwf = FWFFile(HumanFile)
+    with fwf.open(DATA):
+
+        rtn = FWFIndexDict(fwf, BytesDictWithIntListValues(len(fwf)))
+        FWFSimpleIndexBuilder(rtn).index(fwf, "state")
+        assert len(rtn) == 9
+
+        rtn = FWFIndexDict(fwf, BytesDictWithIntListValues(len(fwf)))
+        FWFSimpleIndexBuilder(rtn).index(fwf, "gender")
+        assert len(rtn) == 2
+
+        rtn = FWFIndexDict(fwf, BytesDictWithIntListValues(len(fwf)))
+        FWFSimpleIndexBuilder(rtn).index(fwf, "state", func=lambda x: x.decode())
+        assert "MI" in rtn
+        assert rtn["MI"]
+
+        rtn = FWFIndexDict(fwf, BytesDictWithIntListValues(len(fwf)))
+        FWFSimpleIndexBuilder(rtn).index(fwf, "gender", func=lambda x: x.decode())
+        assert len(rtn) == 2
+        assert "M" in rtn
+        assert "F" in rtn
+        assert "xxx" not in rtn
+        assert rtn["M"]
+        assert rtn["F"]
+
+        with pytest.raises(KeyError):
+            _ = rtn["xxx"]
+
+        for key, value in rtn:
+            assert key in ["F", "M"]
+            rec = rtn[key]
+            assert rec.lines == value.lines
+            assert len(rec) == 3 or len(rec) == 7
+
+        x = FWFSubset(rtn.fwfview, rtn.data["M"], rtn.fwfview.fields)
+        assert isinstance(x, FWFSubset)
+        for rec in x:
+            assert rec.rooted().lineno in [1, 2, 4]
+
+        x = rtn.get("M")
+        assert isinstance(x, FWFSubset)
+        for rec in x:
+            assert rec.rooted().lineno in [1, 2, 4]
+
+        x = rtn["M"]
+        assert isinstance(x, FWFSubset)
+        for rec in x:
+            assert rec.rooted().lineno in [1, 2, 4]
+
+        x = rtn["M"]
+        assert isinstance(x, FWFSubset)
+        x = x[2]
+        assert isinstance(x, FWFLine)
+        assert rtn["M"][2].rooted().lineno == 4
+
+        rtn = FWFIndexDict(fwf, BytesDictWithIntListValues(len(fwf)))
+        FWFSimpleIndexBuilder(rtn).index(fwf, 1)  # Also works with integers == state
+        assert len(rtn) == 9
+
+        # Index on a view
+        x = fwf[0:5]
+        rtn = FWFIndexDict(fwf, BytesDictWithIntListValues(len(fwf)))
         FWFSimpleIndexBuilder(rtn).index(x, "state")
         assert len(rtn) == 5
 
@@ -115,20 +183,20 @@ def test_np_index():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
-        rtn = FWFIndexDict(fwf, {})
+        rtn = FWFIndexDict(fwf)
         FWFNumpyIndexBuilder(rtn).index(fwf, "state", dtype=(np.bytes_, 2))
         assert len(rtn) == 9
 
-        rtn = FWFIndexDict(fwf, {})
+        rtn = FWFIndexDict(fwf)
         FWFNumpyIndexBuilder(rtn).index(fwf, "gender", dtype=(np.bytes_, 1))
         assert len(rtn) == 2
 
-        rtn = FWFIndexDict(fwf, {})
+        rtn = FWFIndexDict(fwf)
         FWFNumpyIndexBuilder(rtn).index(fwf, "state", dtype="U2", func=lambda x: x.decode())
         assert "MI" in rtn
         assert rtn["MI"]
 
-        rtn = FWFIndexDict(fwf, {})
+        rtn = FWFIndexDict(fwf)
         FWFNumpyIndexBuilder(rtn).index(fwf, "gender", dtype="U1", func=lambda x: x.decode())
         assert len(rtn) == 2
         assert "M" in rtn
@@ -152,13 +220,13 @@ def test_np_index():
         x = x[2]
         assert rtn["M"][2].rooted().lineno == 4
 
-        rtn = FWFIndexDict(fwf, {})
+        rtn = FWFIndexDict(fwf)
         FWFNumpyIndexBuilder(rtn).index(fwf, 1, dtype=(np.bytes_, 8))  # Also works with integers == state
         assert len(rtn) == 9
 
         # Index on a view
         x = fwf[0:5]
-        rtn = FWFIndexDict(fwf, {})
+        rtn = FWFIndexDict(fwf)
         FWFNumpyIndexBuilder(rtn).index(x, "state", dtype=(np.bytes_, 2))
         assert len(rtn) == 5
 
@@ -168,20 +236,20 @@ def test_cython_index():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
-        rtn = FWFIndexDict(fwf, {})
+        rtn = FWFIndexDict(fwf)
         FWFCythonIndexBuilder(rtn).index(fwf, "state")
         assert len(rtn) == 9
 
-        rtn = FWFIndexDict(fwf, {})
+        rtn = FWFIndexDict(fwf)
         FWFCythonIndexBuilder(rtn).index(fwf, "gender")
         assert len(rtn) == 2
 
-        rtn = FWFIndexDict(fwf, {})
+        rtn = FWFIndexDict(fwf)
         FWFCythonIndexBuilder(rtn).index(fwf, "state", func=lambda x: x.decode())
         assert "MI" in rtn
         assert rtn["MI"]
 
-        rtn = FWFIndexDict(fwf, {})
+        rtn = FWFIndexDict(fwf)
         FWFCythonIndexBuilder(rtn).index(fwf, "gender", func=lambda x: x.decode())
         assert len(rtn) == 2
         assert "M" in rtn
@@ -205,7 +273,7 @@ def test_cython_index():
         x = x[2]
         assert rtn["M"][2].rooted().lineno == 4
 
-        rtn = FWFIndexDict(fwf, {})
+        rtn = FWFIndexDict(fwf)
         FWFCythonIndexBuilder(rtn).index(fwf, 1)  # Also works with integers == state
         assert len(rtn) == 9
 
@@ -213,7 +281,7 @@ def test_cython_index():
         # Cython index is only available on FWFile. It wouldn't be faster then
         # an ordinary Index.
         x = fwf[0:5]
-        rtn = FWFIndexDict(x, {})
+        rtn = FWFIndexDict(x)
         with pytest.raises(TypeError):
             FWFCythonIndexBuilder(rtn).index(x, "state")      # type: ignore
 

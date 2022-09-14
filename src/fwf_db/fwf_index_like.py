@@ -5,6 +5,7 @@ import abc
 import collections.abc
 from typing import Iterable, Iterator, Any, TypeVar, Generic, Mapping
 
+from .fwf_dict import FWFDict
 from .fwf_view_like import FWFViewLike
 from .fwf_subset import FWFSubset
 from .fwf_line import FWFLine
@@ -124,7 +125,8 @@ class FWFIndexDict(FWFIndexLike[FWFSubset]):
     required core functionalities of a dict like index class
     """
 
-    def __init__(self, fwfview: FWFViewLike, data: dict[Any, list[int]]):
+    def __init__(self, fwfview: FWFViewLike, data: None|FWFDict = None):
+        data = data if data is not None else FWFDict()
         super().__init__(fwfview, data)
 
 
@@ -137,27 +139,6 @@ class FWFIndexDict(FWFIndexLike[FWFSubset]):
         return super().__getitem__(key)
 
 
-    def __setitem__(self, key, value: int|list[int]) -> None:
-        """Automatically append value if an 'int'
-
-        Defaultdict automatically creates an entry, if the key is yet missing
-        in the dict. In case of defaultdict(list), it is required to call
-        'dict[key].append(value)' to append a value to the list. In our use case,
-        (indexes) this is unwanted behavior. We rather want a unified interface
-        and hence 'dict[key] = value' should do the append (rather then replace)
-
-        Indexes exist in two flavors: unique or not-unique. Unique indexes allow
-        only one 1 value. Not-Unique index allow many values (a list). Indexes
-        are read-only, except while creating the index. The unified interface
-        helps to keep the the index-creation code lean and mean.
-        """
-
-        try:
-            self.data[key].append(value)
-        except KeyError:
-            self.data[key] = [value]    # Create a new list and register it with the dict
-
-
 # ---------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------
 
@@ -166,7 +147,8 @@ class FWFUniqueIndexDict(FWFIndexLike[FWFLine]):
     required core functionalities of a dict like index class
     """
 
-    def __init__(self, fwfview: FWFViewLike, data: dict[Any, int]):
+    def __init__(self, fwfview: FWFViewLike, data: None|dict[Any, int] = None):
+        data = data if data is not None else {}
         super().__init__(fwfview, data)
 
 
