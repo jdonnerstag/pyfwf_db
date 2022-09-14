@@ -1,15 +1,17 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+"""This is NOT a test file. Run with python -m memory_profiler <script.py>"""
+
 # pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name, missing-module-docstring
 
-import pytest
-
-from random import randrange
-from time import time
-from collections import defaultdict
+from memory_profiler import profile
 
 from fwf_db import FWFFile
+from fwf_db._cython import fwf_db_cython
+from fwf_db._cython.fwf_mem_optimized_index import BytesDictWithIntListValues
+from fwf_db.fwf_index_like import FWFIndexDict
+from fwf_db.fwf_simple_index import FWFSimpleIndexBuilder
 
 
 class CENT_PARTY:
@@ -60,51 +62,36 @@ FILE_CENT_PARTY = DIR + "ANO_DWH..DWH_TO_PIL_CENT_PARTY_VTAG.20180119104659.A901
 FILE_SALES_ASSIGNMENT = DIR + "ANO_DWH..DWH_TO_PIL_CENT_SALES_ASSIGNMENT_VTAG.20180119115137.A901"
 
 
-@pytest.mark.slow
+@profile
 def test_default_dict():
 
-    fwf_db_ext.say_hello_to("Susie")
+    assert fwf_db_cython.say_hello_to("Susie") == "Hello Susie!"
 
     fwf = FWFFile(CENT_SALES_ASSIGNMENT)
-
     with fwf.open(FILE_SALES_ASSIGNMENT) as fd:
         assert len(fd) == 10363608
 
-        data = defaultdict(list)
-
-        t1 = time()
-        rtn = fwf_db_ext.fwf_cython(fwf,
-            -1, None, -1, None,
-            -1, None, -1, None,
-            index="SALES_LOCATION_ID",
-            unique_index=False,
-            integer_index=False,
-            index_dict=data,
-            index_tuple=None
-        )
+        rtn = FWFIndexDict(fwf)
+        FWFSimpleIndexBuilder(rtn).index(fwf, "SALES_LOCATION_ID")
         assert len(rtn) == 3152698
 
 
-@pytest.mark.slow
+@profile
 def test_mem_optimized_dict():
 
-    fwf_db_ext.say_hello_to("Susie")
+    assert fwf_db_cython.say_hello_to("Susie") == "Hello Susie!"
 
     fwf = FWFFile(CENT_SALES_ASSIGNMENT)
-
     with fwf.open(FILE_SALES_ASSIGNMENT) as fd:
         assert len(fd) == 10363608
 
-        data = BytesDictWithIntListValues(len(fd))
-
-        t1 = time()
-        rtn = fwf_db_ext.fwf_cython(fwf,
-            -1, None, -1, None,
-            -1, None, -1, None,
-            index="SALES_LOCATION_ID",
-            unique_index=False,
-            integer_index=False,
-            index_dict=data,
-            index_tuple=None
-        )
+        data = BytesDictWithIntListValues(len(fwf))
+        rtn = FWFIndexDict(fwf, data)
+        FWFSimpleIndexBuilder(rtn).index(fwf, "SALES_LOCATION_ID")
         assert len(rtn) == 3152698
+
+
+if __name__ == "__main__":
+    # Run with python -m memory_profiler script.py
+    #test_default_dict()
+    test_mem_optimized_dict()

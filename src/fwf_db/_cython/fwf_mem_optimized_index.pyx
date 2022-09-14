@@ -1,30 +1,8 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-"""I'm quite happy with the performance and usability of the fwf module so
-far, but the dict generated for an Index quickly grows large and consumes all
-my 24 GB memory. Just summing up the raw bytes, the ints and addresses, it
-should theoretically be possible to consume much less. I assume that Python's
-generic approach to variables is causing that. Just consider 15 mio keys in the
-dict and multiple lineno ints. This specialised dict reduced memory consumption
-by 7 GB !!!
 
-This class is an attempt to overcome the challenge. Lets assume for now
-Python dicts are great and we possibly gain more by optimizing the list
-of ints associated with each index key.
-
-Instead of a list, the dict value is an integer pointing at a position
-within an array, e.g. dict(index, index-start-pos).
-
-The array is a memory efficient numpy integer array. The array consists
-of a) the index-pos of the next elem in the list or 0 for end-of-list,.
-and b) an int for the lineno.
-
-This special dict is only useful for non-unique indicies. For unique
-indices a standard python dict is perfectly fine.
-"""
-
-from typing import Any, Iterator
+from typing import Any, Iterator, Sequence
 import collections.abc
 import struct
 import numpy as np
@@ -33,7 +11,28 @@ import numpy as np
 # TODO Not yet support by Cython (0.29.32)
 # class BytesDictWithIntListValues(collections.abc.Mapping[Any, list[int]]):  # pylint: disable=missing-class-docstring)
 class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=missing-class-docstring)
-    __doc__ = globals()["__doc__"]      # Apply the module doc to the class as well
+    """I'm quite happy with the performance and usability of the fwf module so
+    far, but the dict generated for an Index quickly grows large and consumes all
+    my 24 GB memory. Just summing up the raw bytes, the ints and addresses, it
+    should theoretically be possible to consume much less. I assume that Python's
+    generic approach to variables is causing that. Considering 15 mio keys in the
+    dict and multiple lineno ints, the specialised dict reduced memory consumption
+    by 7 GB !!!
+
+    This class is an attempt to overcome the challenge. Lets assume for now
+    Python dicts are great and we possibly gain more by optimizing the list
+    of ints associated with each index key.
+
+    Instead of a list, the dict value is an integer pointing at a position
+    within an array, e.g. dict(index, index-start-pos).
+
+    The array is a memory efficient numpy integer array. The array consists
+    of a) the index-pos of the next elem in the list or 0 for end-of-list,.
+    and b) an int for the lineno.
+
+    This special dict is only useful for non-unique indicies. For unique
+    indices a standard python dict is perfectly fine.
+    """
 
     def __init__(self, maxsize: int):
         """Create the dict.
@@ -63,12 +62,6 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
         # is likely almost never the case. What is the fastest way to read not-aligned
         # 64 bits? Does it make sense to add an extra comment line to align on the PK
         # field?
-        # We may use 32 bit lineno or 64 bit pointers
-        # After initially creating the dict, we may perform an optimization step, to
-        # a) decrease mem and b) improve list read performance.
-        # Create a simple "len", ["lineno"]* integer list, which should be possible
-        # WITHOUT creting a new array. It should be possible in-place.
-        # TODO move to _cython and combine with special source code already in cython
         self.index: dict[Any, int] = {} # key -> start_pos
 
         maxsize += 1  # We are not using the '0' entry. 0 means end-of-list.
@@ -99,32 +92,33 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
 
     def finish(self):
         """Once all all data have been added to the dict, it is possible to
-        release some memory that is only needed for fast appends.
+        optimize the memory layout for faster access and reduce memory
+        consumption.
         """
 
-        """
-        if self.lineno is not None:
-            maxsize = len(self.lineno) + len(self.index)
-            self.data = np.zeros(maxsize, dtype=np.int32)
+        if self.finalized == False:
+            maxsize = len(self.index) + int(self.last / 3)
+            new_data = np.zeros(maxsize, dtype=np.int32)
             idx = 0
-            for key, values in self.index:
-                ilen = 1
-                for value in values:
-                    self.data[idx + ilen] = value
-                    ilen += 1
-
-                self.data[idx] = ilen - 1
+            for key, inext in self.index.items():
                 self.index[key] = idx
-                idx += ilen
-        """
 
-        self.finalized = True
-        #self.next = None
-        #self.end = None
-        #self.lineno = None
+                iidx = idx
+                while inext > 0:
+                    lineno = self.data[inext + 0]
+                    inext = self.data[inext + 1]
+
+                    iidx += 1
+                    new_data[iidx] = lineno
+
+                new_data[idx] = iidx - idx
+                idx = iidx + 1
+
+            self.data = new_data
+            self.finalized = True
 
 
-    def __getitem__(self, key) -> list: # list[int]:
+    def __getitem__(self, key) -> Sequence: # list[int]:
         """Please see get() for more details. the only difference is that
         the [] selector will throw an exception if the key does not exist.
         """
@@ -182,7 +176,7 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
             yield self[k]
 
 
-    def get(self, key, default=None) -> None | list: # list[int]:
+    def get(self, key, default=None) -> None | Sequence: # list[int]:
         """Get the list associated with the key. If key does not exist, then
         return 'default'. The list contains the lineno (int).
 
@@ -200,11 +194,8 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
         if self.finalized == True:
             start = inext + 1
             stop = start + self.data[inext]
-            return list(self.data[start:stop])  # TODO I only want a wrapper. No need to copy into a list
+            return self.data[start:stop]  # TODO I only want a wrapper. No need to copy into a list
 
-        # If not yet finalized continue with the somewhat slower approach
-        assert self.lineno is not None
-        assert self.next is not None
 
         rtn: list[int] = []
         while inext > 0:

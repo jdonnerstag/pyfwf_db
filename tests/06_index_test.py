@@ -116,21 +116,39 @@ def test_simple_index_with_mem_optimized_dict():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
-        rtn = FWFIndexDict(fwf, BytesDictWithIntListValues(len(fwf)))
+        data = BytesDictWithIntListValues(len(fwf))
+        rtn = FWFIndexDict(fwf, data)
         FWFSimpleIndexBuilder(rtn).index(fwf, "state")
         assert len(rtn) == 9
+        data.finish()
+        assert len(rtn) == 9
 
-        rtn = FWFIndexDict(fwf, BytesDictWithIntListValues(len(fwf)))
+        data = BytesDictWithIntListValues(len(fwf))
+        rtn = FWFIndexDict(fwf, data)
         FWFSimpleIndexBuilder(rtn).index(fwf, "gender")
         assert len(rtn) == 2
+        data.finish()
+        assert len(rtn) == 2
 
-        rtn = FWFIndexDict(fwf, BytesDictWithIntListValues(len(fwf)))
+        data = BytesDictWithIntListValues(len(fwf))
+        rtn = FWFIndexDict(fwf, data)
         FWFSimpleIndexBuilder(rtn).index(fwf, "state", func=lambda x: x.decode())
         assert "MI" in rtn
         assert rtn["MI"]
+        data.finish()
+        assert "MI" in rtn
+        assert rtn["MI"]
 
-        rtn = FWFIndexDict(fwf, BytesDictWithIntListValues(len(fwf)))
+        data = BytesDictWithIntListValues(len(fwf))
+        rtn = FWFIndexDict(fwf, data)
         FWFSimpleIndexBuilder(rtn).index(fwf, "gender", func=lambda x: x.decode())
+        assert len(rtn) == 2
+        assert "M" in rtn
+        assert "F" in rtn
+        assert "xxx" not in rtn
+        assert rtn["M"]
+        assert rtn["F"]
+        data.finish()
         assert len(rtn) == 2
         assert "M" in rtn
         assert "F" in rtn
@@ -144,7 +162,7 @@ def test_simple_index_with_mem_optimized_dict():
         for key, value in rtn:
             assert key in ["F", "M"]
             rec = rtn[key]
-            assert rec.lines == value.lines
+            np.testing.assert_array_equal(rec.lines, value.lines)
             assert len(rec) == 3 or len(rec) == 7
 
         x = FWFSubset(rtn.fwfview, rtn.data["M"], rtn.fwfview.fields)
@@ -168,14 +186,20 @@ def test_simple_index_with_mem_optimized_dict():
         assert isinstance(x, FWFLine)
         assert rtn["M"][2].rooted().lineno == 4
 
-        rtn = FWFIndexDict(fwf, BytesDictWithIntListValues(len(fwf)))
+        data = BytesDictWithIntListValues(len(fwf))
+        rtn = FWFIndexDict(fwf, data)
         FWFSimpleIndexBuilder(rtn).index(fwf, 1)  # Also works with integers == state
+        assert len(rtn) == 9
+        data.finish()
         assert len(rtn) == 9
 
         # Index on a view
         x = fwf[0:5]
-        rtn = FWFIndexDict(fwf, BytesDictWithIntListValues(len(fwf)))
+        data = BytesDictWithIntListValues(len(x))
+        rtn = FWFIndexDict(x, data)
         FWFSimpleIndexBuilder(rtn).index(x, "state")
+        assert len(rtn) == 5
+        data.finish()
         assert len(rtn) == 5
 
 

@@ -121,7 +121,7 @@ setup(
     #
     #   $ pip install sampleproject[dev]
     extras_require={
-        "dev": ["pytest", "Cython", "tox", "check-manifest", "pandas"],
+        "dev": ["pytest", "Cython", "tox", "check-manifest", "pandas", "memory_profiler"],
     },
 
     # If there are data files included in your packages that need to be

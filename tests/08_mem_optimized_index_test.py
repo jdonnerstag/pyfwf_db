@@ -74,6 +74,17 @@ def test_large():
 
     print(f'Access array: Elapsed time is {time() - t1} seconds.')
 
+    t1 = time()
+    data.finish()
+    print(f'Finish array: Elapsed time is {time() - t1} seconds.')
+
+    # Access the array
+    t1 = time()
+    for i in range(int(1e6)):
+        data.get(i)     # pylint: disable=pointless-statement
+
+    print(f'Access 2 array: Elapsed time is {time() - t1} seconds.')
+
 
 def test_MyIndexDict_constructor():
     data = MyIndexDict(size=100, mm=" " * 100, line_count=20, field_pos=0, field_len=1, align="left")
