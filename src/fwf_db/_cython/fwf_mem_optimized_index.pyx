@@ -76,19 +76,20 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
         # Linked list: position of the next node. 0 for end-of-list
         # TODO In the cython module we are using array.array instead of numpy. Also for easier resize.
         #      But in array.array the itemsize is more blurred.
-        self.next = np.zeros(maxsize, dtype=np.int32)
+        # 3 values per entry: lineno, next, and end
+        self.data = np.zeros(maxsize * 3, dtype=np.int32)
 
         # The last node in the list for quick additions to the list
         # Can be released when all data are loaded.
-        self.end = np.zeros(maxsize, dtype=np.int32)
+        #self.end = np.zeros(maxsize, dtype=np.int32)
 
         # The actual dict value => line number
-        self.lineno = np.zeros(maxsize, dtype=np.int32)
+        #self.lineno = np.zeros(maxsize, dtype=np.int32)
 
         # TODO This is still an incomplete implementation
         # Index finalization changes the structure to: len, followed by an int for each entry (lineno)
         #    which requires less memory and is faster to access.
-        self.data = np.zeros(0, dtype=np.int32)
+        #self.data = np.zeros(0, dtype=np.int32)
         self.finalized: bool = False
         self.unique: bool = False
 
@@ -101,6 +102,7 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
         release some memory that is only needed for fast appends.
         """
 
+        """
         if self.lineno is not None:
             maxsize = len(self.lineno) + len(self.index)
             self.data = np.zeros(maxsize, dtype=np.int32)
@@ -114,11 +116,12 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
                 self.data[idx] = ilen - 1
                 self.index[key] = idx
                 idx += ilen
+        """
 
         self.finalized = True
-        self.next = None
-        self.end = None
-        self.lineno = None
+        #self.next = None
+        #self.end = None
+        #self.lineno = None
 
 
     def __getitem__(self, key) -> list: # list[int]:
@@ -132,22 +135,23 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
 
         raise KeyError(f"Key not found: {key}")
 
+
     ## @cython.boundscheck(False)  # Deactivate bounds checking
     ## @cython.wraparound(False)   # Deactivate negative indexing.
     def __setitem__(self, key: str|int, lineno: int) -> None:
         assert self.finalized == False
 
-        self.last += 1
+        self.last += 3
         value = self.index.get(key, None)
         if value is None:
             self.index[key] = inext = self.last
-            self.end[inext] = inext
+            self.data[inext + 2] = inext
         else:
-            inext = self.end[value]
-            self.next[inext] = inext = self.last
-            self.end[value] = inext
+            inext = self.data[value + 2]
+            self.data[inext + 1] = inext = self.last
+            self.data[value + 2] = inext
 
-        self.lineno[inext] = lineno
+        self.data[inext + 0] = lineno
 
 
     def __iter__(self) -> Iterator:
@@ -193,11 +197,10 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
         if inext is None:
             return default
 
-        if self.data.size > 0:
+        if self.finalized == True:
             start = inext + 1
             stop = start + self.data[inext]
             return list(self.data[start:stop])  # TODO I only want a wrapper. No need to copy into a list
-
 
         # If not yet finalized continue with the somewhat slower approach
         assert self.lineno is not None
@@ -205,10 +208,10 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
 
         rtn: list[int] = []
         while inext > 0:
-            lineno = int(self.lineno[inext])
+            lineno = int(self.data[inext + 0])
             rtn.append(lineno)
 
-            inext = self.next[inext]
+            inext = self.data[inext + 1]
 
         return rtn
 
@@ -229,8 +232,12 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
         from the mem optimized index: performance is worse and memory
         is wasted. For unique indices prefer a plan python dict.
         """
-        if self.next is not None:
-            return np.count_nonzero(self.next) == 0
+        if self.finalized == False:
+            for i in range(3, self.last, 3):
+                if self.data[i + 1] != 0:
+                    return False
+
+            return True
 
         return self.unique
 
