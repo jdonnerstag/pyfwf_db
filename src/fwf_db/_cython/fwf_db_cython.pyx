@@ -205,7 +205,10 @@ class FWFFilters:
 
     def add_filter_2(self, field, value, upper: bool):
         startpos = self.fwf.fields[field].start
-        value = bytes(value)
+
+        if isinstance(value, str):
+            value = bytes(value, "utf-8")
+
         x = FWFFilterDefinition(startpos, value, upper)
         self.data.append(x)
 

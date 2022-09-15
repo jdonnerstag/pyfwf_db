@@ -3,6 +3,12 @@
 
 # pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name, missing-module-docstring
 
+#
+# Run individual tests like:
+#  pytest -svx -m "slow" <script.py>::<func name>
+#  pytest -svx -m "slow" -k "<string>" <script.py>
+#
+
 from io import TextIOWrapper
 from random import randrange
 from time import time
@@ -10,11 +16,13 @@ from collections import defaultdict
 import datetime
 import numpy as np
 import inspect
+import pandas as pd
 
 import pytest
 
 from fwf_db.fwf_file import FWFFile
 from fwf_db.fwf_dict import FWFDict
+from fwf_db.fwf_line import FWFLine
 from fwf_db.fwf_np_index import FWFNumpyIndexBuilder
 from fwf_db.fwf_operator import FWFOperator as op
 from fwf_db._cython import fwf_db_cython
@@ -130,13 +138,16 @@ def test_perf_iter_lines():
     with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5_889_278   # The file is 2GB and has 5.8 mio records
 
+        # Just read line by line and return the bytesg
         t1 = time()
-        for i, line in fd.iter_lines():
-            assert i >= 0
+        i = 0
+        for i, line in enumerate(fd.iter_lines()):
             assert line
 
-        # Just read the lines (bytes)
-        # 7.170794725418091     # My SDD shows almost no signs of being busy => CPU constraint
+        assert (i + 1) == len(fd)
+
+        # Between 2.88 and 7.5 secs (first invocation)
+        # My SDD shows almost no signs of being busy => CPU constraint
         log(t1)
 
 
@@ -148,11 +159,15 @@ def test_perf_iter_fwfline():
         assert len(fd) == 5_889_278
 
         t1 = time()
+        line = None
         for line in fd:
             assert line
 
+        assert isinstance(line, FWFLine)
+        assert (line.lineno + 1) == len(fd)
+
         # Wrap the line into a FWFLine object
-        # 12.35709834098816     # 5-6 secs more (almost doubled the time)
+        # Between 7 and 12 secs # approx 5 secs more!!!
         log(t1)
 
 
@@ -210,7 +225,7 @@ def test_numpy_samples():
     t1 = time()
     data = defaultdict(list)
     all(data[value].append(i) or True for i, value in enumerate(values))
-    log(t1, "Create-maps-of-lists-index")   # Approx 12 secs
+    log(t1, "Create-maps-of-lists-index")   # Approx 8.2 secs
 
     # Access the defaultdict 1 mio times
     t1 = time()
@@ -229,7 +244,7 @@ def test_numpy_samples():
     data = FWFDict()
     for i, value in enumerate(values):
         data[value] = i
-    log(t1, "Create-FWFDict")   # Approx 12 secs
+    log(t1, "Create-FWFDict")   # Approx 11.2 secs. Slower then defaultdict(list) !!!
 
     # Access MYDICT 1 mio times
     t1 = time()
@@ -253,9 +268,9 @@ def test_effective_date_simple_filter():
         t1 = time()
         fd = fd.filter(op("BUSINESS_DATE") < b"20180118")
         # They are dummy data with all the same change date !?!?
-        assert len(fd) == 0   # type: ignore      # Approx 17 secs
+        assert len(fd) == 0
 
-        # A little slow, compared to 7 secs for simple bytes and 12 secs for FWFLines
+        # 18 secs. A little slow, compared to 7 secs for simple bytes and 12 secs for FWFLines
         log(t1)
 
 
@@ -266,12 +281,13 @@ def test_effective_date_region_filter():
         assert len(fd) == 5_889_278
 
         t1 = time()
-        # NOTE: you can not combine the operators with AND resp. OR. It is always AND.
+        # NOTE: you cannot combine the operators with AND resp. OR. It is always AND.
+        # Identify all entries which started at or before 20130101 and ended at or after 20131231
         fd = fd.filter(op("VALID_FROM") <= b"20130101")
         fd = fd.filter(op("VALID_UNTIL") >= b"20131231")
         assert len(fd) == 1_293_435
 
-        # 29.993732929229736    # Compared to 17 secs for only 1 filter
+        # 21 secs, compared to 18 secs for only 1 filter
         log(t1)
 
 
@@ -300,45 +316,36 @@ def test_effective_date_region_filter_optimized():
         fd = fd.filter(region_filter)
         assert len(fd) == 1_293_435
 
-        # 18.807480335235596    # Faster then then FWFOperator!!  But still CPU bound.
+        # 20 sec; No differnce with FWFOperators
         log(t1)
 
 
 @pytest.mark.slow
 def test_cython_filter():
-    fwf_db_cython.say_hello_to("Susie")
-
     fwf = FWFFile(CENT_PARTY)
     with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5_889_278
 
+        filters = fwf_db_cython.FWFFilters(fwf)
+        #filters.add_filter_2("BUSINESS_DATE", "20180118", upper=False)
+        #filters.add_filter_2("VALID_FROM", "20130101", upper=True)
+        filters.add_filter_2("VALID_FROM", "20130102", upper=True)  # Note: lower <= x < upper
+        filters.add_filter_2("VALID_UNTIL", "20131231", upper=False)
+
         t1 = time()
-        db = fwf_db_cython.line_numbers(fwf, filters=[
-            fwf_db_cython.FWFFilterDefinition()
-        ])
-        db.add_filter("BUSINESS_DATE", "20180118", upper=False)
-        db.add_filter("VALID_FROM", "20130101", upper=False)
-        db.add_filter("VALID_UNTIL", "20131231", upper=True)
-        rtn = db.analyze()
+        rtn = fwf_db_cython.line_numbers(fwf, filters=filters)
+        assert len(rtn) == 1_293_435
+        log(t1)       # 1.88 secs   # Yes !!!!
 
-        rlen = rtn.buffer_info()[1]
-        assert rlen == 1_293_435
-        log(t1)       # 2.1357336044311523   # Yes !!!!
 
-'''
 @pytest.mark.slow
 def test_cython_get_field_data():
-
-    fwf_db_ext.say_hello_to("Susie")
-
     fwf = FWFFile(CENT_PARTY)
-
     with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5_889_278
 
         t1 = time()
-        rtn = fwf_db_ext.get_field_data(fwf, "PARTY_ID")
-
+        rtn = fwf_db_cython.field_data(fwf, "PARTY_ID")
         print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
 
         # In run mode:
@@ -355,24 +362,21 @@ def test_find_last():
     """This is an interesting test case as often we need the last record
     before the effective date, ...."""
 
-    fwf_db_ext.say_hello_to("Susie")
-
     fwf = FWFFile(CENT_PARTY)
-
     with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5_889_278
 
         t1 = time()
-        rtn = fwf_db_ext.create_unique_index(fwf, "PARTY_ID")
+        index = FWFIndexDict(fwf)
+        rtn = fwf_db_cython.create_index(fwf, "PARTY_ID", index)
         is_unique = len(rtn) == len(fd)
         print(f'Elapsed time is {time() - t1} seconds. {len(rtn):,d} - {"unique" if is_unique else "not unique"} index')
 
         # In run mode:
         # 5.535429954528809   # Ok
 
-        """
         t1 = time()
-        rtn = fwf_db_ext.get_field_data(fwf, "PARTY_ID")
+        rtn = fwf_db_cython.field_data(fwf, "PARTY_ID")
         print(f'Elapsed time is {time() - t1} seconds.')
 
         indices = my_find_last(rtn)
@@ -399,18 +403,14 @@ def test_find_last():
 
         # In run mode:
         # 4.8622496128082275   # Nice, but search is teribly slow.
-        """
 
-        """
         values = {value : i for i, value in enumerate(rtn)}
         is_unique = len(values) == len(fd)
         print(f'Elapsed time is {time() - t1} seconds. {len(values):,d} - {"unique" if is_unique else "not unique"} index')
 
         # In run mode:
         # 9.488121032714844   # 6 secs to create the index
-        """
 
-        """
         df = pd.DataFrame(rtn, columns=["values"])
         df = df.groupby("values").tail(1)
         is_unique = len(df.index) == len(fd)
@@ -418,21 +418,16 @@ def test_find_last():
 
         # In run mode:
         # 22.59328055381775   # 19 secs to create the index
-        """
 
 
 @pytest.mark.slow
 def test_numpy_sort():
-
-    fwf_db_ext.say_hello_to("Susie")
-
     fwf = FWFFile(CENT_PARTY)
-
     with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5_889_278
 
         t1 = time()
-        rtn = fwf_db_ext.get_field_data(fwf, "PARTY_ID")
+        rtn = fwf_db_cython.field_data(fwf, "PARTY_ID")
         print(f'Elapsed time is {time() - t1} seconds.')
 
         #rtn = np.argsort(rtn)
@@ -445,27 +440,21 @@ def test_numpy_sort():
 
 @pytest.mark.slow
 def test_cython_create_index():
-
-    fwf_db_ext.say_hello_to("Susie")
-
     fwf = FWFFile(CENT_PARTY)
-
     with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5_889_278
 
-        """ """
         t1 = time()
-        rtn = fwf_db_ext.create_index(fwf, "PARTY_ID")
-
+        index = FWFIndexDict(fwf)
+        rtn = fwf_db_cython.create_index(fwf, "PARTY_ID", index)
         print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
 
         # In run mode:
         # 12.35611081123352    # A little better, but not much
-        """ """
 
-        """
         t1 = time()
-        rtn = fwf_db_ext.get_field_data(fwf, "PARTY_ID")
+        index = FWFIndexDict(fwf)
+        rtn = fwf_db_cython.field_data(fwf, "PARTY_ID", index)
         print(f'Elapsed time is {time() - t1} seconds.')
 
         values = defaultdict(list)
@@ -474,11 +463,10 @@ def test_cython_create_index():
 
         # 16.387330770492554   # Reading the data is really fast, but creating the index is not yet.
         #                      # Accessing the index afterwards is very fast
-        """
 
-        """
         t1 = time()
-        rtn = fwf_db_ext.get_field_data(fwf, "PARTY_ID")
+        index = FWFIndexDict(fwf)
+        rtn = fwf_db_cython.field_data(fwf, "PARTY_ID")
         rtn_hash = [hash(a) for a in rtn]
         print(f'Elapsed time is {time() - t1} seconds.')
 
@@ -498,41 +486,36 @@ def test_cython_create_index():
 
         # 4.449473857879639 sec to prepare
         # 28.354421854019165 for 1 mio searches (compared ro 3 secs with a dict)
-        """
+
 
 @pytest.mark.slow
 def test_int_index():
     # Let's assume we know the PK field are integers only
 
-    fwf_db_ext.say_hello_to("Susie")
-
     fwf = FWFFile(CENT_PARTY)
-
     with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5_889_278
 
-        """
         t1 = time()
-        rtn = fwf_db_ext.create_index(fwf, "PARTY_ID")
-
+        index = FWFIndexDict(fwf)
+        rtn = fwf_db_cython.create_index(fwf, "PARTY_ID", index, func="int")
         print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
 
         # In run mode:
         # 12.35611081123352    # A little better, but not much
-        """
 
-        """
         t1 = time()
-        rtn = fwf_db_ext.get_int_field_data(fwf, "PARTY_ID")
+        index = FWFIndexDict(fwf)
+        rtn = fwf_db_cython.create_index(fwf, "PARTY_ID", index, func="int")
         print(f'Elapsed time is {time() - t1} seconds.')
 
-        #t1 = time()
-        #for _ in range(int(1e6)):
-        #    key =  randrange(len(rtn))
-        #    key = rtn[key]
-        #    refs = np.argwhere(rtn == key)
-        #    assert refs is not None
-        # print(f'Elapsed time is {time() - t1} seconds.')
+        t1 = time()
+        for _ in range(int(1e6)):
+            key =  randrange(len(rtn))
+            key = rtn[key]
+            refs = np.argwhere(rtn == key)
+            assert refs is not None
+        print(f'Elapsed time is {time() - t1} seconds.')
 
         values = defaultdict(list)
         all(values[value].append(i) or True for i, value in enumerate(rtn))
@@ -542,173 +525,45 @@ def test_int_index():
         #                       # difference in reading the field data
         # Searching int an int64 numpy array is still sloooww
         # 13.195310354232788    # Creating a dict with int is slightly faster
-        """
 
-        """ """
         t1 = time()
-        rtn = fwf_db_ext.create_int_index(fwf, "PARTY_ID")
+        index = FWFIndexDict(fwf)
+        rtn = fwf_db_cython.create_index(fwf, "PARTY_ID", index, func="int")
         print(f'Elapsed time is {time() - t1} seconds.')
 
         # 11.042781352996826 secs   # marginably faster
-        """ """
-
-
-@pytest.mark.slow
-def test_fwf_cython():
-
-    fwf_db_ext.say_hello_to("Susie")
-
-    fwf = FWFFile(CENT_PARTY)
-
-    with fwf.open(FILE_CENT_PARTY) as fd:
-        assert len(fd) == 5_889_278
-
-        t1 = time()
-        rtn = fwf_db_ext.fwf_cython(fwf,
-            -1, None, -1, None,
-            -1, None, -1, None,
-            index=None,
-            unique_index=False,
-            integer_index=False
-        )
-        print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
-        assert len(fd) == len(rtn)
-
-        # In run mode:
-        # 0.05099773406982422
-
-        rtn = fwf_db_ext.fwf_cython(fwf,
-            fd.fields["BUSINESS_DATE"].start, b"20180118",
-            -1, None,
-            fd.fields["VALID_FROM"].start, b"20130101",
-            fd.fields["VALID_UNTIL"].start, b"20131231",
-            index=None,
-            unique_index=False,
-            integer_index=False
-        )
-
-        rlen = rtn.buffer_info()[1]
-        print(f'Elapsed time is {time() - t1} seconds.    {rlen:,d}')
-        assert rlen == 1_293_435
-
-        # In run mode:
-        # 1.989365816116333
-
-        t1 = time()
-        rtn = fwf_db_ext.fwf_cython(fwf,
-            -1, None, -1, None,
-            -1, None, -1, None,
-            index="PARTY_ID",
-            unique_index=False,
-            integer_index=False
-        )
-        print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
-        assert len(fd) == len(rtn)
-
-        # In run mode:
-        # 11.820953607559204
-
-        t1 = time()
-        rtn = fwf_db_ext.fwf_cython(fwf,
-            -1, None, -1, None,
-            -1, None, -1, None,
-            index="PARTY_ID",
-            unique_index=True,
-            integer_index=False
-        )
-        print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
-        assert len(fd) == len(rtn)
-
-        # In run mode:
-        # 4.296884775161743
-
-        t1 = time()
-        rtn = fwf_db_ext.fwf_cython(fwf,
-            -1, None, -1, None,
-            -1, None, -1, None,
-            index="PARTY_ID",
-            unique_index=True,
-            integer_index=True
-        )
-        print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
-        assert len(fd) == len(rtn)
-
-        # In run mode:
-        # 3.4603333473205566
-
-        t1 = time()
-        rtn = fwf_db_ext.fwf_cython(fwf,
-            -1, None, -1, None,
-            -1, None, -1, None,
-            index="PARTY_ID",
-            unique_index=False,
-            integer_index=True
-        )
-        print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
-        assert len(fd) == len(rtn)
-
-        # In run mode:
-        # 10.110804796218872
 
 
 @pytest.mark.slow
 def test_merge_unique_index():
-
-    fwf_db_ext.say_hello_to("Susie")
+    # PARTY_ID has no duplicate value in the file
 
     fwf = FWFFile(CENT_PARTY)
-
     with fwf.open(FILE_CENT_PARTY) as fd:
         assert len(fd) == 5_889_278
 
-        data = defaultdict(list)
-
         t1 = time()
-        rtn = fwf_db_ext.fwf_cython(fwf,
-            -1, None, -1, None,
-            -1, None, -1, None,
-            index="PARTY_ID",
-            unique_index=False,
-            integer_index=False,
-            index_dict=data,
-            index_tuple=None
-        )
-        print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
-        assert len(fd) == len(rtn)
-
-        # Non-unique index with defaultdict
-        # 14.49066162109375 seconds
-
-        data = dict()
-
-        t1 = time()
-        rtn = fwf_db_ext.fwf_cython(fwf,
-            -1, None, -1, None,
-            -1, None, -1, None,
-            index="PARTY_ID",
-            unique_index=True,
-            integer_index=False,
-            index_dict=data,
-            index_tuple=None
-        )
+        index = FWFUniqueIndexDict(fwf)
+        rtn = fwf_db_cython.create_index(fwf, "PARTY_ID", index)
         print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
         assert len(fd) == len(rtn)
 
         # Unique index with plain dict
         # 5.222317934036255 seconds
 
-        data = BytesDictWithIntListValues(len(fd))
+        t1 = time()
+        index = FWFIndexDict(fwf)
+        rtn = fwf_db_cython.create_index(fwf, "PARTY_ID", index)
+        print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
+        assert len(fd) == len(rtn)
+
+        # Non-unique index with defaultdict
+        # 14.49066162109375 seconds
 
         t1 = time()
-        rtn = fwf_db_ext.fwf_cython(fwf,
-            -1, None, -1, None,
-            -1, None, -1, None,
-            index="PARTY_ID",
-            unique_index=False,
-            integer_index=False,
-            index_dict=data,
-            index_tuple=None
-        )
+        data = BytesDictWithIntListValues(len(fd))
+        index = FWFIndexDict(fwf, data)
+        rtn = fwf_db_cython.create_index(fwf, "PARTY_ID", index)
         print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
         assert len(fd) == len(rtn)
 
@@ -718,56 +573,45 @@ def test_merge_unique_index():
 
 @pytest.mark.slow
 def test_merge_non_unique_index():
-
-    fwf_db_ext.say_hello_to("Susie")
+    # SALES_LOCATION_ID has several duplicate values
 
     fwf = FWFFile(CENT_SALES_ASSIGNMENT)
-
     with fwf.open(FILE_SALES_ASSIGNMENT) as fd:
-        assert len(fd) == 10363608
-
-        data = defaultdict(list)
+        assert len(fd) == 10_363_608
 
         t1 = time()
-        rtn = fwf_db_ext.fwf_cython(fwf,
-            -1, None, -1, None,
-            -1, None, -1, None,
-            index="SALES_LOCATION_ID",
-            unique_index=False,
-            integer_index=False,
-            index_dict=data,
-            index_tuple=None
-        )
+        index = FWFUniqueIndexDict(fwf)     # Will only keep the last lineno
+        rtn = fwf_db_cython.create_index(fwf, "SALES_LOCATION_ID", index)
         print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
-        assert len(rtn) == 3152698
+        assert len(rtn) == 3_152_698
+
+        # Unique index with plain dict
+        # 5.222317934036255 seconds
+
+        t1 = time()
+        index = FWFIndexDict(fwf)
+        rtn = fwf_db_cython.create_index(fwf, "SALES_LOCATION_ID", index)
+        print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
+        assert len(rtn) == 3_152_698
 
         # Non-unique index with defaultdict
-        # 18.443543195724487 seconds
-
-        data = BytesDictWithIntListValues(len(fd))
+        # 14.49066162109375 seconds
 
         t1 = time()
-        rtn = fwf_db_ext.fwf_cython(fwf,
-            -1, None, -1, None,
-            -1, None, -1, None,
-            index="SALES_LOCATION_ID",
-            unique_index=False,
-            integer_index=False,
-            index_dict=data,
-            index_tuple=None
-        )
+        data = BytesDictWithIntListValues(len(fd))
+        index = FWFIndexDict(fwf, data)
+        rtn = fwf_db_cython.create_index(fwf, "SALES_LOCATION_ID", index)
         print(f'Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
-        assert len(rtn) == 3152698
+        assert len(rtn) == 3_152_698
 
         # non-unique index with mem optimized dict
-        # 11.132811546325684 seconds   # Not bad. Faster then defaultdict.
+        # 6.351483106613159 seconds   # only little overhead, and faster then defaultdict :)
 
-
+"""
 # @pytest.mark.slow
 # TODO This test is not yet implemented
 def test_MyIndexDict_get():
 
-    print("Test started")
     fwf = FWFFile(CENT_PARTY)
     with fwf.open(FILE_CENT_PARTY) as fd:
         rec_size = len(fd)
@@ -804,5 +648,4 @@ def test_MyIndexDict_get():
         # TODO Play with "capacity" and compare performance results
 
         # TODO if possible compare key length < 8 bytes, == 8 bytes and > 8 bytes
-
-'''
+"""

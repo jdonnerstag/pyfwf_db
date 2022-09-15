@@ -14,3 +14,27 @@
 { date: 2022-07-18 15:05:59, test_effective_date_region_filter: 18.748771905899048, }
 { date: 2022-07-18 15:08:01, test_effective_date_region_filter_optmized: 15.577927589416504, }
 { date: 2022-07-18 15:58:50, }
+{ date: 2022-09-15 14:09:56, }
+{ date: 2022-09-15 14:13:50, test_perf_iter_lines: 7.364651441574097, }
+{ date: 2022-09-15 14:15:13, test_perf_iter_lines: 3.070075750350952, }
+{ date: 2022-09-15 14:15:36, test_perf_iter_lines: 2.8768022060394287, }
+{ date: 2022-09-15 14:17:42, }
+{ date: 2022-09-15 14:18:33, test_perf_iter_lines: 4.657278060913086, }
+{ date: 2022-09-15 14:18:48, test_perf_iter_lines: 2.8710594177246094, }
+{ date: 2022-09-15 14:20:41, test_perf_iter_fwfline: 12.491914987564087, }
+{ date: 2022-09-15 14:21:26, test_perf_iter_fwfline: 6.303534269332886, }
+{ date: 2022-09-15 14:21:45, test_perf_iter_fwfline: 6.771526575088501, }
+{ date: 2022-09-15 14:27:52, test_perf_iter_fwfline: 6.561050653457642, }
+{ date: 2022-09-15 14:28:58, exec_perf_index-FWFSimpleIndexBuilder: 14.99741005897522, exec_perf_index-FWFIndexDict_1mio_random_lookups: 3.72196888923645, exec_perf_index-FWFNumpyIndexBuilder: 17.203773021697998, exec_perf_index-FWFIndexDict_1mio_random_lookups: 3.3885886669158936, exec_perf_index-FWFCythonIndexBuilder: 12.684316635131836, exec_perf_index-FWFIndexDict_1mio_random_lookups: 3.308283567428589, }
+{ date: 2022-09-15 14:31:09, test_numpy_samples-Create_random_entries: 12.204933404922485, test_numpy_samples-Create-maps-of-lists-index: 8.156532526016235, test_numpy_samples-1mio_random_lookups: 1.7782840728759766, test_numpy_samples-Create-FWFDict: 11.020425796508789, test_numpy_samples-1mio_MYDICT_random_lookups: 1.875260353088379, }
+{ date: 2022-09-15 14:36:10, test_effective_date_simple_filter: 18.17532181739807, }
+{ date: 2022-09-15 14:38:23, test_effective_date_region_filter: 21.09636378288269, }
+{ date: 2022-09-15 14:39:23, test_effective_date_region_filter_optimized: 20.068817138671875, }
+{ date: 2022-09-15 14:41:05, }
+{ date: 2022-09-15 14:43:32, }
+{ date: 2022-09-15 14:44:02, }
+{ date: 2022-09-15 14:49:07, }
+{ date: 2022-09-15 14:50:16, }
+{ date: 2022-09-15 14:52:30, }
+{ date: 2022-09-15 16:46:26, }
+{ date: 2022-09-15 16:55:08, test_cython_filter: 1.8842852115631104, }
