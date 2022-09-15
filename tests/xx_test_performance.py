@@ -3,19 +3,26 @@
 
 # pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name, missing-module-docstring
 
-from time import time
-import pytest
-
-import datetime
+from io import TextIOWrapper
 from random import randrange
-import numpy as np
+from time import time
 from collections import defaultdict
+import datetime
+import numpy as np
 import inspect
 
-from fwf_db import FWFFile
-from fwf_db.fwf_np_index import FWFNumpyIndex
+import pytest
+
+from fwf_db.fwf_file import FWFFile
+from fwf_db.fwf_dict import FWFDict
+from fwf_db.fwf_np_index import FWFNumpyIndexBuilder
 from fwf_db.fwf_operator import FWFOperator as op
 from fwf_db._cython import fwf_db_cython
+from fwf_db.fwf_index_like import FWFIndexDict, FWFUniqueIndexDict
+from fwf_db.fwf_simple_index import FWFSimpleIndexBuilder
+from fwf_db.fwf_np_index import FWFNumpyIndexBuilder
+from fwf_db.fwf_cython_index import FWFCythonIndexBuilder
+from fwf_db._cython.fwf_mem_optimized_index import BytesDictWithIntListValues
 
 # ---------------------------------------------
 # Performance Log
@@ -23,21 +30,36 @@ from fwf_db._cython import fwf_db_cython
 
 LOG = None
 
-def setup_module(module):
+# Pytest fixture to initialize the module
+def setup_module(module):   # pylint: disable=unused-argument
     """ setup any state specific to the execution of the given module."""
-    global LOG
+    global LOG      # pylint: disable=global-statement
     LOG = open("./logs/performance.log", "at", encoding="utf-8")
     now = datetime.datetime.now()
     dt = now.strftime("%Y-%m-%d %H:%M:%S")
     LOG.write(f"{{ date: {dt}, ")
 
 
-def teardown_module(module):
+# Pytest fixture to teardown the module
+def teardown_module(module):    # pylint: disable=unused-argument
     """ teardown any state that was previously setup with a setup_module
     method.
     """
-    LOG.write("}\n")  # type: ignore
-    LOG.close()  # type: ignore
+    assert isinstance(LOG, TextIOWrapper)
+    LOG.write("}\n")
+    LOG.close()
+
+
+def log(t1, suffix=None):
+    assert isinstance(LOG, TextIOWrapper)
+
+    elapsed = time() - t1
+    me = inspect.stack()[1][3]
+    if suffix is not None:
+        me = me + "-" + suffix
+
+    LOG.write(f'{me}: {elapsed}, ')
+    print(f'{me}: Elapsed time is {elapsed} seconds.')
 
 
 # ---------------------------------------------
@@ -92,18 +114,10 @@ FILE_CENT_PARTY = DIR + "ANO_DWH..DWH_TO_PIL_CENT_PARTY_VTAG.20180119104659.A901
 FILE_SALES_ASSIGNMENT = DIR + "ANO_DWH..DWH_TO_PIL_CENT_SALES_ASSIGNMENT_VTAG.20180119115137.A901"
 
 # -----------------------------------------------------------------------------
-# Add additional Pytest marker configuration
-# E.g. disable slow tests: '-m "not slow"
+# We've added a Pytest marker configuratio, which by default is disabled: see ./pyproject.toml
 # Some tests run for 20+ seconds and we don't want them to run everytime
+# E.g. Enable "slow" tests with: pytest -m slow ...
 # -----------------------------------------------------------------------------
-
-def log(t1, suffix=None):
-    elapsed = time() - t1
-    me = inspect.stack()[1][3]
-    if suffix is not None:
-        me = me + "-" + suffix
-    LOG.write(f'{me}: {elapsed}, ')  # type: ignore
-    print(f'{me}: Elapsed time is {elapsed} seconds.')
 
 # -----------------------------------------------------------------------------
 # Tests
@@ -114,7 +128,7 @@ def test_perf_iter_lines():
     fwf = FWFFile(CENT_PARTY)
 
     with fwf.open(FILE_CENT_PARTY) as fd:
-        assert len(fd) == 5889278   # The file is 2GB and has 5.8 mio records
+        assert len(fd) == 5_889_278   # The file is 2GB and has 5.8 mio records
 
         t1 = time()
         for i, line in fd.iter_lines():
@@ -131,7 +145,7 @@ def test_perf_iter_fwfline():
     fwf = FWFFile(CENT_PARTY)
 
     with fwf.open(FILE_CENT_PARTY) as fd:
-        assert len(fd) == 5889278
+        assert len(fd) == 5_889_278
 
         t1 = time()
         for line in fd:
@@ -142,31 +156,39 @@ def test_perf_iter_fwfline():
         log(t1)
 
 
-@pytest.mark.slow
-def test_perf_simple_index():
+def exec_perf_index(index_dict, index_builder, log_1, log_2):
     fwf = FWFFile(CENT_PARTY)
 
     with fwf.open(FILE_CENT_PARTY) as fd:
-        assert len(fd) == 5889278
-        t1 = time()
-        index = FWFSimpleIndex(fd).index("PARTY_ID")
-        assert len(index) == 5889278    # No duplictates, which makes sense for this data
-        log(t1, "Create_FWFSimpleIndex")
+        assert len(fd) == 5_889_278
 
-        idx = list(index.data.keys())
+        # Create an index on PARTY_ID, using the optimized field reader (no FWFLine object)
+        # 10 - 15 secs to create the index
+        t1 = time()
+        index = index_dict(fd)
+        index_builder(index).index(fd, "PARTY_ID")
+        assert len(index) == 5_889_278    # No duplictates, which makes sense for this data
+        log(t1, log_1)
+
+        # Access lines randomly 1 mio times
+        # Elapsed time is 6.269562721252441 seconds.
+        idx = list(index.data.keys())   # dict[Any, list[int]]
+        len_index = len(idx)
         t1 = time()
         for _ in range(int(1e6)):
-            key =  randrange(len(index))
+            key =  randrange(len_index)
             key = idx[key]
             refs = index[key]
             assert refs
 
-        # Create an index on PARTY_ID, using the optimized field reader (no FWFLine object)
-        # Elapsed time is 22.193581104278564 seconds.   # 10 - 15 secs to create the index
-        #
-        # Access lines randomly 1 mio times
-        # Elapsed time is 6.269562721252441 seconds.
-        log(t1, "1mio_random_lookups")
+        log(t1, log_2)
+
+
+@pytest.mark.slow
+def test_perf_simple_index():
+    exec_perf_index(FWFIndexDict, FWFSimpleIndexBuilder, "FWFSimpleIndexBuilder", "FWFIndexDict_1mio_random_lookups")
+    exec_perf_index(FWFIndexDict, FWFNumpyIndexBuilder, "FWFNumpyIndexBuilder", "FWFIndexDict_1mio_random_lookups")
+    exec_perf_index(FWFIndexDict, FWFCythonIndexBuilder, "FWFCythonIndexBuilder", "FWFIndexDict_1mio_random_lookups")
 
 
 @pytest.mark.slow
@@ -176,20 +198,21 @@ def test_numpy_samples():
     values = np.empty(reclen, dtype="S10")
 
     t1 = time()
-    flen = int(reclen / 15)
+    flen = int(reclen / 15)     # Make sure we create some duplicates
     for i in range(reclen):
         value = randrange(flen)
-        value = f"{value:>10}"
         value = bytes(f"{value:>10}", "utf-8")
         values[i] = value
 
     log(t1, "Create_random_entries")        # Approx 16 secs
 
+    # Create an "index" (dict[Any, list[int]])
     t1 = time()
     data = defaultdict(list)
     all(data[value].append(i) or True for i, value in enumerate(values))
     log(t1, "Create-maps-of-lists-index")   # Approx 12 secs
 
+    # Access the defaultdict 1 mio times
     t1 = time()
     for i in range(int(1e6)):
         value = randrange(flen)
@@ -201,45 +224,31 @@ def test_numpy_samples():
 
     log(t1, "1mio_random_lookups")      # Approx 5 secs
 
+    # Create an "index" (dict[Any, list[int]])
+    t1 = time()
+    data = FWFDict()
+    for i, value in enumerate(values):
+        data[value] = i
+    log(t1, "Create-FWFDict")   # Approx 12 secs
 
-@pytest.mark.slow
-def test_perf_numpy_index():
+    # Access MYDICT 1 mio times
+    t1 = time()
+    for i in range(int(1e6)):
+        value = randrange(flen)
+        value = f"{value:>10}"
+        value = bytes(f"{value:>10}", "utf-8")
 
-    fwf = FWFFile(CENT_PARTY)
+        rec = data.get(value, None)
+        assert rec is not None
 
-    with fwf.open(FILE_CENT_PARTY) as fd:
-        assert len(fd) == 5889278
-        t1 = time()
-        index = FWFNumpyIndex(fd).index("PARTY_ID")
-        log(t1, "Create_FWFIndexNumpyBased")    # Approx 16 secs
-        assert len(index) == 5889278    # No duplictates, which makes sense for this data
-
-        idx = list(index.keys())
-        t1 = time()
-        for _ in range(int(1e6)):
-            key =  randrange(len(index))
-            key = idx[key]
-            refs = index[key]
-            assert refs
-
-        log(t1, "1mio_random_lookups")      # Approx 4-5 secs
-
-        # Create an index on PARTY_ID, using the optimized field reader (no FWFLine object).
-        # A tiny bit faster then simple index
-        #
-        # Access lines randomly 1 mio times
-        #
-        # That is pretty much the same result, that the simple python based index provides.
-        # Which makes sense, as both create dicts
+    log(t1, "1mio_MYDICT_random_lookups")      # Approx 5 secs
 
 
 @pytest.mark.slow
 def test_effective_date_simple_filter():
-
     fwf = FWFFile(CENT_PARTY)
-
     with fwf.open(FILE_CENT_PARTY) as fd:
-        assert len(fd) == 5889278
+        assert len(fd) == 5_889_278
 
         t1 = time()
         fd = fd.filter(op("BUSINESS_DATE") < b"20180118")
@@ -252,17 +261,15 @@ def test_effective_date_simple_filter():
 
 @pytest.mark.slow
 def test_effective_date_region_filter():
-
     fwf = FWFFile(CENT_PARTY)
-
     with fwf.open(FILE_CENT_PARTY) as fd:
-        assert len(fd) == 5889278
+        assert len(fd) == 5_889_278
 
         t1 = time()
-        # NOTE: you can not combine the operators with and resp. or
+        # NOTE: you can not combine the operators with AND resp. OR. It is always AND.
         fd = fd.filter(op("VALID_FROM") <= b"20130101")
-        fd = fd.filter(op("VALID_UNTIL") >= b"20131231")  # type: ignore   # TODO: fix the signature
-        assert len(fd) == 1293435
+        fd = fd.filter(op("VALID_UNTIL") >= b"20131231")
+        assert len(fd) == 1_293_435
 
         # 29.993732929229736    # Compared to 17 secs for only 1 filter
         log(t1)
@@ -270,10 +277,9 @@ def test_effective_date_region_filter():
 
 @pytest.mark.slow
 def test_effective_date_region_filter_optimized():
-
     fwf = FWFFile(CENT_PARTY)
     with fwf.open(FILE_CENT_PARTY) as fd:
-        assert len(fd) == 5889278
+        assert len(fd) == 5_889_278
 
         valid_from_slice = fd.fields["VALID_FROM"]
         valid_until_slice = fd.fields["VALID_UNTIL"]
@@ -292,7 +298,7 @@ def test_effective_date_region_filter_optimized():
 
         t1 = time()
         fd = fd.filter(region_filter)
-        assert len(fd) == 1293435  # type: ignore
+        assert len(fd) == 1_293_435
 
         # 18.807480335235596    # Faster then then FWFOperator!!  But still CPU bound.
         log(t1)
@@ -304,17 +310,19 @@ def test_cython_filter():
 
     fwf = FWFFile(CENT_PARTY)
     with fwf.open(FILE_CENT_PARTY) as fd:
-        assert len(fd) == 5889278
+        assert len(fd) == 5_889_278
 
         t1 = time()
-        db = fwf_db_cython.FWFLineNumber(fwf)
+        db = fwf_db_cython.line_numbers(fwf, filters=[
+            fwf_db_cython.FWFFilterDefinition()
+        ])
         db.add_filter("BUSINESS_DATE", "20180118", upper=False)
         db.add_filter("VALID_FROM", "20130101", upper=False)
         db.add_filter("VALID_UNTIL", "20131231", upper=True)
         rtn = db.analyze()
 
         rlen = rtn.buffer_info()[1]
-        assert rlen == 1293435
+        assert rlen == 1_293_435
         log(t1)       # 2.1357336044311523   # Yes !!!!
 
 '''
@@ -326,7 +334,7 @@ def test_cython_get_field_data():
     fwf = FWFFile(CENT_PARTY)
 
     with fwf.open(FILE_CENT_PARTY) as fd:
-        assert len(fd) == 5889278
+        assert len(fd) == 5_889_278
 
         t1 = time()
         rtn = fwf_db_ext.get_field_data(fwf, "PARTY_ID")
@@ -352,7 +360,7 @@ def test_find_last():
     fwf = FWFFile(CENT_PARTY)
 
     with fwf.open(FILE_CENT_PARTY) as fd:
-        assert len(fd) == 5889278
+        assert len(fd) == 5_889_278
 
         t1 = time()
         rtn = fwf_db_ext.create_unique_index(fwf, "PARTY_ID")
@@ -421,7 +429,7 @@ def test_numpy_sort():
     fwf = FWFFile(CENT_PARTY)
 
     with fwf.open(FILE_CENT_PARTY) as fd:
-        assert len(fd) == 5889278
+        assert len(fd) == 5_889_278
 
         t1 = time()
         rtn = fwf_db_ext.get_field_data(fwf, "PARTY_ID")
@@ -443,7 +451,7 @@ def test_cython_create_index():
     fwf = FWFFile(CENT_PARTY)
 
     with fwf.open(FILE_CENT_PARTY) as fd:
-        assert len(fd) == 5889278
+        assert len(fd) == 5_889_278
 
         """ """
         t1 = time()
@@ -501,7 +509,7 @@ def test_int_index():
     fwf = FWFFile(CENT_PARTY)
 
     with fwf.open(FILE_CENT_PARTY) as fd:
-        assert len(fd) == 5889278
+        assert len(fd) == 5_889_278
 
         """
         t1 = time()
@@ -553,7 +561,7 @@ def test_fwf_cython():
     fwf = FWFFile(CENT_PARTY)
 
     with fwf.open(FILE_CENT_PARTY) as fd:
-        assert len(fd) == 5889278
+        assert len(fd) == 5_889_278
 
         t1 = time()
         rtn = fwf_db_ext.fwf_cython(fwf,
@@ -581,7 +589,7 @@ def test_fwf_cython():
 
         rlen = rtn.buffer_info()[1]
         print(f'Elapsed time is {time() - t1} seconds.    {rlen:,d}')
-        assert rlen == 1293435
+        assert rlen == 1_293_435
 
         # In run mode:
         # 1.989365816116333
@@ -651,7 +659,7 @@ def test_merge_unique_index():
     fwf = FWFFile(CENT_PARTY)
 
     with fwf.open(FILE_CENT_PARTY) as fd:
-        assert len(fd) == 5889278
+        assert len(fd) == 5_889_278
 
         data = defaultdict(list)
 
@@ -763,7 +771,7 @@ def test_MyIndexDict_get():
     fwf = FWFFile(CENT_PARTY)
     with fwf.open(FILE_CENT_PARTY) as fd:
         rec_size = len(fd)
-        assert rec_size == 5889278
+        assert rec_size == 5_889_278
 
         field_pos = fd.fields["PARTY_ID"].start
         field_len = fd.fields["PARTY_ID"].stop - fd.fields["PARTY_ID"].start

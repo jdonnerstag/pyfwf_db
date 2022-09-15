@@ -73,18 +73,10 @@ class TestFile5:
 def init_filters(fwf, filters):
     filter_args = None
     if filters:
-        filter_args = list()
+        filter_args = fwf_db_cython.FWFFilters(fwf)
         for f in filters:
-            startpos = fwf.fields[f[0]].start
-            if len(f) > 1 and f[1] is not None:
-                value = bytes(f[1])
-                x = fwf_db_cython.FWFFilterDefinition(startpos, value, False)
-                filter_args.append(x)
-
-            if len(f) > 2 and f[2] is not None:
-                value = bytes(f[2])
-                x = fwf_db_cython.FWFFilterDefinition(startpos, value, True)
-                filter_args.append(x)
+            f += [None, None]
+            filter_args.add_filter(f[0], f[1], f[2])
 
     return filter_args
 
@@ -93,7 +85,7 @@ def exec_line_number(filedef, data, filters=None):
     fwf = FWFFile(filedef)
     with fwf.open(data):
         filter_args = init_filters(fwf, filters)
-        db = fwf_db_cython.line_numbers(fwf, filter_args)
+        db = fwf_db_cython.line_numbers(fwf, filters=filter_args)
         return db.tolist()
 
 

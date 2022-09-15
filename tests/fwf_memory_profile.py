@@ -5,6 +5,7 @@
 
 # pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name, missing-module-docstring
 
+from time import time
 from memory_profiler import profile
 
 from fwf_db import FWFFile
@@ -81,13 +82,22 @@ def test_mem_optimized_dict():
 
     assert fwf_db_cython.say_hello_to("Susie") == "Hello Susie!"
 
+    t1 = time()
     fwf = FWFFile(CENT_SALES_ASSIGNMENT)
     with fwf.open(FILE_SALES_ASSIGNMENT) as fd:
+        print(f'Open file: {time() - t1} seconds')
         assert len(fd) == 10363608
 
+        t1 = time()
         data = BytesDictWithIntListValues(len(fwf))
         rtn = FWFIndexDict(fwf, data)
         FWFSimpleIndexBuilder(rtn).index(fwf, "SALES_LOCATION_ID")
+        print(f'Create index: {time() - t1} seconds')
+        assert len(rtn) == 3152698
+
+        t1 = time()
+        data.finish()
+        print(f'Finish index: {time() - t1} seconds')
         assert len(rtn) == 3152698
 
 

@@ -187,6 +187,31 @@ class FWFFilterDefinition:
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
+class FWFFilters:
+    ''' FWFFilters '''
+
+    def __init__(self, fwf):
+        self.fwf = fwf
+        self.data = []
+
+
+    def add_filter(self, field, lower_value, upper_value):
+        if lower_value is not None:
+            self.add_filter_2(field, lower_value, False)
+
+        if upper_value is not None:
+            self.add_filter_2(field, upper_value, True)
+
+
+    def add_filter_2(self, field, value, upper: bool):
+        startpos = self.fwf.fields[field].start
+        value = bytes(value)
+        x = FWFFilterDefinition(startpos, value, upper)
+        self.data.append(x)
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
 cdef struct InternalData:
     int field1_startpos
     int field1_start_len
@@ -230,7 +255,7 @@ cdef struct InternalData:
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-cdef InternalData _init_internal_data(fwf, filters: list, index_field: str, offset: int):
+cdef InternalData _init_internal_data(fwf, filters: FWFFilters, index_field: str, offset: int):
     cdef InternalData params = InternalData(
         -1, 0, -1, -1, b"",
         -1, 0, -1, -1, b"",
@@ -245,7 +270,7 @@ cdef InternalData _init_internal_data(fwf, filters: list, index_field: str, offs
         # TODO optimize and put into a C-Array of fixed size
         x = 1
         upper = False
-        for f in filters:
+        for f in filters.data:
             if not isinstance(f, FWFFilterDefinition):
                 raise AttributeError(f"'filters' list must contain only 'FWFFilterDefinition' elements: {filters}")
 
@@ -365,7 +390,7 @@ cdef int _field_data_int(InternalData* params):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def line_numbers(fwf, filters: list = None):
+def line_numbers(fwf, filters: FWFFilters = None):
     """This is an optimized effective date and period filter, that shows 10-15x
     performance improvements. Doesn't sound a lot but 2-3 secs vs 20-30 secs makes a
     big difference when developing software and you need to wait for it.
@@ -409,7 +434,7 @@ def line_numbers(fwf, filters: list = None):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def field_data(fwf, index_field: str, int_value: bool = False, filters: list = None):
+def field_data(fwf, index_field: str, int_value: bool = False, filters: FWFFilters = None):
     """Return a numpy array with the data from the 'field', in the
     sequence read from the file.
 
@@ -448,7 +473,7 @@ def field_data(fwf, index_field: str, int_value: bool = False, filters: list = N
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def create_index(fwf, index_field: str, index_dict: FWFIndexLike, offset: int = 0, filters: list = None, func: None|Callable|str = None) -> None:
+def create_index(fwf, index_field: str, index_dict: FWFIndexLike, offset: int = 0, filters: FWFFilters = None, func: None|Callable|str = None) -> None:
     """Create a unique or none-unique index on 'field'
 
     Whether the index is unique or none-unique depends on the 'index_dict'
