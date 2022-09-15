@@ -335,7 +335,7 @@ def test_cython_filter():
         t1 = time()
         rtn = fwf_db_cython.line_numbers(fwf, filters=filters)
         assert len(rtn) == 1_293_435
-        log(t1)       # 1.88 secs   # Yes !!!!
+        log(t1)       # 1.2 secs   # Yes !!!!
 
 
 @pytest.mark.slow

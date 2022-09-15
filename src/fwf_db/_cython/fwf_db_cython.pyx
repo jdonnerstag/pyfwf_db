@@ -290,6 +290,9 @@ cdef bool _cmp_single_filter(const char* line, FWFFilterDefinition filter):
 # -----------------------------------------------------------------------------
 
 cdef bool _cmp_filters(const char* line, FWFFilters filters):
+    if filters is None:
+        return True
+        
     for filter in filters.data:
         if _cmp_single_filter(line, filter) == False:
             return False
