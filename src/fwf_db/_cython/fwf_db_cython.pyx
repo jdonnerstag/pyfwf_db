@@ -55,6 +55,7 @@ from libc.stdlib cimport atoi
 from libc.stdint cimport uint32_t
 
 from ..fwf_index_like import FWFIndexLike
+from ..fwf_view_like import FWFViewLike
 
 ctypedef bint bool
 
@@ -169,26 +170,35 @@ cdef int get_field_size(fwf, field_name):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-class FWFFilterDefinition:
+cdef class FWFFilterDefinition:
     ''' FWFFilterDefinition '''
 
-    startpos: int   # This is a low level API, and we do want the option to start at any position
-    value: bytes
-    upper: bool
+    cdef int startpos   # This is a low level API, and we do want the option to start at any position
+    cdef bytes value
+    cdef int xlen
+    cdef int lastpos
+    cdef bool upper
+    cdef bool equal
 
-    def __init__(self, startpos: int, value: bytes, upper: bool):
+    def __init__(self, startpos: int, value: bytes, upper: bool, equal: bool):
         self.startpos = startpos
         self.value = value
         self.upper = upper
+        self.equal = equal
+        self.xlen = <int>len(value)
+        self.lastpos = startpos + self.xlen - 1
 
     def __repr__(self):
-        return f"FWFFilterDefinition({self.startpos}, {self.value}, {self.upper})"
+        return f"FWFFilterDefinition({self.startpos}, {self.value}, {self.upper}, {self.equal})"
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-class FWFFilters:
+cdef class FWFFilters:
     ''' FWFFilters '''
+
+    cdef fwf
+    cdef list data
 
     def __init__(self, fwf):
         self.fwf = fwf
@@ -197,49 +207,28 @@ class FWFFilters:
 
     def add_filter(self, field, lower_value, upper_value):
         if lower_value is not None:
-            self.add_filter_2(field, lower_value, False)
+            self.add_filter_2(field, lower_value, False, True)
 
         if upper_value is not None:
-            self.add_filter_2(field, upper_value, True)
+            self.add_filter_2(field, upper_value, True, False)
 
 
-    def add_filter_2(self, field, value, upper: bool):
+    def add_filter_2(self, field, value, upper: bool, equal: bool):
         startpos = self.fwf.fields[field].start
+
+        assert isinstance(value, (str, bytes))
 
         if isinstance(value, str):
             value = bytes(value, "utf-8")
 
-        x = FWFFilterDefinition(startpos, value, upper)
-        self.data.append(x)
+        if len(value) > 0:
+            x = FWFFilterDefinition(startpos, value, upper, equal)
+            self.data.append(x)
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
 cdef struct InternalData:
-    int field1_startpos
-    int field1_start_len
-    int field1_start_stoppos
-    int field1_start_lastpos
-    const char* field1_start_value
-
-    int field1_endpos
-    int field1_end_len
-    int field1_end_stoppos
-    int field1_end_lastpos
-    const char* field1_end_value
-
-    int field2_startpos
-    int field2_start_len
-    int field2_start_stoppos
-    int field2_start_lastpos
-    const char* field2_start_value
-
-    int field2_endpos
-    int field2_end_len
-    int field2_end_stoppos
-    int field2_end_lastpos
-    const char* field2_end_value
-
     int fwidth
     int min_fwidth
 
@@ -254,60 +243,11 @@ cdef struct InternalData:
     int index_endpos
     int index_field_size
 
-
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-cdef InternalData _init_internal_data(fwf, filters: FWFFilters, index_field: str, offset: int):
-    cdef InternalData params = InternalData(
-        -1, 0, -1, -1, b"",
-        -1, 0, -1, -1, b"",
-        -1, 0, -1, -1, b"",
-        -1, 0, -1, -1, b"",
-        0, 0, b"",
-        0, 0, b"", b"",
-        0, 0, 0
-    )
-
-    if filters:
-        # TODO optimize and put into a C-Array of fixed size
-        x = 1
-        upper = False
-        for f in filters.data:
-            if not isinstance(f, FWFFilterDefinition):
-                raise AttributeError(f"'filters' list must contain only 'FWFFilterDefinition' elements: {filters}")
-
-            if f.upper != upper:
-                x += 1
-                upper = not upper
-
-            if x == 1:
-                params.field1_startpos = f.startpos
-                params.field1_start_len = <int>len(f.value) if f.value else 0
-                params.field1_start_stoppos = params.field1_startpos + params.field1_start_len
-                params.field1_start_lastpos = params.field1_start_stoppos - 1
-                params.field1_start_value = f.value
-            elif x == 2:
-                params.field1_endpos = f.startpos
-                params.field1_end_len = <int>len(f.value) if f.value else 0
-                params.field1_end_stoppos = params.field1_endpos + params.field1_end_len
-                params.field1_end_lastpos = params.field1_end_stoppos - 1
-                params.field1_end_value = f.value
-            elif x == 3:
-                params.field2_startpos = f.startpos
-                params.field2_start_len = <int>len(f.value) if f.value else 0
-                params.field2_start_stoppos = params.field2_startpos + params.field2_start_len
-                params.field2_start_lastpos = params.field2_start_stoppos - 1
-                params.field2_start_value = f.value
-            elif x == 4:
-                params.field2_endpos = f.startpos
-                params.field2_end_len = <int>len(f.value) if f.value else 0
-                params.field2_end_stoppos = params.field2_endpos + params.field2_end_len
-                params.field2_end_lastpos = params.field2_end_stoppos - 1
-                params.field2_end_value = f.value
-
-            x += 1
-            upper = not upper
+cdef InternalData _init_internal_data(fwf, index_field: str, offset: int):
+    cdef InternalData params = InternalData(0, 0, b"", 0, 0, b"", b"", 0, 0, 0)
 
     # Where to start within the file, what is the file size, and line width
     params.fwidth = fwf.fwidth
@@ -336,33 +276,25 @@ cdef InternalData _init_internal_data(fwf, filters: FWFFilters, index_field: str
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-cdef bool _cmp_start_value(const char* line, int pos, int xlen, int lastpos, const char* value):
-    #print(f"_cmp_start_value: {line}, {pos}, {xlen}, {lastpos}, {value}")
-    return (pos < 0) or (strncmp(line + pos, value, xlen) >= 0) or (line[lastpos] == 32)
+cdef bool _cmp_single_filter(const char* line, FWFFilterDefinition filter):
+    if line[filter.lastpos] == 32:
+        return True
+
+    cdef int rtn = strncmp(line + filter.startpos, filter.value, filter.xlen)
+    if (rtn == 0) and (filter.equal == True):
+        return True
+
+    return rtn > 0 if filter.upper == False else rtn < 0
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-cdef bool _cmp_end_value(const char* line, int pos, int xlen, int lastpos, const char* value):
-    #print(f"_cmp_end_value: {line}, {pos}, {xlen}, {lastpos}, {value}")
-    return (pos < 0) or (strncmp(line + pos, value, xlen) < 0) or (line[lastpos] == 32)
+cdef bool _cmp_filters(const char* line, FWFFilters filters):
+    for filter in filters.data:
+        if _cmp_single_filter(line, filter) == False:
+            return False
 
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-
-cdef bool _cmp_values(InternalData* params):
-    #print(f"cmp: start - {params.line}")
-    if _cmp_start_value(params.line, params.field1_startpos, params.field1_start_len, params.field1_start_lastpos, params.field1_start_value):
-        #print(f"cmp: 1")
-        if _cmp_end_value(params.line, params.field1_endpos, params.field1_end_len, params.field1_end_lastpos, params.field1_end_value):
-            #print(f"cmp: 2")
-            if _cmp_start_value(params.line, params.field2_startpos, params.field2_start_len, params.field2_start_lastpos, params.field2_start_value):
-                #print(f"cmp: 3")
-                if _cmp_end_value(params.line, params.field2_endpos, params.field2_end_len, params.field2_end_lastpos, params.field2_end_value):
-                    #print(f"cmp: 4")
-                    return True
-
-    return False
+    return True
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -409,7 +341,7 @@ def line_numbers(fwf, filters: FWFFilters = None):
     Return: an array with the line indices that passed the filters
     """
 
-    cdef InternalData params = _init_internal_data(fwf, filters, None, 0)
+    cdef InternalData params = _init_internal_data(fwf, None, 0)
     # print(params)
 
     # The result array of indices (int). We pre-allocate the memory
@@ -423,7 +355,7 @@ def line_numbers(fwf, filters: FWFFilters = None):
 
     while has_more_lines(&params):
         # Execute the effective data and period filters
-        if _cmp_values(&params):
+        if _cmp_filters(params.line, filters):
             # This record we want to keep
             result_ptr[params.count] = params.irow
             params.count += 1
@@ -447,7 +379,7 @@ def field_data(fwf, index_field: str, int_value: bool = False, filters: FWFFilte
     help us processing the data.
     """
 
-    cdef InternalData params = _init_internal_data(fwf, filters, index_field, 0)
+    cdef InternalData params = _init_internal_data(fwf, index_field, 0)
 
     # Allocate memory for all of the data
     # We are not converting or processing the field data in any way
@@ -458,7 +390,7 @@ def field_data(fwf, index_field: str, int_value: bool = False, filters: FWFFilte
 
     # Loop over every line
     while has_more_lines(&params):
-        if _cmp_values(&params):
+        if _cmp_filters(params.line, filters):
             # Add the field value to the numpy array
             if convert_to_int:
                 values[params.count] = _field_data_int(&params)
@@ -495,13 +427,13 @@ def create_index(fwf, index_field: str, index_dict: FWFIndexLike, offset: int = 
     Please note that the 'index_dict' argument will be modified.
     """
 
-    cdef InternalData params = _init_internal_data(fwf, filters, index_field, offset)
+    cdef InternalData params = _init_internal_data(fwf, index_field, offset)
     cdef bool has_func = func is not None and isinstance(func, Callable)
     cdef cfunc = func
     cdef bool create_int_index = isinstance(func, str) and func == "int"
 
     while has_more_lines(&params):
-        if _cmp_values(&params):
+        if _cmp_filters(params.line, filters):
             # Add the value and row to the index
             if create_int_index:
                 key = _field_data_int(&params)

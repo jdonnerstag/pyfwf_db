@@ -329,8 +329,8 @@ def test_cython_filter():
         filters = fwf_db_cython.FWFFilters(fwf)
         #filters.add_filter_2("BUSINESS_DATE", "20180118", upper=False)
         #filters.add_filter_2("VALID_FROM", "20130101", upper=True)
-        filters.add_filter_2("VALID_FROM", "20130102", upper=True)  # Note: lower <= x < upper
-        filters.add_filter_2("VALID_UNTIL", "20131231", upper=False)
+        filters.add_filter_2("VALID_FROM", "20130101", upper=True, equal=True)  # Note: lower <= x < upper
+        filters.add_filter_2("VALID_UNTIL", "20131231", upper=False, equal=False)
 
         t1 = time()
         rtn = fwf_db_cython.line_numbers(fwf, filters=filters)
