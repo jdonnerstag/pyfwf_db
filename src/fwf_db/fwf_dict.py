@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-from typing import Iterator, Any
+from typing import Iterable, Any
 
 
 class FWFDict(dict[Any, list[int]]):
@@ -26,13 +26,16 @@ class FWFDict(dict[Any, list[int]]):
         To keep the implementation very simple, use update() to update multiple
         entries at ones.
         """
-        try:
-            self[key].append(value)
-        except KeyError:
-            super().__setitem__(key, [value])    # Create a new list and register it with the dict
+
+        data = self.get(key)
+        if data is None:
+            data = []
+            super().__setitem__(key, data)
+
+        data.append(value)
 
 
-    def update(self, values: Iterator[tuple[Any, int]]) -> None:
+    def update(self, values: Iterable[tuple[Any, int]]) -> None:
         """Allow to set multiple entries at ones."""
         for key, value in values:
             self[key] = value

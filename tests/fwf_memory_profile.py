@@ -1,7 +1,12 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-"""This is NOT a test file. Run with python -m memory_profiler <script.py>"""
+"""
+This is not a test file in the sense that you can/should execute it automatically.
+It's rather a bunch of individual methods, mostly grown over time.
+
+Run with python -m memory_profiler <script.py>
+"""
 
 # pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name, missing-module-docstring
 

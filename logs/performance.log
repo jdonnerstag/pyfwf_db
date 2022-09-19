@@ -26,7 +26,7 @@
 { date: 2022-09-15 14:21:45, test_perf_iter_fwfline: 6.771526575088501, }
 { date: 2022-09-15 14:27:52, test_perf_iter_fwfline: 6.561050653457642, }
 { date: 2022-09-15 14:28:58, exec_perf_index-FWFSimpleIndexBuilder: 14.99741005897522, exec_perf_index-FWFIndexDict_1mio_random_lookups: 3.72196888923645, exec_perf_index-FWFNumpyIndexBuilder: 17.203773021697998, exec_perf_index-FWFIndexDict_1mio_random_lookups: 3.3885886669158936, exec_perf_index-FWFCythonIndexBuilder: 12.684316635131836, exec_perf_index-FWFIndexDict_1mio_random_lookups: 3.308283567428589, }
-{ date: 2022-09-15 14:31:09, test_numpy_samples-Create_random_entries: 12.204933404922485, test_numpy_samples-Create-maps-of-lists-index: 8.156532526016235, test_numpy_samples-1mio_random_lookups: 1.7782840728759766, test_numpy_samples-Create-FWFDict: 11.020425796508789, test_numpy_samples-1mio_MYDICT_random_lookups: 1.875260353088379, }
+{ date: 2022-09-15 14:31:09, test_numpy_samples-Create_random_entries: 12.204933404922485, test_numpy_samples-Create-maps-of-lists-index: 8.156532526016235, test_numpy_samples-1mio_random_lookups: 1.7782840728759766, test_numpy_samples-Create-FWFDict: 11.020425796508789, test_numpy_samples-1mio_FWFDict_random_lookups: 1.875260353088379, }
 { date: 2022-09-15 14:36:10, test_effective_date_simple_filter: 18.17532181739807, }
 { date: 2022-09-15 14:38:23, test_effective_date_region_filter: 21.09636378288269, }
 { date: 2022-09-15 14:39:23, test_effective_date_region_filter_optimized: 20.068817138671875, }
@@ -56,3 +56,49 @@
 { date: 2022-09-15 19:58:07, test_cython_filter: 1.9659857749938965, }
 { date: 2022-09-15 19:59:16, test_cython_filter: 1.1413261890411377, }
 { date: 2022-09-15 20:05:24, test_cython_filter: 1.4453516006469727, }
+{ date: 2022-09-15 20:07:13, }
+{ date: 2022-09-15 20:07:49, }
+{ date: 2022-09-15 20:12:01, }
+{ date: 2022-09-15 20:19:40, test_cython_filter: 1.7881255149841309, }
+{ date: 2022-09-15 20:21:09, test_cython_filter: 2.074638605117798, }
+{ date: 2022-09-15 20:22:55, }
+{ date: 2022-09-15 20:27:44, }
+{ date: 2022-09-15 20:31:43, }
+{ date: 2022-09-15 20:43:56, test_cython_filter: 1.254521131515503, }
+{ date: 2022-09-15 20:46:05, }
+{ date: 2022-09-16 10:26:31, test_perf_iter_lines: 8.243139266967773, }
+{ date: 2022-09-16 10:27:48, test_perf_iter_lines: 6.02081823348999, }
+{ date: 2022-09-16 10:29:15, test_perf_iter_fwfline: 9.409708738327026, }
+{ date: 2022-09-16 10:37:13, exec_perf_index-FWFSimpleIndexBuilder: 26.032564878463745, access_index_many_time-FWFIndexDict_1mio_random_lookups: 4.682163953781128, exec_perf_index-FWFNumpyIndexBuilder: 22.057212352752686, access_index_many_time-FWFIndexDict_1mio_random_lookups: 4.809624910354614, exec_perf_index-FWFCythonIndexBuilder: 17.870712757110596, access_index_many_time-FWFIndexDict_1mio_random_lookups: 4.85376763343811, }
+{ date: 2022-09-16 10:46:36, test_numpy_samples-Create_random_entries: 21.143649101257324, test_numpy_samples-Create-maps-of-lists-index: 12.894989728927612, test_numpy_samples-1mio_random_lookups: 3.3795695304870605, test_numpy_samples-Create-FWFDict: 16.646758556365967, test_numpy_samples-1mio_FWFDict_random_lookups: 3.175997495651245, }
+{ date: 2022-09-16 10:53:15, test_numpy_samples-Preparation-Create_random_entries: 25.840080499649048, test_numpy_samples-Create-defaultlist(list)-index: 12.201731204986572, access_index_many_time-defaultdict_1mio_random_lookups: 1.8055572509765625, test_numpy_samples-Create-FWFDict-index: 16.59222722053528, access_index_many_time-FWFDict_1mio_random_lookups: 1.9298312664031982, }
+{ date: 2022-09-16 10:59:19, test_numpy_samples-Preparation-Create_random_entries: 21.28778600692749, test_numpy_samples-Create-defaultlist(list)-index: 12.485841035842896, access_index_many_time-defaultdict_1mio_random_lookups: 1.870504379272461, test_numpy_samples-Create-FWFDict-index: 17.79876136779785, access_index_many_time-FWFDict_1mio_random_lookups: 1.9706132411956787, }
+{ date: 2022-09-16 11:01:19, test_numpy_samples-Preparation-Create_random_entries: 18.132225275039673, test_numpy_samples-Create-defaultlist(list)-index: 8.989011287689209, access_index_many_time-defaultdict_1mio_random_lookups: 1.184586524963379, test_numpy_samples-Create-FWFDict-index: 11.828735828399658, access_index_many_time-FWFDict_1mio_random_lookups: 1.3048734664916992, }
+{ date: 2022-09-16 11:02:49, test_numpy_samples-Preparation-Create_random_entries: 14.41286849975586, test_numpy_samples-Create-defaultlist(list)-index: 8.935649156570435, access_index_many_time-defaultdict_1mio_random_lookups: 1.2975354194641113, test_numpy_samples-Create-FWFDict-index: 11.784397840499878, access_index_many_time-FWFDict_1mio_random_lookups: 1.307077407836914, }
+{ date: 2022-09-16 11:03:49, test_numpy_samples-Preparation-Create_random_entries: 12.606151819229126, test_numpy_samples-Create-defaultlist(list)-index: 8.837864398956299, access_index_many_time-defaultdict_1mio_random_lookups: 1.1669175624847412, test_numpy_samples-Create-FWFDict-index: 11.91137981414795, access_index_many_time-FWFDict_1mio_random_lookups: 1.3336374759674072, }
+{ date: 2022-09-16 11:04:50, test_numpy_samples-Preparation-Create_random_entries: 14.175019025802612, test_numpy_samples-Create-defaultlist(list)-index: 8.750330924987793, access_index_many_time-defaultdict_1mio_random_lookups: 1.1892755031585693, test_numpy_samples-Create-FWFDict-index: 11.331118106842041, access_index_many_time-FWFDict_1mio_random_lookups: 1.301842212677002, }
+{ date: 2022-09-16 11:10:46, test_numpy_samples-Preparation-Create_random_entries: 16.24971604347229, test_numpy_samples-Create-defaultlist(list)-index: 8.691434144973755, access_index_many_time-defaultdict_1mio_random_lookups: 1.2047011852264404, test_numpy_samples-Create-FWFDict-index: 10.930522918701172, test_numpy_samples-Create-FWFDict-index: 12.078171968460083, access_index_many_time-FWFDict_1mio_random_lookups: 1.2873508930206299, }
+{ date: 2022-09-16 11:13:51, test_numpy_samples-Preparation-Create_random_entries: 16.84306836128235, test_numpy_samples-Create-defaultlist(list)-index: 8.685655355453491, access_index_many_time-defaultdict_1mio_random_lookups: 1.181851863861084, test_numpy_samples-Create-FWFDict-index: 10.947422981262207, access_index_many_time-FWFDict_1mio_random_lookups: 1.3098444938659668, }
+{ date: 2022-09-16 11:14:51, test_numpy_samples-Preparation-Create_random_entries: 17.665943384170532, test_numpy_samples-Create-defaultlist(list)-index: 10.105600595474243, access_index_many_time-defaultdict_1mio_random_lookups: 1.9362952709197998, test_numpy_samples-Create-FWFDict-index: 11.417914152145386, access_index_many_time-FWFDict_1mio_random_lookups: 1.4929912090301514, }
+{ date: 2022-09-16 11:24:04, test_numpy_samples-Preparation-Create_random_entries: 14.294919729232788, test_numpy_samples-Create-defaultlist(list)-index: 8.479402542114258, access_index_many_time-defaultdict_1mio_random_lookups: 1.20420503616333, test_numpy_samples-Create-FWFDict-index: 11.313321590423584, access_index_many_time-FWFDict_1mio_random_lookups: 1.423236608505249, }
+{ date: 2022-09-16 12:13:39, }
+{ date: 2022-09-16 12:42:57, }
+{ date: 2022-09-16 12:46:07, }
+{ date: 2022-09-16 12:47:42, }
+{ date: 2022-09-16 12:49:45, }
+{ date: 2022-09-16 12:51:29, }
+{ date: 2022-09-16 13:12:14, }
+{ date: 2022-09-16 14:06:25, }
+{ date: 2022-09-16 14:20:40, }
+{ date: 2022-09-16 15:25:21, }
+{ date: 2022-09-16 15:27:25, }
+{ date: 2022-09-16 15:31:30, }
+{ date: 2022-09-16 15:44:31, }
+{ date: 2022-09-16 15:58:13, }
+{ date: 2022-09-16 16:11:20, }
+{ date: 2022-09-16 16:16:22, }
+{ date: 2022-09-16 16:23:31, }
+{ date: 2022-09-16 16:25:44, }
+{ date: 2022-09-16 16:38:08, }
+{ date: 2022-09-16 16:38:50, }
+{ date: 2022-09-16 16:40:44, }

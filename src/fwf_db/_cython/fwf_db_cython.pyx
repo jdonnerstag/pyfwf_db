@@ -63,28 +63,20 @@ ctypedef bint bool
 # -----------------------------------------------------------------------------
 
 def say_hello_to(name):
-    """Health check"""
+    """Health check. Has the cython been loaded correctly?"""
 
     return f"Hello {name}!"
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-# I couldn't find a way in (pure) python to resize an array, or create it with
-# an initial length.
 def resize_array(ar, int newlen):
+    """Resize a python array
+
+    I couldn't find a way in (pure) python to resize an array, or create it with
+    an initial length. But seems to be available in cython.
+    """
     array.resize(ar, newlen)
-
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-
-cdef _str_to_bytes(obj):
-    """Convert string to bytes using utf-8 encoding"""
-
-    if isinstance(obj, str):
-        obj = bytes(obj, "utf-8")
-
-    return obj
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -107,7 +99,7 @@ cdef const char* _get_virtual_address(mm):
     if isinstance(mm, (str, bytes)):
         return <const char*>mm
 
-    cdef const unsigned char[:] mm_view = mm
+    cdef const char[:] mm_view = mm
     return <const char*>&mm_view[0]
 
 
@@ -120,6 +112,10 @@ cpdef int str2int(const char* line, int start, int end):
     This is a convinient function. Obviously it is possible in python as well,
     but when doing it millions times, small improvements make a difference
     as well.
+
+    - Leading spaces are ignored.
+    - '-' and '+' are supported
+    - The number must be right-aligned. No none-digit is allowed.
     """
 
     if start > end:
@@ -162,23 +158,18 @@ cpdef int str2int(const char* line, int start, int end):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-cdef int get_field_size(fwf, field_name):
-    cdef field_slice = fwf.fields[field_name]
-    cdef int field_size = field_slice.stop - field_slice.start
-    return field_size
-
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-
 cdef class FWFFilterDefinition:
-    ''' FWFFilterDefinition '''
+    '''The details of a single filter.
 
-    cdef int startpos   # This is a low level API, and we do want the option to start at any position
-    cdef bytes value
-    cdef int xlen
-    cdef int lastpos
-    cdef bool upper
-    cdef bool equal
+    Optimized to allow fast filtering of millions of records
+    '''
+
+    cdef int startpos   # Position relative to line start
+    cdef bytes value    # The value to compare each field/line against
+    cdef int xlen       # len(value)
+    cdef int lastpos    # The position of the last byte (start + xlen - 1)
+    cdef bool upper     # If true then ">" else "<"
+    cdef bool equal     # If true then "==" else "!="
 
     def __init__(self, startpos: int, value: bytes, upper: bool, equal: bool):
         self.startpos = startpos
@@ -195,10 +186,12 @@ cdef class FWFFilterDefinition:
 # -----------------------------------------------------------------------------
 
 cdef class FWFFilters:
-    ''' FWFFilters '''
+    '''Maintain a list of filter conditions, used to efficiently
+    filter lines in fwf file'''
 
-    cdef fwf
-    cdef list data
+    cdef fwf            # The file specification
+    cdef list data      # List of filters
+
 
     def __init__(self, fwf):
         self.fwf = fwf
@@ -206,6 +199,8 @@ cdef class FWFFilters:
 
 
     def add_filter(self, field, lower_value, upper_value):
+        """Add lower (inclusive) and upper bound (exclusive) filters for 'field"""
+
         if lower_value is not None:
             self.add_filter_2(field, lower_value, False, True)
 
@@ -214,6 +209,8 @@ cdef class FWFFilters:
 
 
     def add_filter_2(self, field, value, upper: bool, equal: bool):
+        """Add a filter"""
+
         startpos = self.fwf.fields[field].start
 
         assert isinstance(value, (str, bytes))
@@ -253,7 +250,7 @@ cdef InternalData _init_internal_data(fwf, index_field: str, offset: int):
     params.fwidth = fwf.fwidth
     params.min_fwidth = params.fwidth - fwf.number_of_newline_bytes
 
-    # Provide access to the (read-only) memory map
+    # Provide access to the data or (read-only) memory map respecitively
     params.mm = _get_virtual_address(fwf._mm)
 
     params.count = 0      # Position within the target array
@@ -277,6 +274,12 @@ cdef InternalData _init_internal_data(fwf, index_field: str, offset: int):
 # -----------------------------------------------------------------------------
 
 cdef bool _cmp_single_filter(const char* line, FWFFilterDefinition filter):
+    """Apply a single 'filter' to 'line'. Return True upon a match.
+
+    An 'empty' field (last byte is a spaces) has predetermined meaning: lowest
+    respectively highest possible value => returns always True
+    """
+
     if line[filter.lastpos] == 32:
         return True
 
@@ -290,9 +293,12 @@ cdef bool _cmp_single_filter(const char* line, FWFFilterDefinition filter):
 # -----------------------------------------------------------------------------
 
 cdef bool _cmp_filters(const char* line, FWFFilters filters):
+    """Apply all filters to 'line'. Return True if all filters match
+    (or no filter defined)"""
+
     if filters is None:
         return True
-        
+
     for filter in filters.data:
         if _cmp_single_filter(line, filter) == False:
             return False
@@ -303,6 +309,8 @@ cdef bool _cmp_filters(const char* line, FWFFilters filters):
 # -----------------------------------------------------------------------------
 
 cdef next_line(InternalData* params):
+    """Move on to the next line"""
+
     params.line += params.fwidth
     params.irow += 1
 
@@ -310,12 +318,16 @@ cdef next_line(InternalData* params):
 # -----------------------------------------------------------------------------
 
 cdef bool has_more_lines(InternalData* params):
+    """Return True if the file contains more lines"""
+
     return (params.line + params.min_fwidth) < params.file_end
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
 cdef bytes _field_data(InternalData* params):
+    """From the current line, return the 'field' data"""
+
     # TODO Would love an ignore-case (convert to uppercase) flag
     return params.line[params.index_startpos : params.index_endpos]
 
@@ -323,26 +335,16 @@ cdef bytes _field_data(InternalData* params):
 # -----------------------------------------------------------------------------
 
 cdef int _field_data_int(InternalData* params):
+    """From the current line, return the 'field' data and convert it to an integer"""
+
     return str2int(params.line, params.index_startpos, params.index_endpos)
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def line_numbers(fwf, filters: FWFFilters = None):
-    """This is an optimized effective date and period filter, that shows 10-15x
-    performance improvements. Doesn't sound a lot but 2-3 secs vs 20-30 secs makes a
-    big difference when developing software and you need to wait for it.
-
-    The method has certain (sensible) requirements:
-    - Since it is working on raw data, the values must be bytes
-    - If startpos respectively endpos < 0 it'll be ignored
-    - startpos and endpos are relativ to line start
-    - The field length is determined by the length of the value (bytes)
-    - The comparison is pre-configured: start_value <= value <= end_value
-    - Empty line data (all spaces) have predetermined meaning: beginning and end of time
-
-    Return: an array with the line indices that passed the filters
-    """
+def line_numbers(fwf, filters: FWFFilters = None, ar_size: int = 0):
+    """Read the fwf data, apply the filters, and put the line numbers of all
+    that passed, in an array"""
 
     cdef InternalData params = _init_internal_data(fwf, None, 0)
     # print(params)
@@ -353,13 +355,17 @@ def line_numbers(fwf, filters: FWFFilters = None):
     # respective index. The pointer gets initialize to point at the
     # first index.
     cdef array.array result = array.array('i', [])
-    array.resize(result, fwf.line_count + 1)
+    cdef int _ar_size = ar_size or (fwf.line_count + 1)
+    array.resize(result, _ar_size)
     cdef int* result_ptr = result.data.as_ints
 
     while has_more_lines(&params):
-        # Execute the effective data and period filters
+        # Match all filters against the current line
         if _cmp_filters(params.line, filters):
-            # This record we want to keep
+            assert params.count < _ar_size, f"Array index out-of-bounds: {_ar_size}"
+
+            # All filters matched (returned True)
+            # Append the current line-no
             result_ptr[params.count] = params.irow
             params.count += 1
 
@@ -373,10 +379,9 @@ def line_numbers(fwf, filters: FWFFilters = None):
 # -----------------------------------------------------------------------------
 
 def field_data(fwf, index_field: str, int_value: bool = False, filters: FWFFilters = None):
-    """Return a numpy array with the data from the 'field', in the
-    sequence read from the file.
+    """Return a numpy array with 'field' data in the sequence read from file.
 
-    array does not support an array of bytes or strings, just numeric primitives.
+    Python array does not support an array of bytes or strings, just numeric primitives.
     And I didn't want to build another access layer. Additionally we thought that
     Numpy and Pandas certainly have additional nice cool features that will
     help us processing the data.

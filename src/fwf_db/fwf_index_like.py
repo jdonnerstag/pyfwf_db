@@ -3,7 +3,7 @@
 
 import abc
 import collections.abc
-from typing import Iterable, Iterator, Any, TypeVar, Generic, Mapping
+from typing import Iterable, Iterator, Any, TypeVar, Generic
 
 from .fwf_dict import FWFDict
 from .fwf_view_like import FWFViewLike
@@ -125,7 +125,7 @@ class FWFIndexDict(FWFIndexLike[FWFSubset]):
     required core functionalities of a dict like index class
     """
 
-    def __init__(self, fwfview: FWFViewLike, data: None|FWFDict = None):
+    def __init__(self, fwfview: FWFViewLike, data: None|dict[Any, list[int]] = None):
         data = data if data is not None else FWFDict()
         super().__init__(fwfview, data)
 
