@@ -115,6 +115,7 @@ def test_simple_index():
 def test_simple_index_with_mem_optimized_dict():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
+        assert len(fwf) == 10
 
         data = BytesDictWithIntListValues(len(fwf))
         rtn = FWFIndexDict(fwf, data)

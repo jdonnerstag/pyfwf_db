@@ -59,18 +59,18 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
         maxsize += 1  # We are not using the '0' entry. 0 means end-of-list.
 
         # Linked list: 3 values per entry: lineno, next_pos, and end_pos
-        # end_pos points at the last element in the list to perf optimize appends.
-        self.data = np.zeros(maxsize * 2, dtype=np.int32)
+        self.data = np.zeros(maxsize, dtype=np.int32)
+
+        self.next = np.zeros(maxsize, dtype=np.int32)
 
         # end_pos points at the last element in the list to perf optimize appends.
         # finish() will delete these data and free up memory no longer needed.
         self.endpos = np.zeros(maxsize, dtype=np.int32)
 
         # The position in the arrays where to add the next values
-        self.last = 0
+        self.last: int = 0
 
         self.finalized: bool = False
-        self.unique: bool = False
 
 
     def finish(self):
@@ -102,17 +102,17 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
     def __setitem__(self, key: str|int, lineno: int) -> None:
         assert self.finalized == False
 
-        self.last += 3
+        self.last += 1
         value = self.index.get(key, None)
         if value is None:
             self.index[key] = inext = self.last
             self.endpos[inext] = inext
         else:
             inext = self.endpos[value]
-            self.data[inext + 1] = inext = self.last
+            self.next[inext] = inext = self.last
             self.endpos[value] = inext
 
-        self.data[inext + 0] = lineno
+        self.data[inext] = lineno
 
 
     def __iter__(self) -> Iterator:
@@ -158,18 +158,12 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
         if inext is None:
             return default
 
-        if self.finalized == True:
-            start = inext + 1
-            stop = start + self.data[inext]
-            return self.data[start:stop]  # TODO I only want a wrapper. No need to copy into a list
-
-
         rtn: list[int] = []
         while inext > 0:
-            lineno = int(self.data[inext + 0])
+            lineno = int(self.data[inext])
             rtn.append(lineno)
 
-            inext = self.data[inext + 1]
+            inext = self.next[inext]
 
         return rtn
 
@@ -190,156 +184,4 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
         from the mem optimized index: performance is worse and memory
         is wasted. For unique indices prefer a plan python dict.
         """
-        for i in range(3, self.last, 2):
-            if self.data[i] != 0:
-                return False
-
-        return True
-
-# ----------------------------------------------------------------------------
-# ----------------------------------------------------------------------------
-
-class MyIndexDict:
-
-    def __init__(self, size: int, mm, line_count: int, field_pos: int, field_len: int, align: str="left", capacity: int=0):
-        self._size = size
-        self._mm = mm
-        self._line_count = line_count
-        self._field_pos = field_pos
-        self._field_len = field_len
-        self._align = align
-
-        self._field_len2 = min(field_len, 8)
-        if align == "left":
-            self._field_pos2 = field_pos
-        elif align == "right":
-            self._field_pos2 = field_pos + self._field_len - self._field_len2
-        else:
-            raise ValueError(f"Invalid value for 'align': {align}. Must be 'left' or 'right'")
-
-        if self._field_len <= 4:
-            size = min(size, pow(2, self._field_len * 8))
-
-        self._capacity = capacity or int(size / 0.75)
-        assert self._capacity >= size
-
-        # The hash is used to determine the index. The value is
-        # the entry into the linked list of hash-equal entries.
-        self._start = np.zeros(self._capacity, dtype="int32")
-
-        # The index of the next entry (linked list). 0 if end-of-list
-        self._next = np.zeros(size + 1, dtype="int32")
-
-        # Unique index => line no
-        # non-unique index => start index into linked list of equal key values
-        self._lineno = np.zeros(size + 1, dtype="int32")
-
-        # The last index where a value has been added. Incremented by 1
-        # for a new entry. 0 is un-used. It means end-of-list.
-        self._last = 0
-
-
-    def hash_calc(self, data) -> int:
-        return 101 * data + 31
-
-
-    def hash(self, key) -> int:
-        if len(key) < 8:
-            if self._align == "left":
-                key = key.ljust(8, b"\0")
-            else:
-                key = key.rjust(8, b"\0")
-
-        assert len(key) == 8
-
-        data = struct.unpack(">Q", key)[0]
-        return self.hash_calc(data)
-
-
-    def bucket(self, key) -> int:
-        myhash = self.hash(key)
-        return myhash % self._capacity
-
-
-    def _put_into_bucket(self, bucket, line_no: int) -> None:
-        self._last += 1
-        if self._last >= len(self._lineno):
-            # Note: 0 is reserved, hence you effectively have len - 1 lots available !!!
-            raise Exception("This is a fixed size dict-like and you're trying to add too many keys")
-
-        idx = self._start[bucket]
-        if idx == 0:
-            self._start[bucket] = self._last
-        else:
-            while self._next[idx] != 0:
-                idx = self._next[idx]
-
-            self._next[idx] = self._last
-
-        # TODO This is the unique index use case only
-        self._lineno[self._last] = line_no
-
-
-    def put(self, line: bytes, line_no: int) -> None:
-        key = line[self._field_pos2 : self._field_pos2 + self._field_len2]
-        bucket = self.bucket(key)
-
-        self._put_into_bucket(bucket, line_no)
-
-
-    def _get_from_bucket(self, bucket, key, default=None):
-        idx = self._start[bucket]
-        while idx > 0:
-            # TODO This is the unique index use case only
-            lineno = self._lineno[idx]
-
-            line_pos = lineno * self._line_count
-            start = line_pos + self._field_pos
-            end = start + self._field_len
-            value = self._mm[start : end]
-
-            if key == value:
-                return lineno
-
-            idx = self._next[idx]
-
-        return default
-
-
-    def get(self, key, default=None):
-        if len(key) > 8:
-            if self._align == "left":
-                key = key[:8]
-            else:
-                key = key[-8:]
-
-        bucket = self.bucket(key)
-
-        return self._get_from_bucket(bucket, key, default)
-
-
-    def analyze(self):
-        """Determine how many keys are unique and the "length" for each"""
-
-        buckets_length = dict()     # bucket-index => length
-
-        for i in range(self._capacity):
-            start = self._start[i]
-            if start:
-                buckets_length[i] = 1
-                xnext = self._next[start]
-                while xnext:
-                    buckets_length[i] += 1
-                    xnext = self._next[xnext]
-
-        percentage_filled = int(len(buckets_length) * 100  / self._capacity)
-        max_length = max(buckets_length.values())
-
-        buckets_by_length = dict()
-        for _, v in buckets_length.items():
-            if v not in buckets_by_length:
-                buckets_by_length[v] = 1
-            else:
-                buckets_by_length[v] += 1
-
-        return (percentage_filled, buckets_by_length, max_length, buckets_length)
+        return np.count_nonzero(self.data) == 0

@@ -7,7 +7,7 @@ import abc
 from typing import overload, Callable, Iterator, Iterable, Optional
 from itertools import islice
 
-from .fwf_fieldspecs import FWFFileFieldSpecs
+from .fwf_fieldspecs import FWFFileFieldSpecs, FWFFieldSpec
 from .fwf_line import FWFLine
 
 
@@ -27,8 +27,13 @@ class FWFViewLike:
 
 
     def get_fields(self) -> FWFFileFieldSpecs:
-        """Provide the fieldspec for the fields"""
+        """Return the fieldspec for all the fields"""
         return self.fields
+
+
+    def field(self, index: str|int) -> FWFFieldSpec:
+        """Return the fieldspec for the field"""
+        return self.fields[index]
 
 
     def validate_index(self, index: int) -> int:

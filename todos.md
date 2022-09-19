@@ -29,3 +29,4 @@
 - Use python module "black" for formatting the source code
 - We are using setup.py. Do we still need requirements.txt?
 - use "_" for protected variables and methods, and __ for private ones
+- check that we are using __len__() rather then len(), and __iter__() rather then iter() etc.

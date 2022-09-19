@@ -177,6 +177,71 @@ def test_perf_iter_fwfline():
         log(t1)
 
 
+@pytest.mark.slow
+def test_dict_fromkeys():
+
+    fwf = FWFFile(CENT_PARTY)
+    with fwf.open(FILE_CENT_PARTY) as fd:
+        assert len(fd) == 5_889_278   # The file is 2GB and has 5.8 mio records
+
+        # Just read line by line and return the bytes
+        t1 = time()
+        db = fwf_db_cython.field_data(fwf, "PARTY_ID")
+        assert len(db) == len(fd)      # PARTY_ID is unique in this file
+
+        # Between 2.88 and 8 secs (first invocation)
+        # My SDD shows almost no signs of being busy => CPU constraint
+        print("")
+        log(t1, f"1.1 read PARTY_ID data from file: {len(db)} records")     # approx 3 secs
+
+        t1 = time()
+        index = dict.fromkeys(db)
+        log(t1, f"1.2 use fromkeys() to create dict: {len(index)} keys")     # approx 4 secs
+
+        t1 = time()
+        index = {key : [] for key in db}
+        log(t1, "1.3 use dict-comprehension() to create dict with empty list")     # approx 12 secs (slow)
+
+        t1 = time()
+        index = {key : 0 for key in db}
+        log(t1, "1.4 use dict-comprehension() to create dict with zero")     # approx 4 secs
+
+
+    fwf = FWFFile(CENT_SALES_ASSIGNMENT)
+    with fwf.open(FILE_SALES_ASSIGNMENT) as fd:
+        assert len(fd) == 10_363_608
+
+        t1 = time()
+        db = fwf_db_cython.field_data(fwf, "SALES_LOCATION_ID")
+        assert len(db) == len(fd)      # PARTY_ID is unique in this file
+
+        # Between 2.88 and 8 secs (first invocation)
+        # My SDD shows almost no signs of being busy => CPU constraint
+        log(t1, f"2.1 read SALES_LOCATION_ID data from file: {len(db)} records")     # approx 2 secs
+
+        t1 = time()
+        index = dict.fromkeys(db)
+        log(t1, f"2.2 use fromkeys() to create dict: {len(index)} keys")     # approx 5-6 secs
+        assert len(index) == 3_152_698
+
+        t1 = time()
+        db_unique, db_counts = np.unique(db, return_counts=True)
+        db_cumsum = np.cumsum(db_counts)
+        index = dict.fromkeys(db_unique)
+        log(t1, f"2.4 use fromkeys() to create dict with unique keys: {len(index)} keys")     # approx 5-6 secs
+        assert len(index) == 3_152_698
+        # I can imagine how to use this, and may be it is a little faster, but I have no
+        # idea how to it would work in multi-file scenarios !!!
+
+        t1 = time()
+        index = {key : [] for key in db}
+        log(t1, "2.5 use dict-comprehension() to create dict with empty list")     # approx 32 secs (slow)
+
+        t1 = time()
+        index = {key : 0 for key in db}
+        log(t1, "2.6 use dict-comprehension() to create dict with zero")     # approx 6-7 secs
+
+
 def access_index_many_time(index, count, logmsg):
     idx = list(index.keys())   # dict[Any, list[int]]
     len_index = len(idx)
@@ -448,8 +513,7 @@ def test_cython_create_index():
         # PARTY_ID is unique, hence the test does not consider the non-unique use cases
         # 2-3 secs to read the data, and approx 16 secs overall
         t1 = time()
-        index = FWFIndexDict(fwf)
-        rtn = fwf_db_cython.field_data(fwf, "PARTY_ID", index)
+        rtn = fwf_db_cython.field_data(fwf, "PARTY_ID")
         print("")
         print(f'1. Elapsed time is {time() - t1} seconds.')
 
@@ -457,20 +521,26 @@ def test_cython_create_index():
         all(values[value].append(i) or True for i, value in enumerate(rtn))
         print(f'2. Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
 
+        t1 = time()
+        rtn = fwf_db_cython.field_data(fwf, "PARTY_ID")
+        values = FWFDict()
+        values.update(((value, i) for i, value in enumerate(rtn)))
+        print(f'3. Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
+
         # Create a non-unique Index, with close to standard FWFDict underneath.
         # FWFDict is similar to defaultdict(list), but the same
         # Approx 14 secs
         t1 = time()
         index = FWFIndexDict(fwf, FWFDict())
         fwf_db_cython.create_index(fwf, "PARTY_ID", index)
-        print(f'3. Elapsed time is {time() - t1} seconds.    {len(index):,d}')
+        print(f'4. Elapsed time is {time() - t1} seconds.    {len(index):,d}')
 
         # Create a unique Index, with standard dict
         # Approx 7 secs  (which is much faster then the non-unique one)
         t1 = time()
         index = FWFUniqueIndexDict(fwf)
         fwf_db_cython.create_index(fwf, "PARTY_ID", index)
-        print(f'4. Elapsed time is {time() - t1} seconds.    {len(index):,d}')
+        print(f'5. Elapsed time is {time() - t1} seconds.    {len(index):,d}')
 
         # Determine how long it takes to create the hashes for all the entries
         # Approx 3-4 secs.  Which is significant compared to the full time needed.
@@ -479,7 +549,7 @@ def test_cython_create_index():
         index = FWFIndexDict(fwf)
         rtn = fwf_db_cython.field_data(fwf, "PARTY_ID")
         rtn_hash = [hash(a) for a in rtn]
-        print(f'5. Elapsed time is {time() - t1} seconds.')
+        print(f'6. Elapsed time is {time() - t1} seconds.')
 
         # "Lookup" numpy arrays => fairly slow => no alternative for dicts.
         def find(value):
@@ -494,7 +564,7 @@ def test_cython_create_index():
             refs = find(key)
             assert refs is not None
 
-        print(f'6. Elapsed time is {time() - t1} seconds.')
+        print(f'7. Elapsed time is {time() - t1} seconds.')
 
 
 @pytest.mark.slow
@@ -576,7 +646,7 @@ def test_non_unique_index():
 
     fwf = FWFFile(CENT_SALES_ASSIGNMENT)
     with fwf.open(FILE_SALES_ASSIGNMENT) as fd:
-        assert len(fd) == 1_036_3608
+        assert len(fd) == 10_363_608
 
         t1 = time()
         index = FWFIndexDict(fwf)

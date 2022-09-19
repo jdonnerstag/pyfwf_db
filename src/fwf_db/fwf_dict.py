@@ -3,7 +3,6 @@
 
 from typing import Iterable, Any
 
-
 class FWFDict(dict[Any, list[int]]):
     """A special purpose dict, a little like defaultdict(list)
 
@@ -33,6 +32,12 @@ class FWFDict(dict[Any, list[int]]):
             super().__setitem__(key, data)
 
         data.append(value)
+
+
+    def set(self, key, value: int) -> None:
+        """same as dict[key] = value"""
+
+        self[key] = value
 
 
     def update(self, values: Iterable[tuple[Any, int]]) -> None:

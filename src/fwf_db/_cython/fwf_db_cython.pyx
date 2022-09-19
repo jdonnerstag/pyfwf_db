@@ -99,7 +99,7 @@ cdef const char* _get_virtual_address(mm):
     if isinstance(mm, (str, bytes)):
         return <const char*>mm
 
-    cdef const char[:] mm_view = mm
+    cdef const unsigned char[:] mm_view = mm
     return <const char*>&mm_view[0]
 
 
@@ -463,7 +463,7 @@ def create_index(fwf,
             if create_int_index:
                 key = _field_data_int(&params)
             else:
-                key = _field_data_int(&params) if create_int_index else _field_data(&params)
+                key = _field_data(&params)
                 if has_func:
                     key = cfunc(key)
 
