@@ -207,7 +207,7 @@ def exec_create_int_index(filedef, data):
     fwf = FWFFile(filedef)
     index = FWFIndexDict(fwf)
     with fwf.open(data):
-        fwf_db_cython.create_index(fwf, "id", index, func="int")
+        fwf_db_cython.create_index(fwf, "id", index, func=int)
         return index.data
 
 

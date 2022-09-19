@@ -15,8 +15,8 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
     far, but the dict generated for an Index quickly grows large and consumes all
     my 24 GB memory. Just summing up the raw bytes, the ints and addresses, it
     should theoretically be possible to consume much less. I assume that Python's
-    generic approach to variables is causing that. Considering 15 mio keys in the
-    dict and multiple lineno ints, the specialised dict reduced memory consumption
+    generic approach to variables is causing that. With 15 mio keys in the
+    dict and multiple lineno ints, my specialised dict reduces memory consumption
     by 7 GB !!!
 
     This class is an attempt to overcome the challenge. Lets assume for now
@@ -26,11 +26,11 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
     Instead of a list, the dict value is an integer pointing at a position
     within an array, e.g. dict(index, index-start-pos).
 
-    The array is a memory efficient numpy integer array. The array consists
+    The array is a memory efficient integer array. The array consists
     of a) the index-pos of the next elem in the list or 0 for end-of-list,.
     and b) an int for the lineno.
 
-    This special dict is only useful for non-unique indicies. For unique
+    This special dict is only useful for non-unique indexes. For unique
     indices a standard python dict is perfectly fine.
     """
 
@@ -39,10 +39,6 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
 
         A key maintains a list of integers. Maxsize does not refer to the
         number of dict keys, but to the overall number of records (lines in file).
-
-        NOTE: Please be careful with changes to this class, due to the
-        dependency with our Cython module. That Cython module assumes
-        that certain variables exists and have specific meanings.
         """
 
         # TODO: This class optimizes the list for memory (and performance), but
@@ -58,36 +54,23 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
         # Most of our PKs have less or slightly larger than 8 chars.
         # Note: We don't need to copy the 'key' we only need address + length. That
         # is probably consuming all the memory.
-        # Note: It would be much faster if the PK field address be 64 bit aligned. Which
-        # is likely almost never the case. What is the fastest way to read not-aligned
-        # 64 bits? Does it make sense to add an extra comment line to align on the PK
-        # field?
         self.index: dict[Any, int] = {} # key -> start_pos
 
         maxsize += 1  # We are not using the '0' entry. 0 means end-of-list.
 
-        # Linked list: position of the next node. 0 for end-of-list
-        # TODO In the cython module we are using array.array instead of numpy. Also for easier resize.
-        #      But in array.array the itemsize is more blurred.
-        # 3 values per entry: lineno, next, and end
-        self.data = np.zeros(maxsize * 3, dtype=np.int32)
+        # Linked list: 3 values per entry: lineno, next_pos, and end_pos
+        # end_pos points at the last element in the list to perf optimize appends.
+        self.data = np.zeros(maxsize * 2, dtype=np.int32)
 
-        # The last node in the list for quick additions to the list
-        # Can be released when all data are loaded.
-        #self.end = np.zeros(maxsize, dtype=np.int32)
-
-        # The actual dict value => line number
-        #self.lineno = np.zeros(maxsize, dtype=np.int32)
-
-        # TODO This is still an incomplete implementation
-        # Index finalization changes the structure to: len, followed by an int for each entry (lineno)
-        #    which requires less memory and is faster to access.
-        #self.data = np.zeros(0, dtype=np.int32)
-        self.finalized: bool = False
-        self.unique: bool = False
+        # end_pos points at the last element in the list to perf optimize appends.
+        # finish() will delete these data and free up memory no longer needed.
+        self.endpos = np.zeros(maxsize, dtype=np.int32)
 
         # The position in the arrays where to add the next values
         self.last = 0
+
+        self.finalized: bool = False
+        self.unique: bool = False
 
 
     def finish(self):
@@ -97,25 +80,9 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
         """
 
         if self.finalized == False:
-            maxsize = len(self.index) + int(self.last / 3)
-            new_data = np.zeros(maxsize, dtype=np.int32)
-            idx = 0
-            for key, inext in self.index.items():
-                self.index[key] = idx
-
-                iidx = idx
-                while inext > 0:
-                    lineno = self.data[inext + 0]
-                    inext = self.data[inext + 1]
-
-                    iidx += 1
-                    new_data[iidx] = lineno
-
-                new_data[idx] = iidx - idx
-                idx = iidx + 1
-
-            self.data = new_data
             self.finalized = True
+
+        self.endpos = None
 
 
     def __getitem__(self, key) -> Sequence: # list[int]:
@@ -139,11 +106,11 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
         value = self.index.get(key, None)
         if value is None:
             self.index[key] = inext = self.last
-            self.data[inext + 2] = inext
+            self.endpos[inext] = inext
         else:
-            inext = self.data[value + 2]
+            inext = self.endpos[value]
             self.data[inext + 1] = inext = self.last
-            self.data[value + 2] = inext
+            self.endpos[value] = inext
 
         self.data[inext + 0] = lineno
 
@@ -223,14 +190,11 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
         from the mem optimized index: performance is worse and memory
         is wasted. For unique indices prefer a plan python dict.
         """
-        if self.finalized == False:
-            for i in range(3, self.last, 3):
-                if self.data[i + 1] != 0:
-                    return False
+        for i in range(3, self.last, 2):
+            if self.data[i] != 0:
+                return False
 
-            return True
-
-        return self.unique
+        return True
 
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------

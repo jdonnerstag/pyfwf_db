@@ -511,7 +511,7 @@ def test_int_index():
         # Only XYZ secs slower then string index keys
         t1 = time()
         index = FWFIndexDict(fwf)
-        fwf_db_cython.create_index(fwf, "PARTY_ID", index, func="int")
+        fwf_db_cython.create_index(fwf, "PARTY_ID", index, func=int)
         print("")
         print(f'1. Elapsed time is {time() - t1} seconds.    {len(index):,d}')
 
@@ -519,7 +519,7 @@ def test_int_index():
         # Approx XYZ secs
         t1 = time()
         index = FWFUniqueIndexDict(fwf)
-        fwf_db_cython.create_index(fwf, "PARTY_ID", index, func="int")
+        fwf_db_cython.create_index(fwf, "PARTY_ID", index, func=int)
         print(f'2. Elapsed time is {time() - t1} seconds.')
 
         # Create a defaultdict(list) with integer keys

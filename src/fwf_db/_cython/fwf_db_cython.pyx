@@ -48,7 +48,7 @@ cimport cython
 import numpy
 cimport numpy
 
-from typing import Callable
+from typing import Callable, Type
 from libc.string cimport strncmp, memcpy
 from cpython cimport array
 from libc.stdlib cimport atoi
@@ -379,12 +379,11 @@ def line_numbers(fwf, filters: FWFFilters = None, ar_size: int = 0):
 # -----------------------------------------------------------------------------
 
 def field_data(fwf, index_field: str, int_value: bool = False, filters: FWFFilters = None):
-    """Return a numpy array with 'field' data in the sequence read from file.
+    """Read the fwf data, apply the filters, and put the 'field' data in an array
+    in the sequence read from file.
 
-    Python array does not support an array of bytes or strings, just numeric primitives.
-    And I didn't want to build another access layer. Additionally we thought that
-    Numpy and Pandas certainly have additional nice cool features that will
-    help us processing the data.
+    Python array does not support arrays of bytes or strings, just numeric primitives.
+    Hence, a numpy array gets filled.
     """
 
     cdef InternalData params = _init_internal_data(fwf, index_field, 0)
@@ -416,15 +415,20 @@ def field_data(fwf, index_field: str, int_value: bool = False, filters: FWFFilte
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-def create_index(fwf, index_field: str, index_dict: FWFIndexLike, offset: int = 0, filters: FWFFilters = None, func: None|Callable|str = None) -> None:
+def create_index(fwf,
+    index_field: str,
+    index_dict: FWFIndexLike,
+    offset: int = 0,
+    filters: FWFFilters = None,
+    func: None|Callable|str|Type = None) -> None:
     """Create a unique or none-unique index on 'field'
 
-    Whether the index is unique or none-unique depends on the 'index_dict'
+    Whether the index is unique or none-unique depends solely on the 'index_dict'
     provided. If a normal dict, values are replaced. Hence it'll generate a
     unique index. A defaultdict(list) automatically adds a list, if an entry
     is missing. Hence a none-unique index could be created. There is only
     one subtle issue to be solved: 'dict[key] = value' replaces the entry (list).
-    FWFDefaultDict is a tiny extension, replacing __setitem__ with something
+    FWFDict is a tiny extension to dict, just replacing __setitem__ with something
     like 'dict[key].append(value)'
 
     Leverage the speed of Cython (and C) which saturates the SDD when reading
@@ -432,13 +436,26 @@ def create_index(fwf, index_field: str, index_dict: FWFIndexLike, offset: int = 
     updating the index. It's not perfect, it adds some delay (e.g. 6 sec),
     however it is still much better then creating the index afterwards (14 secs).
 
-    Please note that the 'index_dict' argument will be modified.
+    Note: 'index_dict' will be updated
     """
 
     cdef InternalData params = _init_internal_data(fwf, index_field, offset)
-    cdef bool has_func = func is not None and isinstance(func, Callable)
     cdef cfunc = func
-    cdef bool create_int_index = isinstance(func, str) and func == "int"
+    cdef bool has_func = False
+    cdef bool create_int_index = False
+
+    if isinstance(func, Callable):
+        has_func = True
+    elif isinstance(func, str):
+        if func == "int":
+            create_int_index = True
+        else:
+            raise ValueError("create_index(): Currently on 'int' is supported for 'func'")
+    elif isinstance(func, Type):
+        if func == int:
+            create_int_index = True
+        else:
+            raise ValueError("create_index(): Currently on 'int' is supported for 'func'")
 
     while has_more_lines(&params):
         if _cmp_filters(params.line, filters):
@@ -448,7 +465,6 @@ def create_index(fwf, index_field: str, index_dict: FWFIndexLike, offset: int = 
             else:
                 key = _field_data_int(&params) if create_int_index else _field_data(&params)
                 if has_func:
-                    # TODO Must be tested. I assume it is rather slow. May be we can predefine functions like, "str", "int", "upper", "lower", "trim"
                     key = cfunc(key)
 
             # Note: FWFIndexLike will do an append(), if the key is missing (and the index none-unique)
