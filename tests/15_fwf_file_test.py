@@ -294,7 +294,7 @@ def test_table_filter_by_function():
 
         def my_complex_reusable_test(line):
             # Not very efficient, but shows that you can do essentially everything
-            rtn = (line[gender] == b'F') and line[state].decode().startswith('A')
+            rtn = (line[gender] == b'F') and str(line[state], "utf-8").startswith('A')
             return rtn
 
         rtn = fwf[:].filter(my_complex_reusable_test)

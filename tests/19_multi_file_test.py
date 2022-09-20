@@ -7,9 +7,9 @@
 from fwf_db.fwf_multi_file import FWFMultiFile
 from fwf_db.fwf_operator import FWFOperator as op
 from fwf_db.fwf_index_like import FWFIndexDict, FWFUniqueIndexDict
-from fwf_db.fwf_simple_index import FWFSimpleIndexBuilder
-from fwf_db.fwf_np_index import FWFNumpyIndexBuilder
-from fwf_db.fwf_cython_index import FWFCythonIndexBuilder
+from fwf_db.fwf_index_builder_simple import FWFSimpleIndexBuilder
+from fwf_db.fwf_index_builder_numpy import FWFNumpyIndexBuilder
+from fwf_db.fwf_index_builder_cython import FWFCythonIndexBuilder
 
 
 DATA_1 = b"""#
@@ -129,10 +129,10 @@ def test_effective_date():
         assert mf.line_count == 20  # 10 + 10 lines
 
         # Filter all records by effective date
-        filtered = mf.filter(op("changed") <= b" 20180501")
+        filtered = mf.filter(op("changed").bytes() <= b" 20180501")
         assert len(filtered) == 10    # 5 + 5 lines from each file
         for line in filtered.iter_lines():
-            line = line.decode("utf-8")
+            line = str(line, "utf-8")
             x = int(line[0:5])
             assert x in [1, 2, 3, 4, 5, 22]
 
@@ -143,12 +143,12 @@ def test_effective_date():
         for _, refs in index:
             assert 1 <= len(refs) <= 2
             line = refs[0]
-            line = int(line["ID"].decode("utf-8"))
+            line = int(str(line["ID"], "utf-8"))
             assert line in [1, 2, 3, 4, 5, 22]
 
             if len(refs) > 1:
                 line = refs[1]
-                line = int(line["ID"].decode("utf-8"))
+                line = int(str(line["ID"], "utf-8"))
                 assert line in [1, 3, 4, 5]
 
 

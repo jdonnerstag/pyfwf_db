@@ -20,35 +20,36 @@ class FWFLine:
     """
 
     # Note: 'int' and 'str' is required because of str() and int()
-    def __init__(self, fwf_view: 'FWFViewLike', lineno: 'int', line: bytes):
+    def __init__(self, fwf_view: 'FWFViewLike', lineno: 'int', line: memoryview):
         assert fwf_view is not None
         #assert isinstance(lineno, int)     Numpy provides a int-like object
 
         self.fwf_view: 'FWFViewLike' = fwf_view
         self.lineno: int = lineno    # Line number in the context of 'fwf_view'
-        self.line: bytes = line
+        self.line: memoryview = line
 
     @overload
     def __getitem__(self, arg: 'int') -> 'int': ...
 
     @overload
-    def __getitem__(self, arg: 'str') -> bytes: ...
+    def __getitem__(self, arg: 'str') -> memoryview: ...
 
     @overload
-    def __getitem__(self, arg: FWFFieldSpec) -> bytes: ...
+    def __getitem__(self, arg: FWFFieldSpec) -> memoryview: ...
 
     @overload
-    def __getitem__(self, arg: slice) -> bytes: ...
+    def __getitem__(self, arg: slice) -> memoryview: ...
 
-    def __getitem__(self, arg: Union['str', 'int', slice, FWFFieldSpec]) -> Union['int', bytes]:
+    def __getitem__(self, arg: Union['str', 'int', slice, FWFFieldSpec]) -> Union['int', memoryview]:
         """Get a field or range of bytes from the line.
 
-        string: representing a field name, get the data associated with it.
-        int: get the byte at the position
-        slice: get a bytearray for that slice
+        fieldspec: return the line data associated with the fieldspec (slice)
+        string: identify the field by its name and return the data associated with it
+        int: return the byte at the position provided
+        slice: return the bytes associated with the slice
         """
         if isinstance(arg, FWFFieldSpec):
-            return self._get(arg.name)
+            return self.line[arg.fslice]
         if isinstance(arg, str):
             return self._get(arg)
         if isinstance(arg, int):
@@ -59,18 +60,18 @@ class FWFLine:
         raise KeyError(f"Invalid Index: {arg}")
 
 
-    def _get(self, field: 'str') -> bytes:
+    def _get(self, field: 'str') -> memoryview:
         """Get the binary data for the field"""
         field_slice: slice = self.fwf_view.fields[field].fslice
         return self.line[field_slice]
 
 
-    def get(self, field, default:bytes|None=None) -> bytes|None:
+    def get(self, field, default: bytes|None = None) -> bytes|memoryview|None:
         """Get the binary data for the field"""
-        if field not in self:
+        try:
+            return self._get(field)
+        except KeyError:
             return default
-
-        return self._get(field)
 
 
     def str(self, field, encoding=None) -> str:
@@ -78,7 +79,7 @@ class FWFLine:
         applying an encoding
         """
         encoding = encoding or sys.getdefaultencoding()
-        return self._get(field).decode(encoding)
+        return str(self._get(field), encoding)
 
 
     def int(self, field) -> int:
@@ -96,7 +97,7 @@ class FWFLine:
 
 
     def __contains__(self, key) -> bool:
-        """suppot pythons 'in' operator"""
+        """Suppot pythons 'in' operator"""
         return key in self.fwf_view.fields
 
 
@@ -105,19 +106,19 @@ class FWFLine:
         return self.fwf_view.fields.keys()
 
 
-    def items(self) -> Iterable[Tuple['str', bytes]]:
+    def items(self) -> Iterable[Tuple['str', memoryview]]:
         """Like dict's items(), return field name and value tuples"""
-        for key in self.keys():
+        for key in self.fwf_view.fields.keys():
             rtn = self._get(key)
             yield (key, rtn)
 
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict['str', memoryview]:
         """Provide the line as dict"""
         return dict(self.items())
 
 
-    def to_list(self, keys=None) -> list:
+    def to_list(self, keys=None) -> list[memoryview]:
         """Provide a values in a a list"""
         keys = keys or self.keys()
         return [self._get(key) for key in keys]

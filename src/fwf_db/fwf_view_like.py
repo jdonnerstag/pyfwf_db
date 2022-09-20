@@ -84,11 +84,11 @@ class FWFViewLike:
 
 
     @abc.abstractmethod
-    def _raw_line_at(self, index: int) -> bytes:
+    def _raw_line_at(self, index: int) -> memoryview:
         """Get the raw line data (bytes) for the line with the index"""
 
 
-    def raw_line_at(self, index: int) -> bytes:
+    def raw_line_at(self, index: int) -> memoryview:
         """Get the raw line data (bytes) for the line with the index"""
         index = self.validate_index(index)
         return self._raw_line_at(index)
@@ -207,11 +207,11 @@ class FWFViewLike:
 
 
     @abc.abstractmethod
-    def iter_lines(self) -> Iterator[bytes]:
+    def iter_lines(self) -> Iterator[memoryview]:
         """Iterate over all lines in the view, returning the raw line data"""
 
 
-    def iter_lines_with_field(self, field) -> Iterator[bytes]:
+    def iter_lines_with_field(self, field) -> Iterator[memoryview]:
         """Iterate over all lines in the file returning the raw field data"""
         sslice: slice = self.get_fields()[field].fslice
         gen = (line[sslice] for line in self.iter_lines())

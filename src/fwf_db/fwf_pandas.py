@@ -39,7 +39,7 @@ class FWFPandas:
 
         gen = (line.to_list(names) for line in fwfview)
         # TODO fwf_file may deserve a function to create a dataclass record from a FWFLine
-        gen = ([line[i].decode("utf-8") if strs[i] else line[i] for i in range(len(strs))] for line in gen)
+        gen = ([str(line[i], "utf-8") if strs[i] else line[i] for i in range(len(strs))] for line in gen)
 
         df = pd.DataFrame.from_records(gen, columns=names, index=None)
 

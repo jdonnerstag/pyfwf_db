@@ -27,12 +27,12 @@ import pytest
 from fwf_db.fwf_file import FWFFile
 from fwf_db.fwf_dict import FWFDict
 from fwf_db.fwf_line import FWFLine
-from fwf_db.fwf_np_index import FWFNumpyIndexBuilder
 from fwf_db.fwf_operator import FWFOperator as op
 from fwf_db._cython import fwf_db_cython
 from fwf_db.fwf_index_like import FWFIndexDict, FWFUniqueIndexDict
-from fwf_db.fwf_simple_index import FWFSimpleIndexBuilder
-from fwf_db.fwf_cython_index import FWFCythonIndexBuilder
+from fwf_db.fwf_index_builder_simple import FWFSimpleIndexBuilder
+from fwf_db.fwf_index_builder_cython import FWFCythonIndexBuilder
+from fwf_db.fwf_index_builder_numpy import FWFNumpyIndexBuilder
 from fwf_db._cython.fwf_mem_optimized_index import BytesDictWithIntListValues
 
 # ---------------------------------------------

@@ -11,9 +11,9 @@ from fwf_db.fwf_file import FWFFile
 from fwf_db.fwf_subset import FWFSubset
 from fwf_db.fwf_line import FWFLine
 from fwf_db.fwf_index_like import FWFIndexDict, FWFUniqueIndexDict
-from fwf_db.fwf_simple_index import FWFSimpleIndexBuilder
-from fwf_db.fwf_np_index import FWFNumpyIndexBuilder
-from fwf_db.fwf_cython_index import FWFCythonIndexBuilder
+from fwf_db.fwf_index_builder_simple import FWFSimpleIndexBuilder
+from fwf_db.fwf_index_builder_numpy import FWFNumpyIndexBuilder
+from fwf_db.fwf_index_builder_cython import FWFCythonIndexBuilder
 from fwf_db._cython.fwf_mem_optimized_index import BytesDictWithIntListValues
 
 
@@ -58,12 +58,12 @@ def test_simple_index():
         assert len(rtn) == 2
 
         rtn = FWFIndexDict(fwf)
-        FWFSimpleIndexBuilder(rtn).index(fwf, "state", func=lambda x: x.decode())
+        FWFSimpleIndexBuilder(rtn).index(fwf, "state", func=lambda x: str(x, "utf-8"))
         assert "MI" in rtn
         assert rtn["MI"]
 
         rtn = FWFIndexDict(fwf)
-        FWFSimpleIndexBuilder(rtn).index(fwf, "gender", func=lambda x: x.decode())
+        FWFSimpleIndexBuilder(rtn).index(fwf, "gender", func=lambda x: str(x, "utf-8"))
         assert len(rtn) == 2
         assert "M" in rtn
         assert "F" in rtn
@@ -133,7 +133,7 @@ def test_simple_index_with_mem_optimized_dict():
 
         data = BytesDictWithIntListValues(len(fwf))
         rtn = FWFIndexDict(fwf, data)
-        FWFSimpleIndexBuilder(rtn).index(fwf, "state", func=lambda x: x.decode())
+        FWFSimpleIndexBuilder(rtn).index(fwf, "state", func=lambda x: str(x, "utf-8"))
         assert "MI" in rtn
         assert rtn["MI"]
         data.finish()
@@ -142,7 +142,7 @@ def test_simple_index_with_mem_optimized_dict():
 
         data = BytesDictWithIntListValues(len(fwf))
         rtn = FWFIndexDict(fwf, data)
-        FWFSimpleIndexBuilder(rtn).index(fwf, "gender", func=lambda x: x.decode())
+        FWFSimpleIndexBuilder(rtn).index(fwf, "gender", func=lambda x: str(x, "utf-8"))
         assert len(rtn) == 2
         assert "M" in rtn
         assert "F" in rtn
@@ -209,20 +209,20 @@ def test_np_index():
     with fwf.open(DATA):
 
         rtn = FWFIndexDict(fwf)
-        FWFNumpyIndexBuilder(rtn).index(fwf, "state", dtype=(np.bytes_, 2))
+        FWFNumpyIndexBuilder(rtn).index(fwf, "state", dtype=np.dtype((np.bytes_, 2)))
         assert len(rtn) == 9
 
         rtn = FWFIndexDict(fwf)
-        FWFNumpyIndexBuilder(rtn).index(fwf, "gender", dtype=(np.bytes_, 1))
+        FWFNumpyIndexBuilder(rtn).index(fwf, "gender", dtype=np.dtype((np.bytes_, 2)))
         assert len(rtn) == 2
 
         rtn = FWFIndexDict(fwf)
-        FWFNumpyIndexBuilder(rtn).index(fwf, "state", dtype="U2", func=lambda x: x.decode())
+        FWFNumpyIndexBuilder(rtn).index(fwf, "state", dtype="U2", func=lambda x: str(x, "utf-8"))
         assert "MI" in rtn
         assert rtn["MI"]
 
         rtn = FWFIndexDict(fwf)
-        FWFNumpyIndexBuilder(rtn).index(fwf, "gender", dtype="U1", func=lambda x: x.decode())
+        FWFNumpyIndexBuilder(rtn).index(fwf, "gender", dtype="U1", func=lambda x: str(x, "utf-8"))
         assert len(rtn) == 2
         assert "M" in rtn
         assert "F" in rtn
@@ -324,12 +324,12 @@ def test_simple_unique_index():
         assert len(rtn) == 2
 
         rtn = FWFUniqueIndexDict(fwf, {})
-        FWFSimpleIndexBuilder(rtn).index(fwf, "state", func=lambda x: x.decode())
+        FWFSimpleIndexBuilder(rtn).index(fwf, "state", func=lambda x: str(x, "utf-8"))
         assert "MI" in rtn
         assert rtn["MI"]
 
         rtn = FWFUniqueIndexDict(fwf, {})
-        FWFSimpleIndexBuilder(rtn).index(fwf, "gender", func=lambda x: x.decode())
+        FWFSimpleIndexBuilder(rtn).index(fwf, "gender", func=lambda x: str(x, "utf-8"))
         assert len(rtn) == 2
         assert "M" in rtn
         assert "F" in rtn
@@ -424,12 +424,12 @@ def test_np_unique_index():
         assert len(rtn) == 2
 
         rtn = FWFUniqueIndexDict(fwf, {})
-        FWFNumpyIndexBuilder(rtn).index(fwf, "state", dtype="U2", func=lambda x: x.decode())
+        FWFNumpyIndexBuilder(rtn).index(fwf, "state", dtype="U2", func=lambda x: str(x, "utf-8"))
         assert "MI" in rtn
         assert rtn["MI"]
 
         rtn = FWFUniqueIndexDict(fwf, {})
-        FWFNumpyIndexBuilder(rtn).index(fwf, "gender", dtype="U1", func=lambda x: x.decode())
+        FWFNumpyIndexBuilder(rtn).index(fwf, "gender", dtype="U1", func=lambda x: str(x, "utf-8"))
         assert len(rtn) == 2
         assert "M" in rtn
         assert "F" in rtn

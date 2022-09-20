@@ -54,39 +54,10 @@ class FWFFile(FWFViewLike):
         self.start_pos = -1   # Position of first record, after skipping leading comment lines
 
         self.file = None        # File name
-        self._fd = None          # open file handle
-        self._mm = None          # memory map (read-only)
+        self._fd = None         # open file handle
+        self._mm: memoryview|None = None   # memory map (read-only)
 
         super().__init__(self.fieldspecs)
-
-
-    # TODO may be fieldspecs should be a class of its own?
-    @classmethod
-    def add_slice_info(cls, fieldspecs):
-        """Based on the field width information, determine the slice for each field"""
-
-        startpos = 0
-        for entry in fieldspecs:
-            if ("len" not in entry) and ("slice" not in entry):
-                raise Exception(
-                    f"Fieldspecs is missing either 'len' or 'slice': {entry}")
-
-            if ("len" in entry) and ("slice" in entry):
-                continue
-                #raise Exception(
-                #    f"Only one must be present in a fieldspec, len or slice: {entry}")
-
-            if "len" in entry:
-                flen = entry["len"]
-                if (flen <= 0) or (flen > 10000):
-                    raise Exception(
-                        f"Fieldspec: Invalid value for len: {entry}")
-
-                entry["slice"] = slice(startpos, startpos + flen)
-                startpos += flen
-            else:
-                fslice = entry["slice"]
-                startpos = fslice.stop
 
 
     def is_newline(self, byte: int) -> bool:
@@ -94,7 +65,7 @@ class FWFFile(FWFViewLike):
         return byte in self.newline_bytes
 
 
-    def skip_comment_line(self, mm, comment_char: str) -> int:
+    def skip_comment_line(self, _mm, comment_char: str) -> int:
         """Find the first line that is not a comment line and return its position."""
 
         def skip_line(data, pos):
@@ -108,42 +79,42 @@ class FWFFile(FWFViewLike):
 
         pos = 0
         comment_char_cp = ord(comment_char)
-        while (pos < len(mm)) and (mm[pos] == comment_char_cp):
-            pos = skip_line(mm, pos)
+        while (pos < len(_mm)) and (_mm[pos] == comment_char_cp):
+            pos = skip_line(_mm, pos)
 
         return pos
 
 
-    def get_file_size(self, mm) -> int:
+    def get_file_size(self, _mm) -> int:
         """Determine the file size.
 
         Adjust the file size if the last line has no newline.
-        TODO I don't like that it is changing the file size
+        TODO I don't like that it is changing the file size. It may create confusion.
         """
 
-        fsize = len(mm)
-        if (fsize > 0) and self.is_newline(mm[fsize - 1]):
+        fsize = len(_mm)
+        if (fsize > 0) and self.is_newline(_mm[fsize - 1]):
             return fsize
 
         return fsize + self.number_of_newline_bytes
 
 
-    def _number_of_newline_bytes(self, mm) -> int:
+    def _number_of_newline_bytes(self, _mm) -> int:
         """Determine the number of newline bytes"""
 
-        maxlen = min(len(mm), 10000)
+        maxlen = min(len(_mm), 10000)
         pos = 0
         while pos < maxlen:
-            if self.is_newline(mm[pos]):
+            if self.is_newline(_mm[pos]):
                 pos += 1
-                if pos < len(mm):
-                    return 2 if self.is_newline(mm[pos]) else 1
+                if pos < len(_mm):
+                    return 2 if self.is_newline(_mm[pos]) else 1
 
                 return 1
 
             pos += 1
 
-        if pos == len(mm):
+        if pos == len(_mm):
             # File has only 1 line and no newline
             return 1
 
@@ -151,6 +122,7 @@ class FWFFile(FWFViewLike):
 
 
     def record_length(self, fields) -> int:
+        """Determine the overall record lenght from the fieldspecs"""
         return max(x.stop for x in fields.values())
 
 
@@ -176,6 +148,11 @@ class FWFFile(FWFViewLike):
         self.close()
 
 
+    def calculate_line_count(self, _mm) -> int:
+        """Calculate the number of lines in the file"""
+        return int((self.fsize - self.start_pos + 0.1) / self.fwidth) if len(_mm) > 0 else 0
+
+
     def open(self, file) -> 'FWFFile':
         """Initialize the fwf table with a file"""
 
@@ -184,21 +161,22 @@ class FWFFile(FWFViewLike):
 
         if isinstance(file, str):
             self.file = file
-            fd = self._fd = open(file, "rb")
-            self._mm = mmap.mmap(fd.fileno(), 0, access=mmap.ACCESS_READ)
+            _fd = self._fd = open(file, "rb")
+            _mm = mmap.mmap(_fd.fileno(), 0, access=mmap.ACCESS_READ)
         elif isinstance(file, bytes):
             # Support data already loaded in whatever way. Nice for testing.
             self.file = id(file)
-            self._mm = file
+            _mm = file
         else:
             raise FWFFileException(f"Invalid 'file' argument. Must be of type str or bytes: {file}")
 
+        self._mm = memoryview(_mm)
         self.number_of_newline_bytes = self._number_of_newline_bytes(self._mm)
         # The length of each line
         self.fwidth = self.record_length(self.fields) + self.number_of_newline_bytes
         self.fsize = self.get_file_size(self._mm)
         self.start_pos = self.skip_comment_line(self._mm, self.comment_char)
-        self.line_count = int((self.fsize - self.start_pos + 0.1) / self.fwidth) if len(self._mm) > 0 else 0
+        self.line_count = self.calculate_line_count(self._mm)
 
         return self
 
@@ -227,12 +205,16 @@ class FWFFile(FWFViewLike):
         return None
 
 
+    def _parent_index(self, index: int) -> int:
+        return index
+
+
     def pos_from_index(self, index: int) -> int:
         """Determine the position of the first byte within the file
         for the line with the index provided"""
 
         if index < 0:
-            index = len(self) + index
+            index = self.line_count + index
 
         assert index >= 0, f"Index must be >= 0: {index}"
 
@@ -243,14 +225,11 @@ class FWFFile(FWFViewLike):
         raise IndexError(f"Invalid index: {index}")
 
 
-    def _parent_index(self, index: int) -> int:
-        return index
-
-
-    def _raw_line_at(self, index: int) -> bytes:
+    def _raw_line_at(self, index: int) -> memoryview:
         """Get the raw line data for the line with the index"""
+        assert self._mm is not None
         pos = self.pos_from_index(index)
-        return self._mm[pos : pos + self.fwidth]       # type: ignore
+        return self._mm[pos : pos + self.fwidth]
 
 
     def _fwf_by_indices(self, indices: list[int]) -> FWFSubset:
@@ -261,7 +240,7 @@ class FWFFile(FWFViewLike):
         return FWFRegion(self, start, stop, self.fields)
 
 
-    def iter_lines(self) -> Iterator[bytes]:
+    def iter_lines(self) -> Iterator[memoryview]:
         """Iterate over all the lines in the file"""
 
         assert self._mm is not None
@@ -280,7 +259,7 @@ class FWFFile(FWFViewLike):
             irow += 1
 
 
-    def iter_lines_with_field(self, field) -> Iterator[bytes]:
+    def iter_lines_with_field(self, field) -> Iterator[memoryview]:
         """An optimized version that iterates over a single field in all lines.
         This is useful for unique and index.
         """

@@ -96,12 +96,11 @@ cdef inline uint32_t _load32(const char *p):  # char*  is allowed to alias anyth
 cdef const char* _get_virtual_address(mm):
     """Determine the virtual memory address of a (read-only) mmap region"""
 
-    if isinstance(mm, (str, bytes)):
-        return <const char*>mm
+    if len(mm) == 0:
+        return NULL
 
-    cdef const unsigned char[:] mm_view = mm
-    return <const char*>&mm_view[0]
-
+    cdef const unsigned char[:] my_view = mm
+    return <const char*>&my_view[0]
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -325,7 +324,7 @@ cdef bool has_more_lines(InternalData* params):
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-cdef bytes _field_data(InternalData* params):
+cdef _field_data(InternalData* params):
     """From the current line, return the 'field' data"""
 
     # TODO Would love an ignore-case (convert to uppercase) flag
@@ -465,7 +464,7 @@ def create_index(fwf,
             else:
                 key = _field_data(&params)
                 if has_func:
-                    key = cfunc(key)
+                    key = cfunc(bytes(key))
 
             # Note: FWFIndexLike will do an append(), if the key is missing
             # (and the index is none-unique)

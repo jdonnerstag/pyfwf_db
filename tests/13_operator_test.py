@@ -48,11 +48,11 @@ def test_table_filter_by_line():
         assert len(list(rtn)) == 7
         assert len(rtn) == 7
 
-        rtn = fwf.filter(op("gender") > b"F")
+        rtn = fwf.filter(op("gender").bytes() > b"F")
         assert len(list(rtn)) == 3
         assert len(rtn) == 3
 
-        rtn = fwf.filter(op("gender") < b"M")
+        rtn = fwf.filter(op("gender").bytes() < b"M")
         assert len(list(rtn)) == 7
         assert len(rtn) == 7
 

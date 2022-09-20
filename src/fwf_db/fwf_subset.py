@@ -30,12 +30,12 @@ class FWFSubset(FWFViewLike):
         return self.lines[index]
 
 
-    def _raw_line_at(self, index: int) -> bytes:
+    def _raw_line_at(self, index: int) -> memoryview:
         index = self._parent_index(index)
         return self.get_parent().raw_line_at(index)
 
 
-    def iter_lines(self) -> Iterator[bytes]:
+    def iter_lines(self) -> Iterator[memoryview]:
         for idx in self.lines:
             yield self.get_parent().raw_line_at(idx)
 

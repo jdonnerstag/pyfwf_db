@@ -16,7 +16,7 @@ class FWFSimpleIndexBuilder(FWFIndexBuilder):
         self.data = data
 
 
-    def create_index_from_generator(self, fwfview: FWFViewLike, gen: Iterator[bytes], **kwargs) -> None:
+    def create_index_from_generator(self, fwfview: FWFViewLike, gen: Iterator[memoryview], **kwargs) -> None:
         # TODO May be move to cython for speed?
         for i, value in enumerate(gen):
             self.data[value] = i

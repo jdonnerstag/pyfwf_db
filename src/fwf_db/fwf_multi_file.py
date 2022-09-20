@@ -129,7 +129,7 @@ class FWFMultiFile(FWFViewLike):
         return index
 
 
-    def _raw_line_at(self, index: int) -> bytes:
+    def _raw_line_at(self, index: int) -> memoryview:
         idx, start = self._determine_fwfview_index(index)
         return self.files[idx].raw_line_at(start)
 
@@ -142,7 +142,7 @@ class FWFMultiFile(FWFViewLike):
         return FWFRegion(self, start, stop, self.get_fields())
 
 
-    def iter_lines(self) -> Iterator[bytes]:
+    def iter_lines(self) -> Iterator[memoryview]:
         count = 0
         for file in self.files:
             for rec in file.iter_lines():

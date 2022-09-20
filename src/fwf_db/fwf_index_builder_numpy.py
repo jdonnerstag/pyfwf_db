@@ -23,13 +23,13 @@ class FWFNumpyIndexBuilder(FWFIndexBuilder):
 
 
     def index(self, fwfview: FWFViewLike, field: int|str, **kwargs):
-        if "dtype" not in kwargs:
-            kwargs["dtype"] = self.dtype or fwfview.field_dtype(1)
+        kwargs.setdefault("dtype", self.dtype or fwfview.field_dtype(1))
+        kwargs.setdefault("func", bytes)
 
         super().index(fwfview, field, **kwargs)
 
 
-    def create_index_from_generator(self, fwfview: FWFViewLike, gen: Iterator[bytes], **kwargs) -> None:
+    def create_index_from_generator(self, fwfview: FWFViewLike, gen: Iterator[memoryview], **kwargs) -> None:
         """Create the Index
 
         The 'field' to base the index on
@@ -46,7 +46,7 @@ class FWFNumpyIndexBuilder(FWFIndexBuilder):
 
         # Note: I'm wondering if that safes memory: store the data in a numpy array
         # and add it later to the dict. It's only an improvement, if the data
-        #  remain in numpy and are merely references.
+        # remain in numpy and are merely references.
         for i, value in enumerate(gen):
             values[i] = value
 

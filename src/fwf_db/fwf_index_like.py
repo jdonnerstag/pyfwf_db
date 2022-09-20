@@ -41,12 +41,12 @@ class FWFIndexBuilder:
         return self
 
 
-    def index_generator(self, fwfview: FWFViewLike, field: int|str, **_) -> Iterator[bytes]:
+    def index_generator(self, fwfview: FWFViewLike, field: int|str, **_) -> Iterator[memoryview]:
         '''Provide an iterator (e.g generator) which iterates over all relevant records'''
         return fwfview.iter_lines_with_field(field)
 
 
-    def create_index_from_generator(self, fwfview: FWFViewLike, gen: Iterator[bytes], **kwargs) -> None:
+    def create_index_from_generator(self, fwfview: FWFViewLike, gen: Iterator[memoryview], **kwargs) -> None:
         """Consume the iterator or generator and create the index"""
 
 

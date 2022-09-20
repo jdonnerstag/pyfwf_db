@@ -101,6 +101,8 @@ class FWFFieldSpec:
         except AttributeError:
             return False
 
+# --------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------
 
 class FWFFileFieldSpecs:
     """CSV is a tabular format. This class maintains the field specifications"""
@@ -133,7 +135,7 @@ class FWFFileFieldSpecs:
 
 
     def get(self, key: str|int, default=None) -> Optional[FWFFieldSpec]:
-        """Get a fieldspec by name"""
+        """Get a fieldspec by name or index"""
         if isinstance(key, str):
             return self.fields.get(key, default)
 

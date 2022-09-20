@@ -26,6 +26,10 @@ def test_fwf_dict_setitem():
     assert len(d) == 2
     assert d[2] == [222]
 
+    d.set(3, 333)
+    assert len(d) == 3
+    assert d[3] == [333]
+
 
 def test_fwf_dict_update():
     d = FWFDict()

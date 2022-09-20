@@ -15,9 +15,9 @@ class FWFOperator:
     rtn = fwf.filter(op("gender").str().strip() == "F")
     """
 
-    def __init__(self, name: 'str', func: None|Callable[[bytes], Any]=None):
+    def __init__(self, name: 'str', func: None|Callable[[memoryview], Any]=None):
         self.name = name
-        self.func: Callable[[bytes], Any] = func if func is not None else lambda x: x
+        self.func: Callable[[memoryview], Any] = func if func is not None else lambda x: x
 
     def get(self, line: FWFLine) -> Any:
         """ Apply the function to the field's data from within the line """
@@ -48,6 +48,11 @@ class FWFOperator:
     def is_notin(self, other):
         """ Apply the 'not in' operator to the field's value """
         return lambda line: self.get(line) not in other
+
+    def bytes(self):
+        orig = self.func
+        self.func = lambda x: bytes(orig(x))
+        return self
 
     def str(self, encoding=None):
         """ Convert the field's byte value into a string """

@@ -37,7 +37,7 @@ class FWFRegion(FWFViewLike):
         return self.start + index
 
 
-    def _raw_line_at(self, index: int) -> bytes:
+    def _raw_line_at(self, index: int) -> memoryview:
         index = self.parent_index(index)
         return self.get_parent().raw_line_at(index)
 
@@ -53,6 +53,6 @@ class FWFRegion(FWFViewLike):
         return FWFRegion(self.parent, start, stop, self.fields)
 
 
-    def iter_lines(self) -> Iterator[bytes]:
+    def iter_lines(self) -> Iterator[memoryview]:
         for i in range(self.start, self.stop):
             yield self.get_parent().raw_line_at(i)
