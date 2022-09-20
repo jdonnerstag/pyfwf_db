@@ -1,13 +1,11 @@
-====================================================
-FWF - Fixed-Width-Field File Format parser and tools
-====================================================
+==========================================
+FWF - Fixed-Width-Field file format tools
+==========================================
 
-This project has been extracted from a larger program. Review and cleanup
-is not finished yet.
-
-A python library that provides performant, read-only, Nosql-like access
-to (very) large files with fixed-width-fields. File size is not restricted
-by the amount of memory available. Fast index creation.
+A python library that provides performant, read-only, NOSQL-like access
+to (very) large files with fixed-width-fields. The file size is not limited
+by the amount of memory available. Very fast index creation for NOSQL-like
+lookups, with filters and multi-file/-partition support.
 
 Files that look like this:
 ::
@@ -24,61 +22,66 @@ Files that look like this:
   USME20080503F0f51da89a299Kelly Crose     WhateverComedian
   ...
 
-Where each line represents one dataset and every field has a
-fixed length, without explicit separator between the fields.
+Where each line represents one dataset and every field, respectively
+line, has a fixed length, without explicit separator between the fields.
 
 Key Features
 ============
 
 This lib is especially targetted for the following use cases:
 
-- No more lunch breaks for whatever ingest or import job to finish
-- Data sets which are too large to fit into memory
-- New files of the same kind arrive regulary and must be treated as one large file.
-- Views (subsets) are required
-- Views based on filters (== indexes). We opted for django-like filters.
-- Retrieving data via lookups (views, indexes) must be very fast. But no analytics,
-  reporting or number crunching.
+- Ultra-fast: no more lunch breaks for whatever ingest or import job to finish
+- Data sets (files) which can be larger then the memory available
+- New files of the same kind arrive regulary and must be considered like partions of
+  one large data set.
+- Individual files might get replaced with updated ones, e.g. because of corrections
+- The exact field structure of a file type might change over time. A data set may
+  consist of multiple files, possibly based on a different version of the structure.
+- Filters and Views (subsets) are required. We opted for django-like filters.
+- Support for indexes and very fast lookups. But no analytics, reporting or number crunching.
 - Easy export of views into Pandas, Vaex and other tools if needed
-- Some data are like change records (CDC) and only the last one received is relevant.
-  Old ones must be ignored. Filtering them should be easy and fast.
+- Some data are like change records (CDC) and only the one received before a certain
+  point in time is relevant. Filtering them should be easy and fast. All fields
+  must be provided in each record (not just the fields that have changed).
 - Persisted indexes to avoid rebuilding them unnecessarily
 - Casts and transformations to convert field data (bytes) into strings, ints,
-  dates or anything else
+  dates or anything you want
 - Support for arbitrary line-endings: it's unbelievable how often we receive files
   with none-standard line-endings, such as \x00 or similar.
-- Files which are compressed or from an object store can still be processed, but
-  must fit into memory (or locally cached)
+- Files which are compressed or from a (remote) object store can be processed, but
+  must fit into memory (or uncompressed and locally cached; not in this package)
 - Field length is in bytes rather then chars. UTF-8 chars consume 1-6 bytes, which
   leads to variable line lengths in bytes. The lib however relies on a constant line
   length in bytes (except for leading comment lines)
-- Vizualization as table (thanks to `terminaltables`_
-- Virtually change the order of the columns, to change the visualisation
+
+<< Moved into separate package?? >>
+- CLI visualization as table (thanks to `terminaltables`_)
+- To refine the visualisation, virtually change the order of the columns
 - Virtually remove columns not needed
-- Virtually add columns (in-memory). The files remain read-only.
+- Add virtual (computed) columns (in-memory). The files remain read-only and unchanged.
 - Sorting and uniqueness filters based on column data
 - Entry count in a view (subset)
 
 .. _terminaltables: https://robpol86.github.io/terminaltables/
 
 There are many tools around to explore (fixed-width) data files. But this little
-tool has been handy for us.
+tool has been very handy for us.
 
 How did we get here?
 ====================
 
 Building this lib wasn't our first thought:
 
-- We needed lots of lookups across multiple tables, all provided as files. And
-  because we have been using RDBMS and Nosql systems quite a bit, we had good and
-  experienced people. But ingesting and preparing (staging) the data took ages.
-  We applied partitioning, and all sort of tricks to speed up ingest and lookups,
-  but it remained painful, slow and also comparatively expensive. We've tested it
-  on-premise and in public clouds, including rather big boxes with sufficient I/O
-  and network bandwidth.
+- We needed lots of lookups, but no analytics, across multiple tables, all provided
+  as files. And because we have been using RDBMS and Nosql systems quite a bit, we
+  had good and experienced people. But ingesting and preparing (staging) the data
+  took ages. We applied partitioning, and all sort of tricks to speed up ingest
+  and lookups, but it remained painful, slow and also comparatively expensive.
+  We've tested it on-premise and in public clouds, including rather big boxes with
+  sufficient I/O and network bandwidth.
 - We tried NoSql but following best pratices, it is adviced to create a
   schema that matches your queries best. Hence more complexity in the ingest
-  layer. This and because network latency for queries don't go away, did not
+  layer. This and because network latency for queries didn't go away, did not
   make us happy.
 - We also tried converting the source files into hdf5 and similar formats, but
   (a) it still requires injest and it wasn't especially fast, and (b) many of
@@ -92,20 +95,20 @@ Building this lib wasn't our first thought:
   was perfect.
 - With our little lib,
 
-   - we completely avoid any load or ingest job. We can start using new
-     files immediately when they arrive.
+   - we almost avoid load or ingest jobs. We can start using new files immediately
+     when they arrive (not enough time for grab another coffee)
    - A full index scan, takes less then 2 mins on our standard business
-     laptops (with SDD). Many times faster than the other options, and on
+     laptops (with SDD), which is many times faster than the other options, and on
      low-cost hardware (vs big boxes and high-speed networks).
    - With Numpy based indexes, the solution is very fast to determine the line number.
      Loading the line from disc and converting the required fields / columns from bytes
      into consumable data types, is a bit slower compared to in-memory preprocessed
      Pandas dataframes. But we need to do millions of lookups, and in our use cases,
      we don't need to re-read lines that often. Where required, we cache the
-     converted object.
+     converted object. Numpy is good, but not a good fit for our problem.
    - We've tested it with 100GB data sets (our individual file size usually is <10GB),
      approaching memory limits for full table (in-memory) indexes. Obviously depending
-     on the number of rows and size of the index key.
+     on the number of rows and keys.
 
 Installation
 ============
@@ -118,6 +121,7 @@ Just use pip
 .. code-block:: Python
 
   pip install fwf_db
+
 
 Setting up your parser
 ======================

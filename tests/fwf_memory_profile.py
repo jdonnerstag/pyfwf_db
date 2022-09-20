@@ -19,7 +19,7 @@ from fwf_db import FWFFile
 from fwf_db._cython import fwf_db_cython
 from fwf_db._cython.fwf_mem_optimized_index import BytesDictWithIntListValues
 from fwf_db.fwf_index_like import FWFIndexDict
-from fwf_db.fwf_simple_index import FWFSimpleIndexBuilder
+from fwf_db.fwf_index_builder_simple import FWFSimpleIndexBuilder
 
 
 class CENT_PARTY:
@@ -139,3 +139,4 @@ if __name__ == "__main__":
     # Run with python -m memory_profiler script.py
     #test_default_dict()
     test_mem_numpy()
+    #test_mem_optimized_dict()
