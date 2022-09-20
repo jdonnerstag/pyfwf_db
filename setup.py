@@ -34,7 +34,7 @@ ext_modules=cythonize([ext_1, ext_2], language_level=3)
 here = pathlib.Path(__file__).parent.resolve()
 
 # Get the long description from the README file
-long_description = (here / "README.md").read_text(encoding="utf-8")
+long_description = (here / "README.rst").read_text(encoding="utf-8")
 
 class CleanCommand(Command):
     """Custom clean command to tidy up the project root."""
@@ -113,7 +113,7 @@ setup(
     # This field lists other packages that your project depends on to run.
     # Any package you put here will be installed by pip when your project is
     # installed, so they must be valid existing projects.
-    install_requires=["numpy"],
+    install_requires=["numpy", "deprecated"],
 
     # List additional groups of dependencies here (e.g. development
     # dependencies). Users will be able to install these using the "extras"
@@ -121,7 +121,7 @@ setup(
     #
     #   $ pip install sampleproject[dev]
     extras_require={
-        "dev": ["pytest", "Cython", "tox", "check-manifest"],
+        "dev": ["pytest", "Cython", "tox", "check-manifest", "pandas", "memory_profiler"],
     },
 
     # If there are data files included in your packages that need to be

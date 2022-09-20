@@ -6,3 +6,6 @@ python setup.py sdist bdist_wheel
 
 REM Make the package in the current virtual environment, and make it editable
 REM pip install -e .
+
+REM For the dev tools
+REM pip install -e .[dev]

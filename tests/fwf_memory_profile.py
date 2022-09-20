@@ -1,28 +1,25 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-import pytest
+"""
+This is not a test file in the sense that you can/should execute it automatically.
+It's rather a bunch of individual methods, mostly grown over time.
 
-import abc
+Run with python -m memory_profiler <script.py>
+"""
+
+# pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name, missing-module-docstring
+
 import os
-import sys
-import io
-from random import randrange
 from time import time
+from memory_profiler import profile
 import numpy as np
-import pandas as pd
-from collections import defaultdict
-import ctypes
 
-from fwf_db import FWFFile, FWFSimpleIndex, FWFMultiFile, FWFUnique
-from fwf_db.fwf_unique_np_based import FWFUniqueNpBased
-from fwf_db.fwf_index_np_based import FWFIndexNumpyBased
-from fwf_db.fwf_cython_unique_index import FWFCythonUniqueIndex
-from fwf_db.fwf_operator import FWFOperator as op
-from fwf_db.fwf_cython import FWFCython
-from fwf_db.cython import fwf_db_ext
-from fwf_db.fwf_merge_index import FWFMergeIndex
+from fwf_db import FWFFile
+from fwf_db._cython import fwf_db_cython
 from fwf_db._cython.fwf_mem_optimized_index import BytesDictWithIntListValues
+from fwf_db.fwf_index_like import FWFIndexDict
+from fwf_db.fwf_index_builder_simple import FWFSimpleIndexBuilder
 
 
 class CENT_PARTY:
@@ -73,60 +70,73 @@ FILE_CENT_PARTY = DIR + "ANO_DWH..DWH_TO_PIL_CENT_PARTY_VTAG.20180119104659.A901
 FILE_SALES_ASSIGNMENT = DIR + "ANO_DWH..DWH_TO_PIL_CENT_SALES_ASSIGNMENT_VTAG.20180119115137.A901"
 
 
-@pytest.mark.slow
+@profile
 def test_default_dict():
 
-    fwf_db_ext.say_hello_to("Susie")
+    assert fwf_db_cython.say_hello_to("Susie") == "Hello Susie!"
 
     fwf = FWFFile(CENT_SALES_ASSIGNMENT)
-
     with fwf.open(FILE_SALES_ASSIGNMENT) as fd:
         assert len(fd) == 10363608
 
-        data = defaultdict(list)
-
-        t1 = time()
-        rtn = fwf_db_ext.fwf_cython(fwf,
-            -1, None, -1, None,
-            -1, None, -1, None,
-            index="SALES_LOCATION_ID",
-            unique_index=False,
-            integer_index=False,
-            index_dict=data,
-            index_tuple=None
-        )
+        rtn = FWFIndexDict(fwf)
+        FWFSimpleIndexBuilder(rtn).index(fwf, "SALES_LOCATION_ID")
         assert len(rtn) == 3152698
 
 
-@pytest.mark.slow
+@profile
 def test_mem_optimized_dict():
 
-    fwf_db_ext.say_hello_to("Susie")
+    assert fwf_db_cython.say_hello_to("Susie") == "Hello Susie!"
 
+    t1 = time()
     fwf = FWFFile(CENT_SALES_ASSIGNMENT)
-
     with fwf.open(FILE_SALES_ASSIGNMENT) as fd:
+        print(f'Open file: {time() - t1} seconds')
         assert len(fd) == 10363608
 
-        data = BytesDictWithIntListValues(len(fd))
+        t1 = time()
+        data = BytesDictWithIntListValues(len(fwf))
+        rtn = FWFIndexDict(fwf, data)
+        FWFSimpleIndexBuilder(rtn).index(fwf, "SALES_LOCATION_ID")
+        print(f'Create index: {time() - t1} seconds')
+        assert len(rtn) == 3152698
 
         t1 = time()
-        rtn = fwf_db_ext.fwf_cython(fwf,
-            -1, None, -1, None,
-            -1, None, -1, None,
-            index="SALES_LOCATION_ID",
-            unique_index=False,
-            integer_index=False,
-            index_dict=data,
-            index_tuple=None
-        )
+        data.finish()
+        print(f'Finish index: {time() - t1} seconds')
         assert len(rtn) == 3152698
 
 
-# Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":
-if __name__ == '__main__':
+@profile
+def test_mem_numpy():
+    fsize = os.path.getsize(FILE_SALES_ASSIGNMENT)
+    print(f"File size: {fsize:,}")
+    #file = open(FILE_SALES_ASSIGNMENT, "rb")
+    #all_of_it = file.read()
 
-    # pytest.main(["-v", "./tests"])
+    fwf = FWFFile(CENT_SALES_ASSIGNMENT)
+    with fwf.open(FILE_SALES_ASSIGNMENT) as fd:
+    #with fwf.open(all_of_it) as fd:
+        assert len(fd) == 10_363_608
 
-    # test_merge_unique_index()
-    test_merge_non_unique_index()
+        db = fwf_db_cython.field_data(fwf, "SALES_LOCATION_ID")
+        assert len(db) == len(fd)      # PARTY_ID is unique in this file
+
+        #index = dict.fromkeys(db)
+        #assert len(index) == 3_152_698
+
+        db_unique, db_counts = np.unique(db, return_counts=True)
+        db_cumsum = np.cumsum(db_counts)
+        index = dict.fromkeys(db_unique)
+        #index = dict.fromkeys({db_unique[i]: db_cumsum[i] for i in range(len(db_unique))})
+        assert len(index) == 3_152_698
+
+        db = None   # It releases only the extra mem needed by field_data, but (correctly so) not the mmapped region.
+
+
+if __name__ == "__main__":
+    # Run with python -m memory_profiler script.py
+    #test_default_dict()
+    test_mem_numpy()
+    #test_mem_optimized_dict()

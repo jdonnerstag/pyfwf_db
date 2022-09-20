@@ -1,0 +1,140 @@
+{ date: 2022-07-18 12:05:12, }
+{ date: 2022-07-18 12:06:21, test_perf_iter_lines: 6.568156480789185, test_perf_iter_fwfline: 8.748903751373291, }
+{ date: 2022-07-18 12:11:40, }
+{ date: 2022-07-18 12:13:03, : 5.855962038040161, : 8.665223836898804, }
+{ date: 2022-07-18 12:14:47, test_perf_iter_lines: 5.21692681312561, test_perf_iter_fwfline: 8.689988374710083, }
+{ date: 2022-07-18 12:17:46, test_perf_iter_lines: 8.226709365844727, test_perf_iter_fwfline: 9.315880537033081, test_perf_simple_index-Create-FWFSimpleIndex: 12.21474289894104, test_perf_simple_index-1mio-random-lookups: 3.9988720417022705, }
+{ date: 2022-07-18 12:19:20, test_perf_iter_lines: 8.753261089324951, test_perf_iter_fwfline: 9.059054613113403, test_perf_simple_index-Create_FWFSimpleIndex: 12.064887523651123, test_perf_simple_index-1mio_random_lookups: 3.8932321071624756, }
+{ date: 2022-07-18 12:25:37, test_numpy_samples-Create_random_entries: 16.707017183303833, test_numpy_samples-Create-maps-of-lists-index: 12.072783470153809, test_numpy_samples-1mio_random_lookups: 5.124734401702881, }
+{ date: 2022-07-18 12:34:22, test_numpy_samples-Create_random_entries: 24.911410570144653, test_numpy_samples-Create-maps-of-lists-index: 11.561449766159058, test_numpy_samples-1mio_random_lookups: 3.6972949504852295, }
+{ date: 2022-07-18 12:35:38, test_perf_numpy_index: 4.728854179382324, }
+{ date: 2022-07-18 12:36:39, test_perf_numpy_index-Create_FWFIndexNumpyBased: 16.442008018493652, test_perf_numpy_index-1mio_random_lookups: 4.011003017425537, }
+{ date: 2022-07-18 12:50:33, }
+{ date: 2022-07-18 12:53:07, test_effective_date_simple_filter: 18.611270427703857, }
+{ date: 2022-07-18 15:05:59, test_effective_date_region_filter: 18.748771905899048, }
+{ date: 2022-07-18 15:08:01, test_effective_date_region_filter_optmized: 15.577927589416504, }
+{ date: 2022-07-18 15:58:50, }
+{ date: 2022-09-15 14:09:56, }
+{ date: 2022-09-15 14:13:50, test_perf_iter_lines: 7.364651441574097, }
+{ date: 2022-09-15 14:15:13, test_perf_iter_lines: 3.070075750350952, }
+{ date: 2022-09-15 14:15:36, test_perf_iter_lines: 2.8768022060394287, }
+{ date: 2022-09-15 14:17:42, }
+{ date: 2022-09-15 14:18:33, test_perf_iter_lines: 4.657278060913086, }
+{ date: 2022-09-15 14:18:48, test_perf_iter_lines: 2.8710594177246094, }
+{ date: 2022-09-15 14:20:41, test_perf_iter_fwfline: 12.491914987564087, }
+{ date: 2022-09-15 14:21:26, test_perf_iter_fwfline: 6.303534269332886, }
+{ date: 2022-09-15 14:21:45, test_perf_iter_fwfline: 6.771526575088501, }
+{ date: 2022-09-15 14:27:52, test_perf_iter_fwfline: 6.561050653457642, }
+{ date: 2022-09-15 14:28:58, exec_perf_index-FWFSimpleIndexBuilder: 14.99741005897522, exec_perf_index-FWFIndexDict_1mio_random_lookups: 3.72196888923645, exec_perf_index-FWFNumpyIndexBuilder: 17.203773021697998, exec_perf_index-FWFIndexDict_1mio_random_lookups: 3.3885886669158936, exec_perf_index-FWFCythonIndexBuilder: 12.684316635131836, exec_perf_index-FWFIndexDict_1mio_random_lookups: 3.308283567428589, }
+{ date: 2022-09-15 14:31:09, test_numpy_samples-Create_random_entries: 12.204933404922485, test_numpy_samples-Create-maps-of-lists-index: 8.156532526016235, test_numpy_samples-1mio_random_lookups: 1.7782840728759766, test_numpy_samples-Create-FWFDict: 11.020425796508789, test_numpy_samples-1mio_FWFDict_random_lookups: 1.875260353088379, }
+{ date: 2022-09-15 14:36:10, test_effective_date_simple_filter: 18.17532181739807, }
+{ date: 2022-09-15 14:38:23, test_effective_date_region_filter: 21.09636378288269, }
+{ date: 2022-09-15 14:39:23, test_effective_date_region_filter_optimized: 20.068817138671875, }
+{ date: 2022-09-15 14:41:05, }
+{ date: 2022-09-15 14:43:32, }
+{ date: 2022-09-15 14:44:02, }
+{ date: 2022-09-15 14:49:07, }
+{ date: 2022-09-15 14:50:16, }
+{ date: 2022-09-15 14:52:30, }
+{ date: 2022-09-15 16:46:26, }
+{ date: 2022-09-15 16:55:08, test_cython_filter: 1.8842852115631104, }
+{ date: 2022-09-15 17:48:32, test_cython_filter: 1.5403096675872803, }
+{ date: 2022-09-15 18:30:03, }
+{ date: 2022-09-15 18:33:35, }
+{ date: 2022-09-15 18:35:02, }
+{ date: 2022-09-15 18:37:06, }
+{ date: 2022-09-15 18:47:16, }
+{ date: 2022-09-15 18:51:22, }
+{ date: 2022-09-15 18:53:48, }
+{ date: 2022-09-15 19:11:04, }
+{ date: 2022-09-15 19:12:08, }
+{ date: 2022-09-15 19:17:07, }
+{ date: 2022-09-15 19:49:47, }
+{ date: 2022-09-15 19:50:57, }
+{ date: 2022-09-15 19:55:47, }
+{ date: 2022-09-15 19:56:20, }
+{ date: 2022-09-15 19:58:07, test_cython_filter: 1.9659857749938965, }
+{ date: 2022-09-15 19:59:16, test_cython_filter: 1.1413261890411377, }
+{ date: 2022-09-15 20:05:24, test_cython_filter: 1.4453516006469727, }
+{ date: 2022-09-15 20:07:13, }
+{ date: 2022-09-15 20:07:49, }
+{ date: 2022-09-15 20:12:01, }
+{ date: 2022-09-15 20:19:40, test_cython_filter: 1.7881255149841309, }
+{ date: 2022-09-15 20:21:09, test_cython_filter: 2.074638605117798, }
+{ date: 2022-09-15 20:22:55, }
+{ date: 2022-09-15 20:27:44, }
+{ date: 2022-09-15 20:31:43, }
+{ date: 2022-09-15 20:43:56, test_cython_filter: 1.254521131515503, }
+{ date: 2022-09-15 20:46:05, }
+{ date: 2022-09-16 10:26:31, test_perf_iter_lines: 8.243139266967773, }
+{ date: 2022-09-16 10:27:48, test_perf_iter_lines: 6.02081823348999, }
+{ date: 2022-09-16 10:29:15, test_perf_iter_fwfline: 9.409708738327026, }
+{ date: 2022-09-16 10:37:13, exec_perf_index-FWFSimpleIndexBuilder: 26.032564878463745, access_index_many_time-FWFIndexDict_1mio_random_lookups: 4.682163953781128, exec_perf_index-FWFNumpyIndexBuilder: 22.057212352752686, access_index_many_time-FWFIndexDict_1mio_random_lookups: 4.809624910354614, exec_perf_index-FWFCythonIndexBuilder: 17.870712757110596, access_index_many_time-FWFIndexDict_1mio_random_lookups: 4.85376763343811, }
+{ date: 2022-09-16 10:46:36, test_numpy_samples-Create_random_entries: 21.143649101257324, test_numpy_samples-Create-maps-of-lists-index: 12.894989728927612, test_numpy_samples-1mio_random_lookups: 3.3795695304870605, test_numpy_samples-Create-FWFDict: 16.646758556365967, test_numpy_samples-1mio_FWFDict_random_lookups: 3.175997495651245, }
+{ date: 2022-09-16 10:53:15, test_numpy_samples-Preparation-Create_random_entries: 25.840080499649048, test_numpy_samples-Create-defaultlist(list)-index: 12.201731204986572, access_index_many_time-defaultdict_1mio_random_lookups: 1.8055572509765625, test_numpy_samples-Create-FWFDict-index: 16.59222722053528, access_index_many_time-FWFDict_1mio_random_lookups: 1.9298312664031982, }
+{ date: 2022-09-16 10:59:19, test_numpy_samples-Preparation-Create_random_entries: 21.28778600692749, test_numpy_samples-Create-defaultlist(list)-index: 12.485841035842896, access_index_many_time-defaultdict_1mio_random_lookups: 1.870504379272461, test_numpy_samples-Create-FWFDict-index: 17.79876136779785, access_index_many_time-FWFDict_1mio_random_lookups: 1.9706132411956787, }
+{ date: 2022-09-16 11:01:19, test_numpy_samples-Preparation-Create_random_entries: 18.132225275039673, test_numpy_samples-Create-defaultlist(list)-index: 8.989011287689209, access_index_many_time-defaultdict_1mio_random_lookups: 1.184586524963379, test_numpy_samples-Create-FWFDict-index: 11.828735828399658, access_index_many_time-FWFDict_1mio_random_lookups: 1.3048734664916992, }
+{ date: 2022-09-16 11:02:49, test_numpy_samples-Preparation-Create_random_entries: 14.41286849975586, test_numpy_samples-Create-defaultlist(list)-index: 8.935649156570435, access_index_many_time-defaultdict_1mio_random_lookups: 1.2975354194641113, test_numpy_samples-Create-FWFDict-index: 11.784397840499878, access_index_many_time-FWFDict_1mio_random_lookups: 1.307077407836914, }
+{ date: 2022-09-16 11:03:49, test_numpy_samples-Preparation-Create_random_entries: 12.606151819229126, test_numpy_samples-Create-defaultlist(list)-index: 8.837864398956299, access_index_many_time-defaultdict_1mio_random_lookups: 1.1669175624847412, test_numpy_samples-Create-FWFDict-index: 11.91137981414795, access_index_many_time-FWFDict_1mio_random_lookups: 1.3336374759674072, }
+{ date: 2022-09-16 11:04:50, test_numpy_samples-Preparation-Create_random_entries: 14.175019025802612, test_numpy_samples-Create-defaultlist(list)-index: 8.750330924987793, access_index_many_time-defaultdict_1mio_random_lookups: 1.1892755031585693, test_numpy_samples-Create-FWFDict-index: 11.331118106842041, access_index_many_time-FWFDict_1mio_random_lookups: 1.301842212677002, }
+{ date: 2022-09-16 11:10:46, test_numpy_samples-Preparation-Create_random_entries: 16.24971604347229, test_numpy_samples-Create-defaultlist(list)-index: 8.691434144973755, access_index_many_time-defaultdict_1mio_random_lookups: 1.2047011852264404, test_numpy_samples-Create-FWFDict-index: 10.930522918701172, test_numpy_samples-Create-FWFDict-index: 12.078171968460083, access_index_many_time-FWFDict_1mio_random_lookups: 1.2873508930206299, }
+{ date: 2022-09-16 11:13:51, test_numpy_samples-Preparation-Create_random_entries: 16.84306836128235, test_numpy_samples-Create-defaultlist(list)-index: 8.685655355453491, access_index_many_time-defaultdict_1mio_random_lookups: 1.181851863861084, test_numpy_samples-Create-FWFDict-index: 10.947422981262207, access_index_many_time-FWFDict_1mio_random_lookups: 1.3098444938659668, }
+{ date: 2022-09-16 11:14:51, test_numpy_samples-Preparation-Create_random_entries: 17.665943384170532, test_numpy_samples-Create-defaultlist(list)-index: 10.105600595474243, access_index_many_time-defaultdict_1mio_random_lookups: 1.9362952709197998, test_numpy_samples-Create-FWFDict-index: 11.417914152145386, access_index_many_time-FWFDict_1mio_random_lookups: 1.4929912090301514, }
+{ date: 2022-09-16 11:24:04, test_numpy_samples-Preparation-Create_random_entries: 14.294919729232788, test_numpy_samples-Create-defaultlist(list)-index: 8.479402542114258, access_index_many_time-defaultdict_1mio_random_lookups: 1.20420503616333, test_numpy_samples-Create-FWFDict-index: 11.313321590423584, access_index_many_time-FWFDict_1mio_random_lookups: 1.423236608505249, }
+{ date: 2022-09-16 12:13:39, }
+{ date: 2022-09-16 12:42:57, }
+{ date: 2022-09-16 12:46:07, }
+{ date: 2022-09-16 12:47:42, }
+{ date: 2022-09-16 12:49:45, }
+{ date: 2022-09-16 12:51:29, }
+{ date: 2022-09-16 13:12:14, }
+{ date: 2022-09-16 14:06:25, }
+{ date: 2022-09-16 14:20:40, }
+{ date: 2022-09-16 15:25:21, }
+{ date: 2022-09-16 15:27:25, }
+{ date: 2022-09-16 15:31:30, }
+{ date: 2022-09-16 15:44:31, }
+{ date: 2022-09-16 15:58:13, }
+{ date: 2022-09-16 16:11:20, }
+{ date: 2022-09-16 16:16:22, }
+{ date: 2022-09-16 16:23:31, }
+{ date: 2022-09-16 16:25:44, }
+{ date: 2022-09-16 16:38:08, }
+{ date: 2022-09-16 16:38:50, }
+{ date: 2022-09-16 16:40:44, }
+{ date: 2022-09-19 16:47:41, test_dict_fromkeys-1. read PARTY_ID data from file: 6.157318353652954, test_dict_fromkeys-1. use fromkeys() to create dict: 3.181065320968628, }
+{ date: 2022-09-19 16:48:03, test_dict_fromkeys-
+1. read PARTY_ID data from file: 2.2282769680023193, test_dict_fromkeys-1. use fromkeys() to create dict: 3.067659378051758, }
+{ date: 2022-09-19 16:48:52, test_dict_fromkeys-1. read PARTY_ID data from file: 2.9190561771392822, test_dict_fromkeys-2. use fromkeys() to create dict: 3.1061830520629883, }
+{ date: 2022-09-19 16:52:19, test_dict_fromkeys-1. read PARTY_ID data from file: 3.287353992462158, test_dict_fromkeys-2. use fromkeys() to create dict: 3.9178173542022705, test_dict_fromkeys-3. use dict-comprehension() to create dict with empty list: 12.281149864196777, }
+{ date: 2022-09-19 16:52:51, test_dict_fromkeys-1. read PARTY_ID data from file: 2.7783615589141846, test_dict_fromkeys-2. use fromkeys() to create dict: 3.2485170364379883, test_dict_fromkeys-3. use dict-comprehension() to create dict with empty list: 11.057486534118652, }
+{ date: 2022-09-19 16:53:45, test_dict_fromkeys-1. read PARTY_ID data from file: 3.196033239364624, test_dict_fromkeys-2. use fromkeys() to create dict: 4.878055572509766, test_dict_fromkeys-3. use dict-comprehension() to create dict with empty list: 10.391287803649902, test_dict_fromkeys-4. use dict-comprehension() to create dict with zero: 3.9960756301879883, }
+{ date: 2022-09-19 16:57:30, test_dict_fromkeys-1. read PARTY_ID data from file: 2.8801934719085693, test_dict_fromkeys-2. use fromkeys() to create dict: 5.0153796672821045, test_dict_fromkeys-3. use dict-comprehension() to create dict with empty list: 14.642730236053467, test_dict_fromkeys-4. use dict-comprehension() to create dict with zero: 5.489907741546631, test_dict_fromkeys-1. read SALES_LOCATION_ID data from file: 9.237531661987305, test_dict_fromkeys-2. use fromkeys() to create dict: 11.005573034286499, test_dict_fromkeys-3. use dict-comprehension() to create dict with empty list: 45.73093366622925, test_dict_fromkeys-4. use dict-comprehension() to create dict with zero: 6.131184339523315, }
+{ date: 2022-09-19 16:59:46, test_dict_fromkeys-1.1 read PARTY_ID data from file: 2.5810816287994385, test_dict_fromkeys-1.2 use fromkeys() to create dict: 2.7173521518707275, test_dict_fromkeys-1.3 use dict-comprehension() to create dict with empty list: 7.032625436782837, test_dict_fromkeys-1.4 use dict-comprehension() to create dict with zero: 3.463230609893799, test_dict_fromkeys-2.1 read SALES_LOCATION_ID data from file: 1.7418756484985352, test_dict_fromkeys-2.2 use fromkeys() to create dict: 5.129101037979126, test_dict_fromkeys-2.3 use dict-comprehension() to create dict with empty list: 31.174925565719604, test_dict_fromkeys-2.4 use dict-comprehension() to create dict with zero: 5.934386968612671, }
+{ date: 2022-09-19 17:04:51, test_dict_fromkeys-1.1 read PARTY_ID data from file: 5889278 records: 3.4191014766693115, test_dict_fromkeys-1.2 use fromkeys() to create dict: 5889278 keys: 4.375936031341553, test_dict_fromkeys-1.3 use dict-comprehension() to create dict with empty list: 11.673458814620972, test_dict_fromkeys-1.4 use dict-comprehension() to create dict with zero: 5.636693239212036, test_dict_fromkeys-2.1 read SALES_LOCATION_ID data from file: 10363608 records: 2.30869722366333, test_dict_fromkeys-2.2 use fromkeys() to create dict: {len(index)} keys: 5.346665143966675, test_dict_fromkeys-2.3 use dict-comprehension() to create dict with empty list: 32.36988019943237, test_dict_fromkeys-2.4 use dict-comprehension() to create dict with zero: 7.2513649463653564, }
+{ date: 2022-09-19 17:06:21, test_dict_fromkeys-1.1 read PARTY_ID data from file: 5889278 records: 3.320472002029419, test_dict_fromkeys-1.2 use fromkeys() to create dict: 5889278 keys: 4.249842643737793, test_dict_fromkeys-1.3 use dict-comprehension() to create dict with empty list: 11.050368785858154, test_dict_fromkeys-1.4 use dict-comprehension() to create dict with zero: 6.074127197265625, test_dict_fromkeys-2.1 read SALES_LOCATION_ID data from file: 10363608 records: 2.3040874004364014, test_dict_fromkeys-2.2 use fromkeys() to create dict: 3152698 keys: 6.087902545928955, test_dict_fromkeys-2.3 use dict-comprehension() to create dict with empty list: 30.526171922683716, test_dict_fromkeys-2.4 use dict-comprehension() to create dict with zero: 6.175460577011108, }
+{ date: 2022-09-19 20:02:47, test_dict_fromkeys-1.1 read PARTY_ID data from file: 5889278 records: 2.416125535964966, test_dict_fromkeys-1.2 use fromkeys() to create dict: 5889278 keys: 2.7594475746154785, test_dict_fromkeys-1.3 use dict-comprehension() to create dict with empty list: 6.971075057983398, test_dict_fromkeys-1.4 use dict-comprehension() to create dict with zero: 3.1449177265167236, test_dict_fromkeys-2.1 read SALES_LOCATION_ID data from file: 10363608 records: 3.43566632270813, test_dict_fromkeys-2.2 use fromkeys() to create dict: 3152698 keys: 5.2090253829956055, test_dict_fromkeys-2.3 use dict-comprehension() to create dict with empty list: 29.767720699310303, test_dict_fromkeys-2.4 use dict-comprehension() to create dict with zero: 5.988159894943237, }
+{ date: 2022-09-19 20:09:02, test_dict_fromkeys-1.1 read PARTY_ID data from file: 5889278 records: 3.252716541290283, test_dict_fromkeys-1.2 use fromkeys() to create dict: 5889278 keys: 4.156172037124634, test_dict_fromkeys-1.3 use dict-comprehension() to create dict with empty list: 9.863274574279785, test_dict_fromkeys-1.4 use dict-comprehension() to create dict with zero: 3.7099111080169678, test_dict_fromkeys-2.1 read SALES_LOCATION_ID data from file: 10363608 records: 1.9440526962280273, test_dict_fromkeys-2.2 use fromkeys() to create dict: 3152698 keys: 4.85744833946228, test_dict_fromkeys-2.4 use fromkeys() to create dict with unique keys: 3152698 keys: 5.18450927734375, test_dict_fromkeys-2.4 use dict-comprehension() to create dict with empty list: 30.18792152404785, test_dict_fromkeys-2.5 use dict-comprehension() to create dict with zero: 5.896733045578003, }
+{ date: 2022-09-19 20:11:01, test_dict_fromkeys-1.1 read PARTY_ID data from file: 5889278 records: 2.45261812210083, test_dict_fromkeys-1.2 use fromkeys() to create dict: 5889278 keys: 4.324174642562866, test_dict_fromkeys-1.3 use dict-comprehension() to create dict with empty list: 12.573229789733887, test_dict_fromkeys-1.4 use dict-comprehension() to create dict with zero: 4.998186111450195, test_dict_fromkeys-2.1 read SALES_LOCATION_ID data from file: 10363608 records: 2.508127450942993, test_dict_fromkeys-2.2 use fromkeys() to create dict: 3152698 keys: 7.421465635299683, test_dict_fromkeys-2.4 use fromkeys() to create dict with unique keys: 3152698 keys: 6.959989786148071, test_dict_fromkeys-2.4 use dict-comprehension() to create dict with empty list: 35.819114446640015, test_dict_fromkeys-2.5 use dict-comprehension() to create dict with zero: 5.844935178756714, }
+{ date: 2022-09-19 20:18:28, test_dict_fromkeys-1.1 read PARTY_ID data from file: 5889278 records: 2.5658488273620605, test_dict_fromkeys-1.2 use fromkeys() to create dict: 5889278 keys: 3.837894916534424, test_dict_fromkeys-1.3 use dict-comprehension() to create dict with empty list: 8.718602657318115, test_dict_fromkeys-1.4 use dict-comprehension() to create dict with zero: 3.28456974029541, test_dict_fromkeys-2.1 read SALES_LOCATION_ID data from file: 10363608 records: 1.3829553127288818, test_dict_fromkeys-2.2 use fromkeys() to create dict: 3152698 keys: 5.029543161392212, test_dict_fromkeys-2.4 use fromkeys() to create dict with unique keys: 3152698 keys: 5.381424903869629, test_dict_fromkeys-2.4 use dict-comprehension() to create dict with empty list: 30.47679591178894, test_dict_fromkeys-2.5 use dict-comprehension() to create dict with zero: 5.940679550170898, }
+{ date: 2022-09-19 20:30:20, test_dict_fromkeys-1.1 read PARTY_ID data from file: 5889278 records: 2.3021693229675293, test_dict_fromkeys-1.2 use fromkeys() to create dict: 5889278 keys: 2.8778700828552246, test_dict_fromkeys-1.3 use dict-comprehension() to create dict with empty list: 8.05623984336853, test_dict_fromkeys-1.4 use dict-comprehension() to create dict with zero: 2.9715662002563477, test_dict_fromkeys-2.1 read SALES_LOCATION_ID data from file: 10363608 records: 2.21822190284729, test_dict_fromkeys-2.2 use fromkeys() to create dict: 3152698 keys: 6.339478015899658, test_dict_fromkeys-2.4 use fromkeys() to create dict with unique keys: 3152698 keys: 7.880796194076538, test_dict_fromkeys-2.5 use dict-comprehension() to create dict with empty list: 31.415780305862427, test_dict_fromkeys-2.6 use dict-comprehension() to create dict with zero: 6.0454676151275635, }
+{ date: 2022-09-19 20:45:16, test_dict_fromkeys-1.1 read PARTY_ID data from file: 5889278 records: 3.0071120262145996, test_dict_fromkeys-1.2 use fromkeys() to create dict: 5889278 keys: 4.454578876495361, test_dict_fromkeys-1.3 use dict-comprehension() to create dict with empty list: 16.24435544013977, test_dict_fromkeys-1.4 use dict-comprehension() to create dict with zero: 5.937029838562012, test_dict_fromkeys-2.1 read SALES_LOCATION_ID data from file: 10363608 records: 4.396709680557251, test_dict_fromkeys-2.2 use fromkeys() to create dict: 3152698 keys: 8.068406105041504, test_dict_fromkeys-2.4 use fromkeys() to create dict with unique keys: 3152698 keys: 6.007634878158569, test_dict_fromkeys-2.5 use dict-comprehension() to create dict with empty list: 35.28277611732483, test_dict_fromkeys-2.6 use dict-comprehension() to create dict with zero: 6.529597759246826, }
+{ date: 2022-09-19 22:38:16, }
+{ date: 2022-09-19 22:41:27, }
+{ date: 2022-09-19 22:51:03, }
+{ date: 2022-09-19 22:55:16, }
+{ date: 2022-09-19 22:59:00, }
+{ date: 2022-09-19 23:01:55, }
+{ date: 2022-09-19 23:08:53, }
+{ date: 2022-09-19 23:12:08, }
+{ date: 2022-09-20 09:46:21, }
+{ date: 2022-09-20 09:48:48, }
+{ date: 2022-09-20 10:12:35, }
+{ date: 2022-09-20 10:15:19, }
+{ date: 2022-09-20 10:17:17, }
+{ date: 2022-09-20 10:20:52, }
+{ date: 2022-09-20 10:31:50, }
+{ date: 2022-09-20 10:39:33, }
+{ date: 2022-09-20 18:19:27, }
+{ date: 2022-09-20 18:22:30, }
+{ date: 2022-09-20 18:25:37, }

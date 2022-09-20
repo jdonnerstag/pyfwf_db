@@ -1,16 +1,9 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-import pytest
+# pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name
 
-import os
-import sys
-import io
-import numpy as np
-
-from fwf_db import FWFFile, FWFSimpleIndex, FWFMultiFile, FWFUnique
-from fwf_db.fwf_unique_np_based import FWFUniqueNpBased
-from fwf_db.fwf_index_np_based import FWFIndexNumpyBased
+from fwf_db import FWFFile
 from fwf_db.fwf_operator import FWFOperator as op
 
 
@@ -28,7 +21,7 @@ US       ME20080503F0f51da89a299Kelly Crose             Whatever    Comedian    
 """
 
 
-class HumanFile(object):
+class HumanFile:
 
     FIELDSPECS = [
         {"name": "location", "len": 9},
@@ -55,11 +48,11 @@ def test_table_filter_by_line():
         assert len(list(rtn)) == 7
         assert len(rtn) == 7
 
-        rtn = fwf.filter(op("gender") > b"F")
+        rtn = fwf.filter(op("gender").bytes() > b"F")
         assert len(list(rtn)) == 3
         assert len(rtn) == 3
 
-        rtn = fwf.filter(op("gender") < b"M")
+        rtn = fwf.filter(op("gender").bytes() < b"M")
         assert len(list(rtn)) == 7
         assert len(rtn) == 7
 
@@ -81,8 +74,3 @@ def test_table_filter_by_line():
 
         birthday_year = op("birthday", lambda x: int(x) / 100 / 100)
         rtn = fwf.filter(birthday_year < 1960)
-
-# Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":
-if __name__ == '__main__':
-
-    test_table_filter_by_line()

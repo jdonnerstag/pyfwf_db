@@ -50,10 +50,18 @@ key features:
       to fields that you want to process as string.
 """
 
-from .fwf_unique import FWFUnique
+from ._cython.fwf_db_cython import line_numbers, field_data, create_index
+from ._cython.fwf_mem_optimized_index import BytesDictWithIntListValues
+from .fwf_dict import FWFDict
+from .fwf_fieldspecs import FWFFieldSpec, FWFFileFieldSpecs
+from .fwf_line import FWFLine
+from .fwf_view_like import FWFViewLike
+from .fwf_subset import FWFSubset
+from .fwf_region import FWFRegion
 from .fwf_file import FWFFile
 from .fwf_multi_file import FWFMultiFile
-from .fwf_simple_index import FWFSimpleIndex
+from .fwf_index_builder_cython import FWFCythonIndexBuilder
+
 
 version = (0, 1, 0, 'rc1')
 __version__ = "0.1.0"

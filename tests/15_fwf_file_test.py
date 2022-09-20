@@ -1,16 +1,20 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+# pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name, missing-module-docstring
+# pylint: disable=protected-access
+
+# Current version of pylint not yet working well with python type hints and is causing plenty false positiv.
+# pylint: disable=not-an-iterable, unsubscriptable-object
+
+from typing import Iterable
+
 import pytest
 
-import os
-import sys
-import io
-import numpy as np
-
-from fwf_db import FWFFile, FWFSimpleIndex, FWFMultiFile, FWFUnique
-from fwf_db.fwf_unique_np_based import FWFUniqueNpBased
-from fwf_db.fwf_index_np_based import FWFIndexNumpyBased
+from fwf_db.fwf_file import FWFFile
+from fwf_db.fwf_line import FWFLine
+from fwf_db.fwf_region import FWFRegion
+from fwf_db.fwf_subset import FWFSubset
 
 
 DATA = b"""# My comment test
@@ -27,7 +31,7 @@ US       ME20080503F0f51da89a299Kelly Crose             Whatever    Comedian    
 """
 
 
-class HumanFile(object):
+class HumanFile:
 
     FIELDSPECS = [
         {"name": "location", "len": 9},
@@ -42,26 +46,26 @@ class HumanFile(object):
 
 
 def test_open():
-    
-    # We need both option: 
-    # 1) using a with statement and automatically close again
+    # We need both option:
+    # 1) using a 'with' statement and automatically close again
     # 2) manually open and close it
-    
+
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA) as fd:
-        assert fd.mm is not None
+        assert fd._mm is not None
 
-    assert fd.mm is None
-    assert fwf.mm is None
+    assert fd._mm is None
+    assert fwf._mm is None
 
     fd = fwf.open(DATA)
     assert fd is not None
     assert fd is fwf
-    assert fd.mm is not None
+    assert fd._mm is not None
 
     fd.close()
-    assert fd.mm is None
-    assert fwf.mm is None
+    assert fd._mm is None
+    assert fwf._mm is None
+
 
 def test_bytes_input():
     fwf = FWFFile(HumanFile)
@@ -69,26 +73,24 @@ def test_bytes_input():
         assert fwf.encoding is None
         assert len(fwf.fields) == 8
         assert fwf.fwidth == 83
-        assert fwf.fd is None
-        assert fwf.mm is not None
+        assert fwf._fd is None
+        assert fwf._mm is not None
         assert fwf.start_pos == 18
-        assert fwf.reclen == 10
+        assert fwf.line_count == 10
         assert len(fwf) == 10
-        assert fwf.lines
 
 
 def test_file_input():
     fwf = FWFFile(HumanFile)
-    with fwf.open("./examples/humans.txt"):
+    with fwf.open("./example_data/humans.txt"):
         assert fwf.encoding is None
         assert len(fwf.fields) == 8
         assert fwf.fwidth == 83
-        assert fwf.fd is not None
-        assert fwf.mm is not None
-        assert fwf.reclen == 10012
+        assert fwf._fd is not None
+        assert fwf._mm is not None
+        assert fwf.line_count == 10012
         assert fwf.start_pos == 0
         assert len(fwf) == 10012
-        assert fwf.lines
 
 
 def test_table_iter():
@@ -99,50 +101,62 @@ def test_table_iter():
             assert rec.line
             assert rec.lineno < 10 # we have 10 rows in our test data
 
-        assert rec.lineno == 9 
-
         # Same with full file slice
-        for rec in fwf[:]:
+        x = fwf[:]
+        assert isinstance(x, Iterable)
+        #for rec in fwf[:]:
+        for rec in x:
             assert rec
             assert rec.line
             assert rec.lineno < 10 # we have 10 rows in our test data
-
-        assert rec.lineno == 9 
 
 
 def test_table_line_selector():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
-        rec = fwf[0]
-        assert rec.lineno == 0
-        assert rec["birthday"] == b"19570526"
+        rec1 = fwf.line_at(0)
+        assert isinstance(rec1, FWFLine)
+        assert rec1.lineno == 0
+        assert rec1["birthday"] == b"19570526"
 
-        rec = fwf[0:1]
-        assert rec.lines == slice(0, 1)
-        assert len(list(rec)) == 1
-        for r in rec:
+        rec1 = fwf[0]   # type: FWFLine
+        assert isinstance(rec1, FWFLine)
+        assert rec1.lineno == 0
+        assert rec1["birthday"] == b"19570526"
+
+        rec2 = fwf[0:1]
+        assert isinstance(rec2, FWFRegion)
+        assert slice(rec2.start, rec2.stop) == slice(0, 1)
+        assert len(rec2) == 1
+        assert len(list(rec2)) == 1
+        for r in rec2:
             assert r["birthday"] in [b"19570526", b"19940213"]
 
-        rec = fwf[5]
-        assert rec.lineno == 5
-        assert rec["birthday"] == b"19770319"
+        rec1 = fwf[5]
+        assert isinstance(rec1, FWFLine)
+        assert rec1.lineno == 5
+        assert rec1["birthday"] == b"19770319"
 
-        rec = fwf[-1]
-        assert rec.lineno == 9
-        assert rec["birthday"] == b"20080503"
+        rec1 = fwf[-1]
+        assert isinstance(rec1, FWFLine)
+        assert rec1.lineno == 9
+        assert rec1["birthday"] == b"20080503"
 
-        rec = fwf[0:5]
-        assert rec.lines == slice(0, 5)
-        assert len(list(rec)) == 5
+        rec2 = fwf[0:5]
+        assert isinstance(rec2, FWFRegion)
+        assert slice(rec2.start, rec2.stop) == slice(0, 5)
+        assert len(list(rec2)) == len(rec2)
 
-        rec = fwf[-5:]
-        assert rec.lines == slice(5, 10)
-        assert len(list(rec)) == 5
+        rec2 = fwf[-5:]
+        assert isinstance(rec2, FWFRegion)
+        assert slice(rec2.start, rec2.stop) == slice(5, 10)
+        assert len(list(rec2)) == len(rec2)
 
-        rec = fwf[0:0]
-        assert rec.lines == slice(0, 0)
-        assert len(list(rec)) == 0
+        rec2 = fwf[0:0]
+        assert isinstance(rec2, FWFRegion)
+        assert slice(rec2.start, rec2.stop) == slice(0, 0)
+        assert len(list(rec2)) == len(rec2)
 
 
 def test_index_selector():
@@ -151,13 +165,15 @@ def test_index_selector():
 
         # Unique on an index view
         rtn = fwf[0, 2, 5]
+        assert isinstance(rtn, FWFSubset)
         assert len(list(rtn)) == 3
         assert len(rtn) == 3
         for r in rtn:
-            assert r.lineno in [0, 2, 5]
+            assert r.rooted().lineno in [0, 2, 5]
             assert r["gender"] in [b"M", b"F"]
 
         rtn2 = fwf[0:6][0, 2, 5]
+        assert isinstance(rtn2, FWFSubset)
         assert rtn.lines == rtn2.lines
 
 
@@ -170,7 +186,7 @@ def test_boolean_selector():
         assert len(list(rtn)) == 3
         assert len(rtn) == 3
         for r in rtn:
-            assert r.lineno in [0, 2, 5]
+            assert r.rooted().lineno in [0, 2, 5]
             assert r["gender"] in [b"M", b"F"]
 
 
@@ -179,11 +195,13 @@ def test_multiple_selectors():
     with fwf.open(DATA):
 
         rec = fwf[:]
-        assert rec.lines == slice(0, 10)
+        assert isinstance(rec, FWFRegion)
+        assert slice(rec.start, rec.stop) == slice(0, 10)
         assert len(rec) == 10
 
         rec = rec[:]
-        assert rec.lines == slice(0, 10)
+        assert isinstance(rec, FWFRegion)
+        assert slice(rec.start, rec.stop) == slice(0, 10)
         assert len(rec) == 10
 
         x = [1, 2, 3, 4, 5, 6]
@@ -191,25 +209,30 @@ def test_multiple_selectors():
         assert 6 not in y
 
         rec = rec[0:-1]
-        assert rec.lines == slice(0, 9)
+        assert isinstance(rec, FWFRegion)
+        assert slice(rec.start, rec.stop) == slice(0, 9)
         assert len(rec) == 9
 
         rec = rec[2:-2]
-        assert rec.lines == slice(2, 7)
+        assert isinstance(rec, FWFRegion)
+        assert slice(rec.start, rec.stop) == slice(2, 7)
         assert len(rec) == 5
 
         with pytest.raises(Exception):
-            rec = rec[1, 2, 4, 5, 6]
+            rec = rec[1, 2, 4, 5]
 
-        rec = rec[1, 2, 4, 5]
-        assert rec.lines == [3, 4, 6, 7]  # 6 is out of range
+        rec = rec[0, 1, 2, 4]
+        assert isinstance(rec, FWFSubset)
+        assert rec.lines == [2, 3, 4, 6]
         assert len(rec) == 4
 
-        rec = rec[True, False, True]
-        assert rec.lines == [3, 6]
+        rec = rec[True, False, True]    # Implicit false, if True/False list is shorter
+        assert isinstance(rec, FWFSubset)
+        assert rec.lines == [2, 4]
         assert len(rec) == 2
 
-        rec = fwf[:][:][0:-1][2:-2][1, 2, 4, 5][True, False, True]
+        rec = fwf[:][:][0:-1][2:-2][1, 2, 4][True, False, True]
+        assert isinstance(rec, FWFSubset)
         assert rec.lines == [3, 6]
         assert len(rec) == 2
 
@@ -226,11 +249,11 @@ def test_table_filter_by_line():
         assert len(list(rtn)) == 3
         assert len(rtn) == 3
 
-        rtn = fwf.filter(lambda l: l[fwf.fields["state"]] == b'AR')
+        rtn = fwf.filter(lambda l: l[fwf.fields["state"].fslice] == b'AR')
         assert len(list(rtn)) == 2
         assert len(rtn) == 2
 
-        rtn = fwf.filter(lambda l: l[fwf.fields["state"]] == b'XX')
+        rtn = fwf.filter(lambda l: l[fwf.fields["state"].fslice] == b'XX')
         assert len(list(rtn)) == 0
         assert len(rtn) == 0
 
@@ -271,7 +294,7 @@ def test_table_filter_by_function():
 
         def my_complex_reusable_test(line):
             # Not very efficient, but shows that you can do essentially everything
-            rtn = (line[gender] == b'F') and line[state].decode().startswith('A')
+            rtn = (line[gender] == b'F') and str(line[state], "utf-8").startswith('A')
             return rtn
 
         rtn = fwf[:].filter(my_complex_reusable_test)
@@ -290,17 +313,17 @@ def test_view_of_a_view():
         rtn = rec[2:4]
         assert len(list(rtn)) == 2
         assert len(rtn) == 2
-        for rec in rtn:       # pylint: this is a false-positive, as the code clearly works well
-            assert rec.lineno in [3, 4]
+        for rec in rtn:
+            assert rec.rooted().lineno in [3, 4]
 
         rtn = fwf.filter_by_field("gender", b'F')
         assert len(list(rtn)) == 7
         assert len(rtn) == 7
         for rec in rtn:
-            assert rec.lineno in [0, 3, 5, 6, 7, 8, 9]
+            assert rec.rooted().lineno in [0, 3, 5, 6, 7, 8, 9]
 
-        for rec in rtn[2:4]:  # pylint: this is a false-positive, as the code clearly works well
-            assert rec.lineno in [5, 6]
+        for rec in rtn[2:4]:
+            assert rec.rooted().lineno in [5, 6]
 
 
 
@@ -309,15 +332,15 @@ def exec_empty_data(data):
     fwf = FWFFile(HumanFile)
     with fwf.open(data):
         assert len(fwf) == 0
- 
-        for rec in fwf:
+
+        for _ in fwf:
             raise Exception("Should be empty")
 
-        for rec in fwf.iter_lines():
+        for _ in fwf.iter_lines():
             raise Exception("Should be empty")
 
-        assert list(x for x in fwf) == []
-        
+        assert len(list(x for x in fwf)) == 0
+
         with pytest.raises(Exception):
             rtn = fwf[0:-1]
 
@@ -329,13 +352,7 @@ def test_empty_data():
 
     with pytest.raises(Exception):
         exec_empty_data(None)
-    
+
     exec_empty_data(b"")
     exec_empty_data(b"# Empty")
     exec_empty_data(b"# Empty\n")
-
-
-# Note: On Windows all of your multiprocessing-using code must be guarded by if __name__ == "__main__":
-if __name__ == '__main__':
-
-    test_view_of_a_view()
