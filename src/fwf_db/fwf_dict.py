@@ -26,12 +26,7 @@ class FWFDict(dict[Any, list[int]]):
         entries at ones.
         """
 
-        data = self.get(key)
-        if data is None:
-            data = []
-            super().__setitem__(key, data)
-
-        data.append(value)
+        self.setdefault(key, []).append(value)
 
 
     def set(self, key, value: int) -> None:

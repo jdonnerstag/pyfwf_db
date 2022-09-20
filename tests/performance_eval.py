@@ -511,36 +511,40 @@ def test_cython_create_index():
 
         # Create a non-unique index with defaultdict(list).
         # PARTY_ID is unique, hence the test does not consider the non-unique use cases
-        # 2-3 secs to read the data, and approx 16 secs overall
         t1 = time()
         rtn = fwf_db_cython.field_data(fwf, "PARTY_ID")
         print("")
-        print(f'1. Elapsed time is {time() - t1} seconds.')
+        print(f'1. read field_data: Elapsed time is {time() - t1} seconds.')     # approx 2 secs
 
         values = defaultdict(list)
         all(values[value].append(i) or True for i, value in enumerate(rtn))
-        print(f'2. Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
+        print(f'2. defaultdict(list): Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')    # approx 10 secs
 
         t1 = time()
         rtn = fwf_db_cython.field_data(fwf, "PARTY_ID")
         values = FWFDict()
         values.update(((value, i) for i, value in enumerate(rtn)))
-        print(f'3. Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')
+        print(f'3. FWDict.update(): Elapsed time is {time() - t1} seconds.    {len(rtn):,d}')    # approx 8 secs
 
         # Create a non-unique Index, with close to standard FWFDict underneath.
         # FWFDict is similar to defaultdict(list), but the same
-        # Approx 14 secs
         t1 = time()
         index = FWFIndexDict(fwf, FWFDict())
         fwf_db_cython.create_index(fwf, "PARTY_ID", index)
-        print(f'4. Elapsed time is {time() - t1} seconds.    {len(index):,d}')
+        print(f'4. create_index with FWFDict: Elapsed time is {time() - t1} seconds.    {len(index):,d}')  # approx 7 secs
+
+        t1 = time()
+        data = BytesDictWithIntListValues(len(fwf))
+        index = FWFIndexDict(fwf, data)
+        fwf_db_cython.create_index(fwf, "PARTY_ID", index)
+        print(f'5. create_index with optimized dict: Elapsed time is {time() - t1} seconds.    {len(index):,d}')  # approx 6-7 secs
 
         # Create a unique Index, with standard dict
         # Approx 7 secs  (which is much faster then the non-unique one)
         t1 = time()
         index = FWFUniqueIndexDict(fwf)
         fwf_db_cython.create_index(fwf, "PARTY_ID", index)
-        print(f'5. Elapsed time is {time() - t1} seconds.    {len(index):,d}')
+        print(f'6. create unique index: Elapsed time is {time() - t1} seconds.    {len(index):,d}')  # approx 4 secs (much faster!!)
 
         # Determine how long it takes to create the hashes for all the entries
         # Approx 3-4 secs.  Which is significant compared to the full time needed.
@@ -549,22 +553,7 @@ def test_cython_create_index():
         index = FWFIndexDict(fwf)
         rtn = fwf_db_cython.field_data(fwf, "PARTY_ID")
         rtn_hash = [hash(a) for a in rtn]
-        print(f'6. Elapsed time is {time() - t1} seconds.')
-
-        # "Lookup" numpy arrays => fairly slow => no alternative for dicts.
-        def find(value):
-            return np.argwhere(rtn_hash == hash(value))
-
-        idx = np.unique(rtn)
-
-        t1 = time()
-        for i in range(int(1e6)):
-            key =  randrange(len(idx))
-            key = idx[key]
-            refs = find(key)
-            assert refs is not None
-
-        print(f'7. Elapsed time is {time() - t1} seconds.')
+        print(f'7. create hashes only: Elapsed time is {time() - t1} seconds.')     # approx 2-3 secs
 
 
 @pytest.mark.slow

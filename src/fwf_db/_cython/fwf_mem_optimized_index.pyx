@@ -103,12 +103,10 @@ class BytesDictWithIntListValues(collections.abc.Mapping):  # pylint: disable=mi
         assert self.finalized == False
 
         self.last += 1
-        value = self.index.get(key, None)
-        if value is None:
-            self.index[key] = inext = self.last
-            self.endpos[inext] = inext
-        else:
-            inext = self.endpos[value]
+        inext = self.index.setdefault(key, self.last)
+        if inext != self.last:
+            value = inext
+            inext = self.endpos[inext] or inext
             self.next[inext] = inext = self.last
             self.endpos[value] = inext
 

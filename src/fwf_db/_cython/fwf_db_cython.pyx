@@ -467,7 +467,8 @@ def create_index(fwf,
                 if has_func:
                     key = cfunc(key)
 
-            # Note: FWFIndexLike will do an append(), if the key is missing (and the index none-unique)
+            # Note: FWFIndexLike will do an append(), if the key is missing
+            # (and the index is none-unique)
             index_dict[key] = params.irow
 
         next_line(&params)
