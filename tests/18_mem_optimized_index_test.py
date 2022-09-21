@@ -8,7 +8,7 @@ from time import time
 
 import pytest
 
-from fwf_db._cython.fwf_mem_optimized_index import BytesDictWithIntListValues
+from fwf_db import BytesDictWithIntListValues
 
 
 def test_constructor():

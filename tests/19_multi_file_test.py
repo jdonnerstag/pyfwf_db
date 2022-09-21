@@ -4,12 +4,12 @@
 # pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name, missing-module-docstring
 # pylint: disable=protected-access
 
-from fwf_db.fwf_multi_file import FWFMultiFile
-from fwf_db.fwf_operator import FWFOperator as op
-from fwf_db.fwf_index_like import FWFIndexDict, FWFUniqueIndexDict
-from fwf_db.fwf_index_builder_simple import FWFSimpleIndexBuilder
-from fwf_db.fwf_index_builder_numpy import FWFNumpyIndexBuilder
-from fwf_db.fwf_index_builder_cython import FWFCythonIndexBuilder
+from fwf_db import FWFMultiFile
+from fwf_db import FWFOperator as op
+from fwf_db import FWFIndexDict, FWFUniqueIndexDict
+from fwf_db.core import FWFSimpleIndexBuilder
+from fwf_db.core import FWFNumpyIndexBuilder
+from fwf_db import FWFCythonIndexBuilder
 
 
 DATA_1 = b"""#

@@ -1,6 +1,6 @@
 [MASTER]
-extension-pkg-whitelist=fwf_db._cython.fwf_db_cython
-extension-pkg-allow-list=fwf_db._cython.fwf_db_cython
+extension-pkg-whitelist=fwf_db._cython.fwf_db_cython, fwf_db._cython.fwf_mem_optimized_index
+extension-pkg-allow-list=fwf_db._cython.fwf_db_cython, fwf_db._cython.fwf_mem_optimized_index
 
 [FORMAT]
 max-line-length=120

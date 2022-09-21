@@ -2,6 +2,9 @@
 FWF - Fixed-Width-Field file format tools
 ==========================================
 
+THIS IS WORK IN PROGRESS
+
+
 A python library that provides performant, read-only, NOSQL-like access
 to (very) large files with fixed-width-fields. The file size is not limited
 by the amount of memory available. Very fast index creation for NOSQL-like

@@ -12,7 +12,6 @@ Run individual tests like:
 """
 
 from io import TextIOWrapper
-from itertools import islice
 from random import randrange
 from time import time
 from collections import defaultdict
@@ -24,16 +23,16 @@ import pandas as pd
 
 import pytest
 
-from fwf_db.fwf_file import FWFFile
-from fwf_db.fwf_dict import FWFDict
-from fwf_db.fwf_line import FWFLine
-from fwf_db.fwf_operator import FWFOperator as op
+from fwf_db import FWFFile
+from fwf_db import FWFDict
+from fwf_db import FWFLine
+from fwf_db import FWFOperator as op
 from fwf_db._cython import fwf_db_cython
-from fwf_db.fwf_index_like import FWFIndexDict, FWFUniqueIndexDict
-from fwf_db.fwf_index_builder_simple import FWFSimpleIndexBuilder
-from fwf_db.fwf_index_builder_cython import FWFCythonIndexBuilder
-from fwf_db.fwf_index_builder_numpy import FWFNumpyIndexBuilder
-from fwf_db._cython.fwf_mem_optimized_index import BytesDictWithIntListValues
+from fwf_db import FWFIndexDict, FWFUniqueIndexDict
+from fwf_db import FWFCythonIndexBuilder
+from fwf_db.core import FWFNumpyIndexBuilder
+from fwf_db.core import FWFSimpleIndexBuilder
+from fwf_db import BytesDictWithIntListValues
 
 # ---------------------------------------------
 # Performance Log
@@ -703,7 +702,8 @@ def test_MyIndexDict_get():
 if __name__ == "__main__":
     #setup_module(None)
 
-    test_cython_filter()
+    #test_cython_filter()
     #test_find_last()
+    test_cython_create_index()
 
     #teardown_module(None)

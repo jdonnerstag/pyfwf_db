@@ -17,9 +17,9 @@ import numpy as np
 
 from fwf_db import FWFFile
 from fwf_db._cython import fwf_db_cython
-from fwf_db._cython.fwf_mem_optimized_index import BytesDictWithIntListValues
-from fwf_db.fwf_index_like import FWFIndexDict
-from fwf_db.fwf_index_builder_simple import FWFSimpleIndexBuilder
+from fwf_db import BytesDictWithIntListValues
+from fwf_db import FWFIndexDict
+from fwf_db.core import FWFSimpleIndexBuilder
 
 
 class CENT_PARTY:

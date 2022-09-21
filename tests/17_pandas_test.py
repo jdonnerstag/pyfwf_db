@@ -4,7 +4,7 @@
 # pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name, missing-module-docstring
 
 from fwf_db import FWFFile
-from fwf_db.fwf_pandas import FWFPandas
+from fwf_db import FWFPandas
 
 
 DATA = b"""# My comment test

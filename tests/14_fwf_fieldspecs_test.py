@@ -8,7 +8,7 @@
 
 import pytest
 
-from fwf_db.fwf_fieldspecs import FWFFileFieldSpecs, FWFFieldSpec
+from fwf_db import FWFFileFieldSpecs, FWFFieldSpec
 
 def test_single():
     with pytest.raises(Exception):

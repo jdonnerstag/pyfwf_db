@@ -54,8 +54,8 @@ from cpython cimport array
 from libc.stdlib cimport atoi
 from libc.stdint cimport uint32_t
 
-from ..fwf_index_like import FWFIndexLike
-from ..fwf_view_like import FWFViewLike
+from ..core.fwf_index_like import FWFIndexLike
+from ..core.fwf_view_like import FWFViewLike
 
 ctypedef bint bool
 

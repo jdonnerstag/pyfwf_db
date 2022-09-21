@@ -4,7 +4,7 @@
 import sys
 from typing import Callable, Any
 
-from fwf_db import FWFLine
+from .fwf_line import FWFLine
 
 class FWFOperator:
     """ Easily define filter criteria

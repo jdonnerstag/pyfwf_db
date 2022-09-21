@@ -7,14 +7,14 @@ import pytest
 
 import numpy as np
 
-from fwf_db.fwf_file import FWFFile
-from fwf_db.fwf_subset import FWFSubset
-from fwf_db.fwf_line import FWFLine
-from fwf_db.fwf_index_like import FWFIndexDict, FWFUniqueIndexDict
-from fwf_db.fwf_index_builder_simple import FWFSimpleIndexBuilder
-from fwf_db.fwf_index_builder_numpy import FWFNumpyIndexBuilder
-from fwf_db.fwf_index_builder_cython import FWFCythonIndexBuilder
-from fwf_db._cython.fwf_mem_optimized_index import BytesDictWithIntListValues
+from fwf_db import FWFFile
+from fwf_db import FWFSubset
+from fwf_db import FWFLine
+from fwf_db import FWFIndexDict, FWFUniqueIndexDict
+from fwf_db.core import FWFSimpleIndexBuilder
+from fwf_db.core import FWFNumpyIndexBuilder
+from fwf_db import FWFCythonIndexBuilder
+from fwf_db import BytesDictWithIntListValues
 
 
 DATA = b"""# My comment test

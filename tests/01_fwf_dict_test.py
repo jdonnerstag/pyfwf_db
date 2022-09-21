@@ -3,7 +3,7 @@
 
 # pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name
 
-from fwf_db.fwf_dict import FWFDict
+from fwf_db import FWFDict
 
 
 def test_fwf_dict_setitem():

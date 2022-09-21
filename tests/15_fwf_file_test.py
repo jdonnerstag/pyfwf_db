@@ -11,10 +11,10 @@ from typing import Iterable
 
 import pytest
 
-from fwf_db.fwf_file import FWFFile
-from fwf_db.fwf_line import FWFLine
-from fwf_db.fwf_region import FWFRegion
-from fwf_db.fwf_subset import FWFSubset
+from fwf_db import FWFFile
+from fwf_db import FWFLine
+from fwf_db import FWFRegion
+from fwf_db import FWFSubset
 
 
 DATA = b"""# My comment test

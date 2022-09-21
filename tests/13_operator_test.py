@@ -4,7 +4,7 @@
 # pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name
 
 from fwf_db import FWFFile
-from fwf_db.fwf_operator import FWFOperator as op
+from fwf_db import FWFOperator as op
 
 
 DATA = b"""# My comment test

@@ -12,8 +12,8 @@ import pytest
 from fwf_db import FWFFile, FWFLine
 
 
-DATA = b"""US       AR19570526Fbe56008be36eDianne Mcintosh         Whatever    Medic        #
-"""
+DATA = memoryview(b"""US       AR19570526Fbe56008be36eDianne Mcintosh         Whatever    Medic        #
+""")
 
 class HumanFile:
 
@@ -107,10 +107,10 @@ def test_int():
         assert line.int("state") == 0
 
     # Convert to int without first creating a string or stripping the string
-    data = b"US       AR10      Fbe56008be36eDianne Mcintosh         Whatever    Medic"
+    data = memoryview(b"US       AR10      Fbe56008be36eDianne Mcintosh         Whatever    Medic")
     line = FWFLine(fwf, 0, data)
     assert line.int("birthday") == 10
 
-    data = b"US       AR      20Fbe56008be36eDianne Mcintosh         Whatever    Medic"
+    data = memoryview(b"US       AR      20Fbe56008be36eDianne Mcintosh         Whatever    Medic")
     line = FWFLine(fwf, 0, data)
     assert line.int("birthday") == 20
