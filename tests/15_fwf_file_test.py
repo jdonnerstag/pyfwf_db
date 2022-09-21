@@ -15,6 +15,7 @@ from fwf_db import FWFFile
 from fwf_db import FWFLine
 from fwf_db import FWFRegion
 from fwf_db import FWFSubset
+from fwf_db import fwf_open
 
 
 DATA = b"""# My comment test
@@ -50,11 +51,10 @@ def test_open():
     # 1) using a 'with' statement and automatically close again
     # 2) manually open and close it
 
-    fwf = FWFFile(HumanFile)
-    with fwf.open(DATA) as fd:
-        assert fd._mm is not None
+    with fwf_open(HumanFile, DATA) as fwf:
+        assert isinstance(fwf, FWFFile)
+        assert fwf._mm is not None
 
-    assert fd._mm is None
     assert fwf._mm is None
 
     fd = fwf.open(DATA)
@@ -68,8 +68,8 @@ def test_open():
 
 
 def test_bytes_input():
-    fwf = FWFFile(HumanFile)
-    with fwf.open(DATA):
+    with fwf_open(HumanFile, DATA) as fwf:
+        assert isinstance(fwf, FWFFile)
         assert fwf.encoding is None
         assert len(fwf.fields) == 8
         assert fwf.fwidth == 83
@@ -81,8 +81,8 @@ def test_bytes_input():
 
 
 def test_file_input():
-    fwf = FWFFile(HumanFile)
-    with fwf.open("./example_data/humans.txt"):
+    with fwf_open(HumanFile, "./example_data/humans.txt") as fwf:
+        assert isinstance(fwf, FWFFile)
         assert fwf.encoding is None
         assert len(fwf.fields) == 8
         assert fwf.fwidth == 83
@@ -94,8 +94,7 @@ def test_file_input():
 
 
 def test_table_iter():
-    fwf = FWFFile(HumanFile)
-    with fwf.open(DATA):
+    with fwf_open(HumanFile, DATA) as fwf:
         for rec in fwf:
             assert rec
             assert rec.line
@@ -112,9 +111,7 @@ def test_table_iter():
 
 
 def test_table_line_selector():
-    fwf = FWFFile(HumanFile)
-    with fwf.open(DATA):
-
+    with fwf_open(HumanFile, DATA) as fwf:
         rec1 = fwf.line_at(0)
         assert isinstance(rec1, FWFLine)
         assert rec1.lineno == 0
@@ -160,9 +157,7 @@ def test_table_line_selector():
 
 
 def test_index_selector():
-    fwf = FWFFile(HumanFile)
-    with fwf.open(DATA):
-
+    with fwf_open(HumanFile, DATA) as fwf:
         # Unique on an index view
         rtn = fwf[0, 2, 5]
         assert isinstance(rtn, FWFSubset)
@@ -178,9 +173,7 @@ def test_index_selector():
 
 
 def test_boolean_selector():
-    fwf = FWFFile(HumanFile)
-    with fwf.open(DATA):
-
+    with fwf_open(HumanFile, DATA) as fwf:
         # Unique on an boolean view
         rtn = fwf[True, False, True, False, False, True]
         assert len(list(rtn)) == 3
@@ -191,9 +184,7 @@ def test_boolean_selector():
 
 
 def test_multiple_selectors():
-    fwf = FWFFile(HumanFile)
-    with fwf.open(DATA):
-
+    with fwf_open(HumanFile, DATA) as fwf:
         rec = fwf[:]
         assert isinstance(rec, FWFRegion)
         assert slice(rec.start, rec.stop) == slice(0, 10)
@@ -238,9 +229,7 @@ def test_multiple_selectors():
 
 
 def test_table_filter_by_line():
-    fwf = FWFFile(HumanFile)
-    with fwf.open(DATA):
-
+    with fwf_open(HumanFile, DATA) as fwf:
         rtn = fwf.filter(lambda l: l[19] == ord('F'))
         assert len(list(rtn)) == 7
         assert len(rtn) == 7
@@ -266,9 +255,7 @@ def test_table_filter_by_line():
 
 
 def test_table_filter_by_field():
-    fwf = FWFFile(HumanFile)
-    with fwf.open(DATA):
-
+    with fwf_open(HumanFile, DATA) as fwf:
         rtn = fwf.filter("gender", lambda x: x == b'F')
         assert len(list(rtn)) == 7
 
@@ -286,9 +273,7 @@ def test_table_filter_by_field():
 
 
 def test_table_filter_by_function():
-    fwf = FWFFile(HumanFile)
-    with fwf.open(DATA):
-
+    with fwf_open(HumanFile, DATA) as fwf:
         gender = fwf.fields["gender"]
         state = fwf.fields["state"]
 
@@ -302,9 +287,7 @@ def test_table_filter_by_function():
 
 
 def test_view_of_a_view():
-    fwf = FWFFile(HumanFile)
-    with fwf.open(DATA):
-
+    with fwf_open(HumanFile, DATA) as fwf:
         rec = fwf[1:8]
         assert fwf.fields == rec.fields
         assert len(list(rec)) == 7
@@ -326,11 +309,8 @@ def test_view_of_a_view():
             assert rec.rooted().lineno in [5, 6]
 
 
-
 def exec_empty_data(data):
-
-    fwf = FWFFile(HumanFile)
-    with fwf.open(data):
+    with fwf_open(HumanFile, data) as fwf:
         assert len(fwf) == 0
 
         for _ in fwf:
@@ -349,7 +329,6 @@ def exec_empty_data(data):
 
 
 def test_empty_data():
-
     with pytest.raises(Exception):
         exec_empty_data(None)
 

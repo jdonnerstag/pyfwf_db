@@ -59,6 +59,10 @@ class FWFFile(FWFViewLike):
 
         super().__init__(self.fieldspecs)
 
+        # This is only to be consistent with FWFMultiFile and thus avoid
+        # false-positiv pylint warnings
+        self.files = [self.file]
+
 
     def is_newline(self, byte: int) -> bool:
         """True, if byte if one of the configured newline strings"""
@@ -168,7 +172,7 @@ class FWFFile(FWFViewLike):
             self.file = id(file)
             _mm = file
         else:
-            raise FWFFileException(f"Invalid 'file' argument. Must be of type str or bytes: {file}")
+            raise FWFFileException(f"Invalid 'file' argument. Must be of type str or bytes: {type(file)}")
 
         self._mm = memoryview(_mm)
         self.number_of_newline_bytes = self._number_of_newline_bytes(self._mm)

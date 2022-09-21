@@ -13,6 +13,8 @@ from .fwf_index_builder_cython import FWFCythonIndexBuilder
 from .fwf_index_like import FWFIndexDict, FWFUniqueIndexDict
 from .fwf_operator import FWFOperator
 from .fwf_pandas import FWFPandas
+from .fwf_open import fwf_open
+
 
 # Deprecated or not meant for public use. Do not copy in fwf_db.__init__.py
 from .fwf_index_builder_simple import FWFSimpleIndexBuilder

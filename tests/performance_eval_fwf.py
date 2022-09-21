@@ -656,48 +656,6 @@ def test_non_unique_index():
         # non-unique index with mem optimized dict
         # approx 40 secs. Quite a bit slower then defaultdict(list)
 
-"""
-# @pytest.mark.slow
-# TODO This test is not yet implemented
-def test_MyIndexDict_get():
-
-    fwf = FWFFile(CENT_PARTY)
-    with fwf.open(FILE_CENT_PARTY) as fd:
-        rec_size = len(fd)
-        assert rec_size == 5_889_278
-
-        field_pos = fd.fields["PARTY_ID"].start
-        field_len = fd.fields["PARTY_ID"].stop - fd.fields["PARTY_ID"].start
-
-        data = MyIndexDict(size=rec_size, mm=fd.mm, reclen=fd.reclen, field_pos=field_pos, field_len=field_len, align="right")
-        assert data
-
-        # Get list of keys and timeit
-        t1 = time()
-        gen = ((i, line[fd.fields["PARTY_ID"]]) for i, line in fd.iter_lines())
-        for i, key in gen:
-            pass
-        print(f'1. Elapsed time is {time() - t1} seconds.')
-
-        # Put the keys into the index
-        t1 = time()
-        gen = ((i, line[fd.fields["PARTY_ID"]]) for i, line in fd.iter_lines())
-        for i, key in gen:
-            data.put(key, i)
-        percentage_filled, buckets_by_length, max_length, buckets_length = data.analyze()
-        print(f"precentage filled: {percentage_filled}, max_length: {max_length}, distibution: {buckets_by_length}")
-        print(f'2. Elapsed time is {time() - t1} seconds.')
-
-        # TODO randomly pick value from list for 1 mio get() and timeit.
-
-        # TODO 1 mio get() with "key not found"
-
-        # TODO randomly pick key and every 10th is not-found
-
-        # TODO Play with "capacity" and compare performance results
-
-        # TODO if possible compare key length < 8 bytes, == 8 bytes and > 8 bytes
-"""
 
 if __name__ == "__main__":
     #setup_module(None)

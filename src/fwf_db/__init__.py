@@ -62,6 +62,7 @@ from .core import FWFCythonIndexBuilder
 from .core import FWFIndexDict, FWFUniqueIndexDict
 from .core import FWFOperator
 from .core import FWFPandas
+from .core import fwf_open
 from ._cython import BytesDictWithIntListValues
 
 version = (0, 1, 0, 'rc1')
