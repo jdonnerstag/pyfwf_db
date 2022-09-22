@@ -1,0 +1,11 @@
+numpy
+deprecated
+prettytable
+
+[dev]
+pytest
+Cython
+tox
+check-manifest
+pandas
+memory_profiler

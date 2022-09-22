@@ -77,6 +77,11 @@ class FWFIndexLike(Generic[T], collections.abc.Mapping[Any, T]):
 
 
     def __len__(self) -> int:
+        return self.count()
+
+
+    def count(self) -> int:
+        """Return the number of keys in this index"""
         return len(self.data)
 
 

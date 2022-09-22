@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-from typing import Iterable, Tuple, Union, Optional, overload, TYPE_CHECKING
+from collections import OrderedDict
+from typing import Iterable, Union, Optional, overload, TYPE_CHECKING, Any
 
 import sys
 from datetime import datetime
@@ -40,7 +41,7 @@ class FWFLine:
     @overload
     def __getitem__(self, arg: slice) -> memoryview: ...
 
-    def __getitem__(self, arg: Union['str', 'int', slice, FWFFieldSpec]) -> Union['int', memoryview]:
+    def __getitem__(self, arg: Union['str', 'int', slice, FWFFieldSpec]) -> memoryview|int:
         """Get a field or range of bytes from the line.
 
         fieldspec: return the line data associated with the fieldspec (slice)
@@ -48,14 +49,9 @@ class FWFLine:
         int: return the byte at the position provided
         slice: return the bytes associated with the slice
         """
-        if isinstance(arg, FWFFieldSpec):
-            return self.line[arg.fslice]
-        if isinstance(arg, str):
-            return self._get(arg)
-        if isinstance(arg, int):
-            return self.line[arg]
-        if isinstance(arg, slice):
-            return self.line[arg]
+        rtn = self.get(arg)
+        if rtn is not None:
+            return rtn
 
         raise KeyError(f"Invalid Index: {arg}")
 
@@ -66,25 +62,40 @@ class FWFLine:
         return self.line[field_slice]
 
 
-    def get(self, field, default: bytes|None = None) -> bytes|memoryview|None:
-        """Get the binary data for the field"""
-        try:
-            return self._get(field)
-        except KeyError:
-            return default
+    def get(self, arg: Union['str', 'int', slice, FWFFieldSpec], default = None):
+        """Get a field or range of bytes from the line.
+
+        fieldspec: return the line data associated with the fieldspec (slice)
+        string: identify the field by its name and return the data associated with it
+        int: return the byte at the position provided
+        slice: return the bytes associated with the slice
+        """
+        if arg == "_lineno":
+            return self.lineno
+        if arg == "_line":
+            return self.line
+        if isinstance(arg, FWFFieldSpec):
+            return self.line[arg.fslice]
+        if isinstance(arg, str):
+            return self._get(arg)
+        if isinstance(arg, int):
+            return self.line[arg]
+        if isinstance(arg, slice):
+            return self.line[arg]
+        return default
 
 
-    def str(self, field, encoding=None) -> str:
+    def str(self, field: str, encoding=None) -> str:
         """Get the data for the field converted into a string, optionally
         applying an encoding
         """
         encoding = encoding or sys.getdefaultencoding()
-        return str(self._get(field), encoding)
+        return str(self[field], encoding)
 
 
     def int(self, field) -> int:
         """Get the data for the field converted into an int"""
-        return int(self._get(field))
+        return int(self[field])
 
 
     def date(self, field, fmt="%Y%m%d") -> datetime:
@@ -101,27 +112,31 @@ class FWFLine:
         return key in self.fwf_view.fields
 
 
-    def keys(self) -> Iterable['str']:
+    def keys(self):
         """Like dict's keys() method, return all field names"""
         return self.fwf_view.fields.keys()
 
 
-    def items(self) -> Iterable[Tuple['str', memoryview]]:
-        """Like dict's items(), return field name and value tuples"""
-        for key in self.fwf_view.fields.keys():
-            rtn = self._get(key)
-            yield (key, rtn)
+    def items(self, *keys: 'str', to_bytes: bool = True) -> Iterable[tuple['str', Any]]:
+        """Similar to dict's items(), return field name and value tuples"""
+
+        names = self.fwf_view.headers(*keys)
+        for key in names:
+            data = self[key]
+            if to_bytes:
+                data = bytes(data)
+
+            yield (key, data)
 
 
-    def to_dict(self) -> dict['str', memoryview]:
+    def to_dict(self, *keys: 'str') -> OrderedDict['str', Any]:
         """Provide the line as dict"""
-        return dict(self.items())
+        return OrderedDict(self.items(*keys, to_bytes=True))
 
 
-    def to_list(self, keys=None) -> list[memoryview]:
-        """Provide a values in a a list"""
-        keys = keys or self.keys()
-        return [self._get(key) for key in keys]
+    def to_list(self, *keys: 'str') -> tuple[Any]:
+        """Provide all values in a list"""
+        return tuple(v for _, v in self.items(*keys, to_bytes=True))
 
 
     def rooted(self, stop_view: Optional['FWFViewLike'] = None) -> 'FWFLine':

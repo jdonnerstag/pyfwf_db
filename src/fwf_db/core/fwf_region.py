@@ -25,7 +25,7 @@ class FWFRegion(FWFViewLike):
         self.stop = stop
 
 
-    def __len__(self) -> int:
+    def count(self) -> int:
         return self.stop - self.start
 
 

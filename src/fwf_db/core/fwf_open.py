@@ -2,7 +2,6 @@
 # encoding: utf-8
 
 from typing import Iterator, Union
-from contextlib import contextmanager
 
 from .fwf_file import FWFFile
 from .fwf_multi_file import FWFMultiFile
@@ -10,8 +9,7 @@ from .fwf_multi_file import FWFMultiFile
 
 FilesType = Union[str, bytes, list['FilesType']]
 
-@contextmanager
-def fwf_open(filespec: type, *files: FilesType) -> Iterator[FWFFile|FWFMultiFile]:
+def fwf_open(filespec: type, *files: FilesType) -> FWFFile|FWFMultiFile:
     """Open a fwf file (read-only) with the file specification provided"""
 
     assert len(files) > 0, "You must provide at least one file name"
@@ -19,16 +17,13 @@ def fwf_open(filespec: type, *files: FilesType) -> Iterator[FWFFile|FWFMultiFile
     if len(files) == 1 and isinstance(files[0], str|bytes):
         fwf = FWFFile(filespec)
         fwf.open(files[0])
-        yield fwf
+        return fwf
 
-    else:
-        fwf = FWFMultiFile(filespec)
-        for file in  _flatten(files):
-            fwf.open_and_add(file)
+    fwf = FWFMultiFile(filespec)
+    for file in  _flatten(files):
+        fwf.open_and_add(file)
 
-        yield fwf
-
-    fwf.close()
+    return fwf
 
 
 def _flatten(mylist):

@@ -5,7 +5,7 @@
 """Define two classes. One to hold a single field specification,
 and one to hold all field specifications which define a file."""
 
-from typing import Any, Optional, Iterable
+from typing import Any, Optional
 from collections import OrderedDict
 
 
@@ -101,6 +101,22 @@ class FWFFieldSpec:
         except AttributeError:
             return False
 
+
+    def __str__(self) -> str:
+        """Compute the “informal” string representation of an object
+
+        A representation that is useful for printing the object
+        """
+        return f"{self.name}=({self.fslice.start}, {self.fslice.stop})"
+
+
+    def __repr__(self) -> str:
+        """Compute the “official” string representation of an object
+
+        A representation that has all information about the object
+        """
+        return f"{self.__class__.__name__}(name=\"{self.name}\", slice=({self.fslice.start}, {self.fslice.stop}))"
+
 # --------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------
 
@@ -111,7 +127,7 @@ class FWFFileFieldSpecs:
         """Constructor"""
 
         self.fields = self._init(specs)
-        self.reclen = self._recordflength()
+        self.reclen = self._record_length()
 
 
     def _init(self, specs: list[dict[str, Any]]) -> OrderedDict[str, FWFFieldSpec]:
@@ -129,20 +145,17 @@ class FWFFileFieldSpecs:
         return _fields
 
 
-    def _recordflength(self) -> int:
+    def _record_length(self) -> int:
         """Return the line length"""
         return max(x.stop for x in self.fields.values())
 
 
-    def get(self, key: str|int, default=None) -> Optional[FWFFieldSpec]:
+    def get(self, key: str, default=None) -> Optional[FWFFieldSpec]:
         """Get a fieldspec by name or index"""
-        if isinstance(key, str):
-            return self.fields.get(key, default)
-
-        return list(self.fields.values())[key]
+        return self.fields.get(key, default)
 
 
-    def __getitem__(self, key: str|int) -> FWFFieldSpec:
+    def __getitem__(self, key: str) -> FWFFieldSpec:
         value = self.get(key)
         if value is not None:
             return value
@@ -154,15 +167,29 @@ class FWFFileFieldSpecs:
         return key in self.fields
 
 
-    def keys(self) -> Iterable[str]:
+    def keys(self):
         """The list of all field names"""
         return self.fields.keys()
 
 
-    def values(self) -> Iterable[FWFFieldSpec]:
+    def values(self):
         """The list of all field specifications"""
         return self.fields.values()
 
 
-    def __len__(self) -> int:
+    def items(self):
+        """Similar to dict's items()"""
+        return self.fields.items()
+
+
+    def __len__(self):
         return len(self.fields)
+
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
+
+    def __repr__(self) -> str:
+        fields = "[" + ", ".join(f.__str__() for f in self.fields.values()) + "]"
+        return f"{self.__class__.__name__}(reclen={self.reclen}, fields={fields})"

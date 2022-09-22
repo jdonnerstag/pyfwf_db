@@ -4,8 +4,11 @@
 """A base class that defines a view-like object"""
 
 import abc
+import sys
 from typing import overload, Callable, Iterator, Iterable, Optional
+from collections import OrderedDict
 from itertools import islice
+from prettytable import PrettyTable
 
 from .fwf_fieldspecs import FWFFileFieldSpecs, FWFFieldSpec
 from .fwf_line import FWFLine
@@ -21,9 +24,14 @@ class FWFViewLike:
         self.fields = fields
 
 
-    @abc.abstractmethod
     def __len__(self) -> int:
         """Varies depending on the view implementation"""
+        return self.count()
+
+
+    @abc.abstractmethod
+    def count(self) -> int:
+        """Provide the number of records in this view"""
 
 
     def get_fields(self) -> FWFFileFieldSpecs:
@@ -31,7 +39,7 @@ class FWFViewLike:
         return self.fields
 
 
-    def field(self, index: str|int) -> FWFFieldSpec:
+    def field(self, index: str) -> FWFFieldSpec:
         """Return the fieldspec for the field"""
         return self.fields[index]
 
@@ -266,3 +274,64 @@ class FWFViewLike:
             rtn = [i for i, rec in gen if rec == func]
 
         return self.fwf_by_indices(rtn)
+
+
+    def headers(self, *fields: str) -> tuple[str]:
+        """Get the names for all fields"""
+        if not fields:
+            return tuple(self.fields.keys())
+
+        rtn = set()
+        for field in fields:
+            if field in ["_lineno", "_line"]:
+                rtn.add(field)
+            elif field in self.fields:
+                rtn.add(field)
+
+        return tuple(rtn)
+
+
+    def to_list(self, *fields: str, stop: int = -1, header: bool = True) -> Iterator[tuple]:
+        """Create an ordinary python list from the view"""
+
+        if header:
+            yield self.headers()
+
+        if stop <= 0:
+            stop = self.count()
+
+        stop = min(self.count(), stop)
+        for i in range(stop):
+            values = self[i].to_list(*fields)
+            yield values
+
+
+    def get_string(self, *fields: str, stop: int = -1, pretty: bool = True) -> str:
+        """Create a string representation of the data"""
+        if pretty:
+            rtn = PrettyTable()
+            rtn.field_names = self.headers(*fields)
+            rtn.add_rows(self.to_list(*fields, stop=stop, header=False))
+            return rtn.get_string() + f"\n  len: {self.count():,}"
+
+        rtn = f"{self.__class__.__name__}(count={self.count()}):\n"
+        data = self.to_list(*fields, stop=stop, header=True)
+        rtn += "[" + ",\n  ".join(str(f) for f in data)
+        if 0 <= stop < self.count():
+            rtn += "..."
+
+        rtn += "\n]\n"
+        return rtn
+
+
+    def print(self, *fields: str, stop: int=-1, pretty: bool=True, file=sys.stdout) -> None:
+        """Print the table content"""
+        print(self.get_string(*fields, stop=stop, pretty=pretty), file=file)
+
+
+    def __str__(self) -> str:
+        return self.get_string(stop=10, pretty=False)
+
+
+    def __repr__(self) -> str:
+        return self.get_string(stop=10, pretty=True)

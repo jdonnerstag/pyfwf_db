@@ -117,7 +117,7 @@ class FWFMultiFile(FWFViewLike):
         raise IndexError(f"Index not found: {index}")
 
 
-    def __len__(self) -> int:
+    def count(self) -> int:
         return self.line_count
 
 

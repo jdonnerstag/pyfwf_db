@@ -200,7 +200,7 @@ class FWFFile(FWFViewLike):
         self._mm = self._fd = None
 
 
-    def __len__(self) -> int:
+    def count(self) -> int:
         """Return the number of records in the file"""
         return self.line_count
 

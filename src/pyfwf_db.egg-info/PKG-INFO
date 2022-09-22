@@ -1,3 +1,28 @@
+Metadata-Version: 2.1
+Name: pyfwf-db
+Version: 0.1.0
+Summary: Fast fixed-width-fields File Format NOSQL-like access
+Home-page: https://github.com/jdonnerstag/pyfwf_db
+Author: Juergen Donnerstag
+Author-email: juergen.donnerstag@gmail.com
+Keywords: fixed width,file,parser,database,nosql,read-only
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Natural Language :: English
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Utilities
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3 :: Only
+Description-Content-Type: text/markdown
+Provides-Extra: dev
+License-File: LICENSE.txt
+
 ==========================================
 FWF - Fixed-Width-Field file format tools
 ==========================================
@@ -486,8 +511,8 @@ selecting which fields to print.
 # TODO
 There are also 2 hidden fields that may be used, if needed:
 
-- "_lineno": The line number (record number) within the original file, excluding leading comments
-- "_line": The unchanged and unparsed original line, with original
+- "_line_number": The line number (record number) within the original file, excluding leading comments
+- "_unparsed_line": The unchanged and unparsed original line, with original
   line breakers at the end
 
 .. code-block:: Python

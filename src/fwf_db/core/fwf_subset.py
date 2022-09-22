@@ -18,7 +18,7 @@ class FWFSubset(FWFViewLike):
         self.lines = lines
 
 
-    def __len__(self) -> int:
+    def count(self) -> int:
         return len(self.lines)
 
 

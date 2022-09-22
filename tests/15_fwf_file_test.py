@@ -77,11 +77,11 @@ def test_bytes_input():
         assert fwf._mm is not None
         assert fwf.start_pos == 18
         assert fwf.line_count == 10
-        assert len(fwf) == 10
+        assert fwf.count() == len(fwf) == 10
 
 
 def test_file_input():
-    with fwf_open(HumanFile, "./example_data/humans.txt") as fwf:
+    with fwf_open(HumanFile, "./sample_data/humans.txt") as fwf:
         assert isinstance(fwf, FWFFile)
         assert fwf.encoding is None
         assert len(fwf.fields) == 8
@@ -90,7 +90,7 @@ def test_file_input():
         assert fwf._mm is not None
         assert fwf.line_count == 10012
         assert fwf.start_pos == 0
-        assert len(fwf) == 10012
+        assert fwf.count() == len(fwf) == 10012
 
 
 def test_table_iter():
@@ -125,8 +125,8 @@ def test_table_line_selector():
         rec2 = fwf[0:1]
         assert isinstance(rec2, FWFRegion)
         assert slice(rec2.start, rec2.stop) == slice(0, 1)
-        assert len(rec2) == 1
-        assert len(list(rec2)) == 1
+        assert rec2.count() == len(rec2) == 1
+        assert rec2.count() == len(list(rec2)) == 1
         for r in rec2:
             assert r["birthday"] in [b"19570526", b"19940213"]
 
@@ -143,17 +143,17 @@ def test_table_line_selector():
         rec2 = fwf[0:5]
         assert isinstance(rec2, FWFRegion)
         assert slice(rec2.start, rec2.stop) == slice(0, 5)
-        assert len(list(rec2)) == len(rec2)
+        assert rec2.count() == len(list(rec2)) == len(rec2)
 
         rec2 = fwf[-5:]
         assert isinstance(rec2, FWFRegion)
         assert slice(rec2.start, rec2.stop) == slice(5, 10)
-        assert len(list(rec2)) == len(rec2)
+        assert rec2.count() == len(list(rec2)) == len(rec2)
 
         rec2 = fwf[0:0]
         assert isinstance(rec2, FWFRegion)
         assert slice(rec2.start, rec2.stop) == slice(0, 0)
-        assert len(list(rec2)) == len(rec2)
+        assert rec2.count() == len(list(rec2)) == len(rec2)
 
 
 def test_index_selector():
@@ -161,8 +161,8 @@ def test_index_selector():
         # Unique on an index view
         rtn = fwf[0, 2, 5]
         assert isinstance(rtn, FWFSubset)
-        assert len(list(rtn)) == 3
-        assert len(rtn) == 3
+        assert rtn.count() == len(list(rtn)) == 3
+        assert rtn.count() == len(rtn) == 3
         for r in rtn:
             assert r.rooted().lineno in [0, 2, 5]
             assert r["gender"] in [b"M", b"F"]
@@ -176,8 +176,8 @@ def test_boolean_selector():
     with fwf_open(HumanFile, DATA) as fwf:
         # Unique on an boolean view
         rtn = fwf[True, False, True, False, False, True]
-        assert len(list(rtn)) == 3
-        assert len(rtn) == 3
+        assert rtn.count() == len(list(rtn)) == 3
+        assert rtn.count() == len(rtn) == 3
         for r in rtn:
             assert r.rooted().lineno in [0, 2, 5]
             assert r["gender"] in [b"M", b"F"]
@@ -188,12 +188,12 @@ def test_multiple_selectors():
         rec = fwf[:]
         assert isinstance(rec, FWFRegion)
         assert slice(rec.start, rec.stop) == slice(0, 10)
-        assert len(rec) == 10
+        assert rec.count() == len(rec) == 10
 
         rec = rec[:]
         assert isinstance(rec, FWFRegion)
         assert slice(rec.start, rec.stop) == slice(0, 10)
-        assert len(rec) == 10
+        assert rec.count() == len(rec) == 10
 
         x = [1, 2, 3, 4, 5, 6]
         y = x[0:-1]
@@ -202,12 +202,12 @@ def test_multiple_selectors():
         rec = rec[0:-1]
         assert isinstance(rec, FWFRegion)
         assert slice(rec.start, rec.stop) == slice(0, 9)
-        assert len(rec) == 9
+        assert rec.count() == len(rec) == 9
 
         rec = rec[2:-2]
         assert isinstance(rec, FWFRegion)
         assert slice(rec.start, rec.stop) == slice(2, 7)
-        assert len(rec) == 5
+        assert rec.count() == len(rec) == 5
 
         with pytest.raises(Exception):
             rec = rec[1, 2, 4, 5]
@@ -215,36 +215,36 @@ def test_multiple_selectors():
         rec = rec[0, 1, 2, 4]
         assert isinstance(rec, FWFSubset)
         assert rec.lines == [2, 3, 4, 6]
-        assert len(rec) == 4
+        assert rec.count() == len(rec) == 4
 
         rec = rec[True, False, True]    # Implicit false, if True/False list is shorter
         assert isinstance(rec, FWFSubset)
         assert rec.lines == [2, 4]
-        assert len(rec) == 2
+        assert rec.count() == len(rec) == 2
 
         rec = fwf[:][:][0:-1][2:-2][1, 2, 4][True, False, True]
         assert isinstance(rec, FWFSubset)
         assert rec.lines == [3, 6]
-        assert len(rec) == 2
+        assert rec.count() == len(rec) == 2
 
 
 def test_table_filter_by_line():
     with fwf_open(HumanFile, DATA) as fwf:
         rtn = fwf.filter(lambda l: l[19] == ord('F'))
-        assert len(list(rtn)) == 7
-        assert len(rtn) == 7
+        assert rtn.count() == len(list(rtn)) == 7
+        assert rtn.count() == len(rtn) == 7
 
         rtn = fwf.filter(lambda l: l[fwf.fields["gender"].start] == ord('M'))
-        assert len(list(rtn)) == 3
-        assert len(rtn) == 3
+        assert rtn.count() == len(list(rtn)) == 3
+        assert rtn.count() == len(rtn) == 3
 
         rtn = fwf.filter(lambda l: l[fwf.fields["state"].fslice] == b'AR')
-        assert len(list(rtn)) == 2
-        assert len(rtn) == 2
+        assert rtn.count() == len(list(rtn)) == 2
+        assert rtn.count() == len(rtn) == 2
 
         rtn = fwf.filter(lambda l: l[fwf.fields["state"].fslice] == b'XX')
-        assert len(list(rtn)) == 0
-        assert len(rtn) == 0
+        assert rtn.count() == len(list(rtn)) == 0
+        assert rtn.count() == len(rtn) == 0
 
         # We often need to filter or sort by a date
         assert b"19000101" < b"20191231"
@@ -257,19 +257,19 @@ def test_table_filter_by_line():
 def test_table_filter_by_field():
     with fwf_open(HumanFile, DATA) as fwf:
         rtn = fwf.filter("gender", lambda x: x == b'F')
-        assert len(list(rtn)) == 7
+        assert rtn.count() == len(list(rtn)) == 7
 
         rtn = fwf.filter("gender", b'F')
-        assert len(list(rtn)) == 7
+        assert rtn.count() == len(list(rtn)) == 7
 
         rtn = fwf.filter("gender", lambda x: x == b'M')
-        assert len(list(rtn)) == 3
+        assert rtn.count() == len(list(rtn)) == 3
 
         rtn = fwf.filter("gender", b'M')
-        assert len(list(rtn)) == 3
+        assert rtn.count() == len(list(rtn)) == 3
 
         rtn = fwf.filter("gender", lambda x: x in [b'M', b'F'])
-        assert len(list(rtn)) == 10
+        assert rtn.count() == len(list(rtn)) == 10
 
 
 def test_table_filter_by_function():
@@ -283,25 +283,25 @@ def test_table_filter_by_function():
             return rtn
 
         rtn = fwf[:].filter(my_complex_reusable_test)
-        assert len(list(rtn)) == 2
+        assert rtn.count() == len(list(rtn)) == 2
 
 
 def test_view_of_a_view():
     with fwf_open(HumanFile, DATA) as fwf:
         rec = fwf[1:8]
         assert fwf.fields == rec.fields
-        assert len(list(rec)) == 7
-        assert len(rec) == 7
+        assert rec.count() == len(list(rec)) == 7
+        assert rec.count() == len(rec) == 7
 
         rtn = rec[2:4]
-        assert len(list(rtn)) == 2
-        assert len(rtn) == 2
+        assert rtn.count() == len(list(rtn)) == 2
+        assert rtn.count() == len(rtn) == 2
         for rec in rtn:
             assert rec.rooted().lineno in [3, 4]
 
         rtn = fwf.filter_by_field("gender", b'F')
-        assert len(list(rtn)) == 7
-        assert len(rtn) == 7
+        assert rtn.count() == len(list(rtn)) == 7
+        assert rtn.count() == len(rtn) == 7
         for rec in rtn:
             assert rec.rooted().lineno in [0, 3, 5, 6, 7, 8, 9]
 
@@ -311,7 +311,7 @@ def test_view_of_a_view():
 
 def exec_empty_data(data):
     with fwf_open(HumanFile, data) as fwf:
-        assert len(fwf) == 0
+        assert fwf.count() == len(fwf) == 0
 
         for _ in fwf:
             raise Exception("Should be empty")
@@ -325,7 +325,7 @@ def exec_empty_data(data):
             rtn = fwf[0:-1]
 
         rtn = fwf.filter_by_field("gender", b'F')
-        assert len(rtn) == 0
+        assert rtn.count() == len(rtn) == 0
 
 
 def test_empty_data():

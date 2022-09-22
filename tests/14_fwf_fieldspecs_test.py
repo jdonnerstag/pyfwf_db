@@ -119,6 +119,7 @@ def test_filespec_ok():
     assert list(spec.values())[1].name == "bb"
 
     assert len(spec) == 7
+    assert list(spec.names()) == ["aa", "bb", "cc", "dd", "ee", "ff", "gg"]
 
 
 def test_duplicate_names():
