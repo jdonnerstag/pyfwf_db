@@ -5,7 +5,7 @@
 # pylint: disable=protected-access
 
 from fwf_db import FWFMultiFile
-from fwf_db import FWFOperator as op
+from fwf_db import op
 from fwf_db import FWFIndexDict, FWFUniqueIndexDict
 from fwf_db.core import FWFSimpleIndexBuilder
 from fwf_db import FWFCythonIndexBuilder

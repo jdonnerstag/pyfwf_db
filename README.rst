@@ -183,11 +183,17 @@ That's it. The records are now accessible. Togther it looks like this:
   data = fwf_open(HumanFileSpec, "sample_data/humans.txt")
 
 
-Queryset
-========
+Views
+======
 
-`FWFFile` makes all records and fields from the file available,
-like a standard python list:
+`data` makes all records and fields from the file available,
+and is accessible almost like a standard python list. You
+may consider it the root-view, as it doesn't have another
+parent view.
+
+Slices, filters, etc. create views on top of their parent view.
+Views are very light-weight and do not copy any data. They just
+maintain indexes into their parent view.
 
 .. code-block:: Python
 
@@ -243,15 +249,14 @@ like a standard python list:
 .filter(\*\*kwargs)
 ===================
 
-Here is where the magic happens. A filtered queryset will always return
-a new queryset that can be filtered again and so on.
+Any view-like dataset can filtered and returns a new view.
+Which can again be filtered and so on.
 
 .. code-block:: Python
 
   >>> data = fwf_open(HumanFileSpec, "sample_data/humans.txt")
-  >>> data.header("name", "birthday", "gender")
+  >>> data.set_headers("name", "birthday", "gender")
   >>> first5 = data[:5]
-  >>> # 'first5' is a Queryset instance just as 'data' but with only a few objects
   >>> first5
   +------------------+----------+--------+
   | name             | birthday | gender |
@@ -264,7 +269,7 @@ a new queryset that can be filtered again and so on.
   +------------------+----------+--------+
 
   >>> # And it still can be filtered
-  >>> first5.filter(op("gender")=="F")
+  >>> first5.filter(op("gender")==b"F")
   +------------------+----------+--------+
   | name             | birthday | gender |
   +------------------+----------+--------+
@@ -272,8 +277,8 @@ a new queryset that can be filtered again and so on.
   | Georgia Frank    | 20110508 | F      |
   +------------------+----------+--------+
 
-  >>> # with multiple keywords arguments
-  >>> first5.filter(op("gender")=="M", op("birthday") >= "19900101")
+  >>> # with multiple keywords arguments (and/or combined)
+  >>> first5.filter(op("gender")==b"M", op("birthday") >= b"19900101", is_or=True)
   +------------------+----------+--------+
   | name             | birthday | gender |
   +------------------+----------+--------+
@@ -282,7 +287,7 @@ a new queryset that can be filtered again and so on.
   +------------------+----------+--------+
 
   >>> # or chained filters
-  >>> first5.filter(op("name").endswith("k")).filter(op("gender")="F")
+  >>> first5.filter(op("name").str().strip().endswith("k")).filter(op("gender")=="F")
   +------------------+----------+--------+
   | name             | birthday | gender |
   +------------------+----------+--------+

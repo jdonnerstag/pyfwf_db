@@ -15,7 +15,7 @@ from fwf_db import FWFFile
 from fwf_db import FWFLine
 from fwf_db import FWFRegion
 from fwf_db import FWFSubset
-from fwf_db import fwf_open
+from fwf_db import fwf_open, op
 
 
 DATA = b"""# My comment test
@@ -256,20 +256,38 @@ def test_table_filter_by_line():
 
 def test_table_filter_by_field():
     with fwf_open(HumanFile, DATA) as fwf:
-        rtn = fwf.filter("gender", lambda x: x == b'F')
+        rtn = fwf.filter(op("gender") == b'F')
         assert rtn.count() == len(list(rtn)) == 7
 
-        rtn = fwf.filter("gender", b'F')
+        rtn = fwf.filter(op("gender") == b'F')
         assert rtn.count() == len(list(rtn)) == 7
 
-        rtn = fwf.filter("gender", lambda x: x == b'M')
+        rtn = fwf.filter(op("gender") == b'M')
         assert rtn.count() == len(list(rtn)) == 3
 
-        rtn = fwf.filter("gender", b'M')
+        rtn = fwf.filter(op("gender") == b'M')
         assert rtn.count() == len(list(rtn)) == 3
 
-        rtn = fwf.filter("gender", lambda x: x in [b'M', b'F'])
+        rtn = fwf.filter(op("gender").any([b'M', b'F']))
         assert rtn.count() == len(list(rtn)) == 10
+
+        rtn = fwf.filter(op("gender") == b'M', is_or=True)
+        assert rtn.count() == len(list(rtn)) == 3
+
+        rtn = fwf.filter(op("gender") == b'F', op("state") == b'AR', is_or=True)
+        assert rtn.count() == len(list(rtn)) == 7
+
+        rtn = fwf.filter(op("gender") == b'F', op("state") == b'AR', is_or=False)
+        assert rtn.count() == len(list(rtn)) == 2
+
+        rtn = fwf.filter(op("name").str().strip().endswith("k"))
+        assert rtn.count() == len(list(rtn)) == 2
+
+        rtn = fwf.filter(op("name").str().upper().startswith("D"))
+        assert rtn.count() == len(list(rtn)) == 1
+
+        rtn = fwf.filter(op("state").str().contains("A"))
+        assert rtn.count() == len(list(rtn)) == 3
 
 
 def test_table_filter_by_function():

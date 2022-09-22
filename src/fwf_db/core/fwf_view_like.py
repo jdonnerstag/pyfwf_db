@@ -225,20 +225,13 @@ class FWFViewLike:
         return gen
 
 
-    def filter(self, arg1: str|Callable, arg2=None) -> 'FWFViewLike':
+    def filter(self, *args: Callable, is_or: bool=False) -> 'FWFViewLike':
         """Filter either by line or by field.
-
-        If the first parameter is callable, then filter by line.
-        Else the first parameter must be a valid field name, and the second
-        parameter a callable or any fixed value.
         """
-        if isinstance(arg1, str):
-            return self.filter_by_field(arg1, arg2)
+        if is_or:
+            return self.filter_by_line(lambda x: any(arg(x) for arg in args))
 
-        if isinstance(arg1, Callable):
-            return self.filter_by_line(arg1)
-
-        raise AttributeError(f"filter(): Invalid arguments: arg1={arg1}, arg2={arg2}")
+        return self.filter_by_line(lambda x: all(arg(x) for arg in args))
 
 
     def filter_by_line(self, func: Callable[[FWFLine], bool]) -> 'FWFViewLike':
