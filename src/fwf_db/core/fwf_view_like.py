@@ -6,7 +6,6 @@
 import abc
 import sys
 from typing import overload, Callable, Iterator, Iterable, Optional
-from collections import OrderedDict
 from itertools import islice
 from prettytable import PrettyTable
 
@@ -287,8 +286,16 @@ class FWFViewLike:
                 rtn.add(field)
             elif field in self.fields:
                 rtn.add(field)
+            else:
+                raise AttributeError(f"Field not found. name='{field}'")
 
         return tuple(rtn)
+
+
+    def set_headers(self, *fields: str) -> 'FWFViewLike':
+        """Change the order and or selection of columns"""
+        self.fields = self.fields.clone(*fields)
+        return self
 
 
     def to_list(self, *fields: str, stop: int = -1, header: bool = True) -> Iterator[tuple]:
@@ -306,25 +313,29 @@ class FWFViewLike:
             yield values
 
 
-    def get_string(self, *fields: str, stop: int = -1, pretty: bool = True) -> str:
+    def get_string(self, *fields: str, stop: int = 10, pretty: bool = True) -> str:
         """Create a string representation of the data"""
+        stop = self.count() if stop < 0 else min(self.count(), stop)
+
         if pretty:
             rtn = PrettyTable()
             rtn.field_names = self.headers(*fields)
-            rtn.add_rows(self.to_list(*fields, stop=stop, header=False))
-            return rtn.get_string() + f"\n  len: {self.count():,}"
+            gen = self.to_list(*fields, stop=stop, header=False)
+            gen = (tuple(str(v, "utf-8") for v in row) for row in gen)
+            rtn.add_rows(gen)
+            return rtn.get_string() + f"\n  len: {stop:,}/{self.count():,}"
 
         rtn = f"{self.__class__.__name__}(count={self.count()}):\n"
         data = self.to_list(*fields, stop=stop, header=True)
         rtn += "[" + ",\n  ".join(str(f) for f in data)
         if 0 <= stop < self.count():
-            rtn += "..."
+            rtn += "\n  ..."
 
         rtn += "\n]\n"
         return rtn
 
 
-    def print(self, *fields: str, stop: int=-1, pretty: bool=True, file=sys.stdout) -> None:
+    def print(self, *fields: str, stop: int=10, pretty: bool=True, file=sys.stdout) -> None:
         """Print the table content"""
         print(self.get_string(*fields, stop=stop, pretty=pretty), file=file)
 

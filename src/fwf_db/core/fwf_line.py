@@ -2,10 +2,11 @@
 # encoding: utf-8
 
 from collections import OrderedDict
-from typing import Iterable, Union, Optional, overload, TYPE_CHECKING, Any
+from typing import Iterable, Union, Optional, overload, TYPE_CHECKING, Any, Iterator
 
 import sys
 from datetime import datetime
+from prettytable import PrettyTable
 
 from .fwf_fieldspecs import FWFFieldSpec
 
@@ -28,6 +29,22 @@ class FWFLine:
         self.fwf_view: 'FWFViewLike' = fwf_view
         self.lineno: int = lineno    # Line number in the context of 'fwf_view'
         self.line: memoryview = line
+
+
+    def get_line(self) -> bytes:
+        """A helper to convert the memoryview into bytes for proper printing"""
+        return bytes(self.line)
+
+
+    def __getattr__(self, key):
+        # we don't need a special call to super here because getattr is only
+        # called when an attribute is NOT found in the instance's dictionary
+        try:
+            return bytes(self[key])
+        except KeyError:
+            # pylint: disable=raise-missing-from
+            raise AttributeError(f"FWFLine has not field with name '{key}'")
+
 
     @overload
     def __getitem__(self, arg: 'int') -> 'int': ...
@@ -129,6 +146,10 @@ class FWFLine:
             yield (key, data)
 
 
+    def __iter__(self) -> Iterator[bytes]:
+        return (v for _, v in self.items(to_bytes=True))
+
+
     def to_dict(self, *keys: 'str') -> OrderedDict['str', Any]:
         """Provide the line as dict"""
         return OrderedDict(self.items(*keys, to_bytes=True))
@@ -150,5 +171,30 @@ class FWFLine:
         return FWFLine(view, lineno, self.line)
 
 
+    def get_string(self, *fields: 'str', pretty: bool = True) -> 'str':
+        """Create a string representation of the data"""
+
+        headers = self.fwf_view.headers(*fields)
+        data = self.to_list(*fields)
+        if pretty:
+            rtn = PrettyTable()
+            rtn.field_names = headers
+            rtn.add_row([str(v, "utf-8") for v in data])
+            return rtn.get_string()
+
+        rtn = f"{self.__class__.__name__}(_lineo={self.lineno}):\n"
+        rtn += str(self.to_dict())
+        return rtn
+
+
+    def print(self, *fields: 'str', pretty: bool=True, file=sys.stdout) -> None:
+        """Print the table content"""
+        print(self.get_string(*fields, pretty=pretty), file=file)
+
+
+    def __str__(self) -> 'str':
+        return self.get_string(pretty=False)
+
+
     def __repr__(self) -> 'str':
-        return str(self.line)
+        return self.get_string(pretty=True)

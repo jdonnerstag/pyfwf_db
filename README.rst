@@ -194,7 +194,19 @@ like a standard python list:
   >>> data = fwf_open(HumanFileSpec, "sample_data/humans.txt")
   >>> # slices provide a view (subset) onto the full data set
   >>> data[0:5]
-  # TODO Update the field order: birthday, gender, name, and show how it can be changed for the print
+  +----------+--------+--------------------------+
+  | birthday | gender |           name           |
+  +----------+--------+--------------------------+
+  | 19570526 |   F    | Dianne Mcintosh          |
+  | 19940213 |   M    | Rosalyn Clark            |
+  | 19510403 |   M    | Shirley Gray             |
+  | 20110508 |   F    | Georgia Frank            |
+  | 19930404 |   M    | Virginia Lambert         |
+  +----------+--------+--------------------------+
+  len: 5/5
+
+  >>> # The field order may not want we want. Lets change it.
+  >>> data[0:5].print("name", "birthday", "gender")
   +------------------+----------+--------+
   | name             | birthday | gender |
   +------------------+----------+--------+
@@ -204,18 +216,10 @@ like a standard python list:
   | Georgia Frank    | 20110508 | F      |
   | Virginia Lambert | 19930404 | M      |
   +------------------+----------+--------+
-  >>> # The field order is not want we want. So lets change it.
-  >>> data.header("name", "birthday", "gender")
-  >>> data[0:5]
-  +------------------+----------+--------+
-  | name             | birthday | gender |
-  +------------------+----------+--------+
-  | Dianne Mcintosh  | 19570526 | F      |
-  | Rosalyn Clark    | 19940213 | M      |
-  | Shirley Gray     | 19510403 | M      |
-  | Georgia Frank    | 20110508 | F      |
-  | Virginia Lambert | 19930404 | M      |
-  +------------------+----------+--------+
+
+  >>> # May be you want to change it permanently for the view?
+  >>> data[0:5].set_headers("name", "birthday", "gender")
+
   >>> # while getting a specific item returns a parsed line instance
   >>> data[327]
   +------------+----------+--------+

@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+""" FWFFile """
+
 import mmap
 from typing import Iterator
 
@@ -64,6 +66,11 @@ class FWFFile(FWFViewLike):
         self.files = [self.file]
 
 
+    def data(self, fslice: slice) -> bytes:
+        """Some you may want to take a look at the underlying (raw) data"""
+        assert self._mm is not None
+        return bytes(self._mm[fslice])
+
     def is_newline(self, byte: int) -> bool:
         """True, if byte if one of the configured newline strings"""
         return byte in self.newline_bytes
@@ -125,9 +132,21 @@ class FWFFile(FWFViewLike):
         raise FWFFileException("Failed to find newlines in date")
 
 
-    def record_length(self, fields) -> int:
-        """Determine the overall record lenght from the fieldspecs"""
-        return max(x.stop for x in fields.values())
+    def _next_newline(self, _mm: memoryview, start_pos: int) -> int:
+        i = 0
+        for i, byte in enumerate(_mm[start_pos:]):
+            if self.is_newline(byte):
+                return i
+
+        return -1
+
+
+    def record_length(self, _mm: memoryview, fields: FWFFileFieldSpecs, start_pos: int) -> int:
+        """Determine the overall record length from the fieldspecs"""
+
+        field_len = max(x.stop for x in fields.values())
+        reclen = self._next_newline(_mm, start_pos)
+        return reclen if reclen > 0 else field_len
 
 
     def __enter__(self):
@@ -176,10 +195,10 @@ class FWFFile(FWFViewLike):
 
         self._mm = memoryview(_mm)
         self.number_of_newline_bytes = self._number_of_newline_bytes(self._mm)
-        # The length of each line
-        self.fwidth = self.record_length(self.fields) + self.number_of_newline_bytes
         self.fsize = self.get_file_size(self._mm)
         self.start_pos = self.skip_comment_line(self._mm, self.comment_char)
+        # The length of each line
+        self.fwidth = self.record_length(self._mm, self.fields, self.start_pos) + self.number_of_newline_bytes
         self.line_count = self.calculate_line_count(self._mm)
 
         return self

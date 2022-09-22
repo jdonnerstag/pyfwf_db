@@ -113,7 +113,6 @@ def test_filespec_ok():
     assert aa.name == "aa"
     assert spec["bb"].name == "bb"
     assert spec.get("AA") is None
-    assert spec[3].name == "dd"
 
     assert "dd" in spec.keys()
     assert list(spec.values())[1].name == "bb"

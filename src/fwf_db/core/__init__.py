@@ -12,7 +12,7 @@ from .fwf_multi_file import FWFMultiFile
 from .fwf_index_builder_cython import FWFCythonIndexBuilder
 from .fwf_index_like import FWFIndexDict, FWFUniqueIndexDict
 from .fwf_operator import FWFOperator
-from .fwf_pandas import FWFPandas
+from .fwf_pandas import to_pandas
 from .fwf_open import fwf_open
 
 

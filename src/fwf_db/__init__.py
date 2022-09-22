@@ -61,7 +61,7 @@ from .core import FWFMultiFile
 from .core import FWFCythonIndexBuilder
 from .core import FWFIndexDict, FWFUniqueIndexDict
 from .core import FWFOperator
-from .core import FWFPandas
+from .core import to_pandas
 from .core import fwf_open
 from ._cython import BytesDictWithIntListValues
 

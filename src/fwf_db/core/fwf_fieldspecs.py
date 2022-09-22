@@ -5,7 +5,7 @@
 """Define two classes. One to hold a single field specification,
 and one to hold all field specifications which define a file."""
 
-from typing import Any, Optional
+from typing import Any, Optional, Iterator
 from collections import OrderedDict
 
 
@@ -127,7 +127,7 @@ class FWFFileFieldSpecs:
         """Constructor"""
 
         self.fields = self._init(specs)
-        self.reclen = self._record_length()
+        self.reclen = self.record_length()
 
 
     def _init(self, specs: list[dict[str, Any]]) -> OrderedDict[str, FWFFieldSpec]:
@@ -145,8 +145,11 @@ class FWFFileFieldSpecs:
         return _fields
 
 
-    def _record_length(self) -> int:
+    def record_length(self) -> int:
         """Return the line length"""
+        if len(self.fields) == 0:
+            return 0
+
         return max(x.stop for x in self.fields.values())
 
 
@@ -172,14 +175,36 @@ class FWFFileFieldSpecs:
         return self.fields.keys()
 
 
+    def names(self):
+        """The list of all field names. Sames as keys() but more meaningful"""
+        return self.keys()
+
+
     def values(self):
         """The list of all field specifications"""
         return self.fields.values()
 
 
+    def __iter__(self) -> Iterator[FWFFieldSpec]:
+        for field in self.names():
+            yield self[field]
+
+
     def items(self):
         """Similar to dict's items()"""
         return self.fields.items()
+
+
+    def clone(self, *fields: str) -> 'FWFFileFieldSpecs':
+        """Create a copy of the spec with selected and or re-ordered columns"""
+
+        spec = FWFFileFieldSpecs([])
+        new_fields = fields or self.fields.keys()
+        for field in new_fields:
+            spec.fields[field] = self.fields[field]
+
+        spec.reclen = spec.record_length()
+        return spec
 
 
     def __len__(self):
