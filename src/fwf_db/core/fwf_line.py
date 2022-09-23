@@ -193,8 +193,8 @@ class FWFLine:
 
 
     def __str__(self) -> 'str':
-        return self.get_string(pretty=False)
+        return self.get_string(pretty=True)
 
 
     def __repr__(self) -> 'str':
-        return self.get_string(pretty=True)
+        return self.get_string(pretty=False)

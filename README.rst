@@ -339,10 +339,12 @@ Pretty much the opposite of `.filter()`
   | Virginia Lambert | 19930404 | M      |
   +------------------+----------+--------+
 
-.order_by(field_name, reverse=False)
-====================================
+.order_by(field_name(s))
+============================
 
-Reorder the whole queryset sorting by that given field
+Create a new view with the field(s) being sorted. Default sorting
+is ascending. For descending sorting prepend the field name with
+'-', e.g. '-birthday'.
 
 .. code-block:: Python
 
@@ -358,7 +360,7 @@ Reorder the whole queryset sorting by that given field
   | Georgia Frank    | 20110508 | F      |
   | Virginia Lambert | 19930404 | M      |
   +------------------+----------+--------+
-  >>> data[:5].order_by("name")
+  >>> data[:5].order_by("gender")
   +------------------+--------+----------+
   | name             | gender | birthday |
   +------------------+--------+----------+
@@ -368,7 +370,7 @@ Reorder the whole queryset sorting by that given field
   | Shirley Gray     | M      | 19510403 |
   | Virginia Lambert | M      | 19930404 |
   +------------------+--------+----------+
-  >>> data[:5].order_by("name", reverse=True)
+  >>> data[:5].order_by("gender", "-birthday")
   +------------------+--------+----------+
   | name             | gender | birthday |
   +------------------+--------+----------+
@@ -379,7 +381,6 @@ Reorder the whole queryset sorting by that given field
   | Dianne Mcintosh  | F      | 19570526 |
   +------------------+--------+----------+
 
-TODO: Order by more than one field via chaining order_by
 
 .unique(field_name)
 ====================

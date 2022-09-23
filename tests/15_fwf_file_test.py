@@ -16,6 +16,7 @@ from fwf_db import FWFLine
 from fwf_db import FWFRegion
 from fwf_db import FWFSubset
 from fwf_db import fwf_open, op
+from fwf_db.core.fwf_view_like import _FWFSort
 
 
 DATA = b"""# My comment test
@@ -364,17 +365,51 @@ def test_empty_data():
 
 def test_sort():
     with fwf_open(HumanFile, DATA) as fwf:
-        data = fwf[:10]
-        x = data.order_by("state")
+        x = fwf.order_by("state")
+        assert x.count() == fwf.count()
         #x.print(pretty=False)
         assert x[0].state == b'AR'
         assert x[0].birthday == b'19570526'
         assert x[1].state == b'AR'
         assert x[1].birthday == b'19820125'
 
-        x = data.order_by("state", "-birthday")
+        x = fwf.order_by("state", "-birthday")
+        assert x.count() == fwf.count()
         #x.print(pretty=False)
         assert x[0].state == b'AR'
         assert x[0].birthday == b'19820125'
         assert x[1].state == b'AR'
         assert x[1].birthday == b'19570526'
+
+
+def test_unique():
+    with fwf_open(HumanFile, DATA) as fwf:
+        x = _FWFSort(fwf, 0, ("state",))
+        y = _FWFSort(fwf, 8, ("state",))
+        assert hash(x) == hash(y)
+        assert x == y
+        d = {}
+        d[x] = x
+        assert len(d) == 1
+        assert d[x].line.lineno == 0
+        d[y] = y
+        assert len(d) == 1
+        assert d[x] == d[y]
+        assert d[x].line.lineno == 8   # Remember the last
+
+        #fwf.print(pretty=False)
+
+        x = fwf.unique("state", last=True)
+        #x.print(pretty=False)
+        assert x.count() == 9
+        assert bytes(x[0].state) == b"AR"
+        assert x[0].rooted().lineno == 8
+
+        # Keep the first one
+        x = fwf.unique("state", last=False)
+        assert x.count() == 9
+        assert bytes(x[0].state) == b"AR"
+        assert x[0].rooted().lineno == 0
+
+        x = fwf.unique("universe", "profession")
+        assert x.count() == 6

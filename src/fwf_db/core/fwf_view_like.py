@@ -288,9 +288,34 @@ class FWFViewLike:
         # TODO This list can grow large. Leverage numpy??
         indexes = list(range(self.count()))
 
-        indexes.sort(key=lambda i: FWFSort(self, i, names))
+        indexes.sort(key=lambda i: _FWFSort(self, i, names))
 
         return self.fwf_by_indices(indexes)
+
+
+    def unique(self, *names: str, last: bool=True) -> 'FWFViewLike':
+        """Create a new view with entry unique on the fields provided.
+
+        'last' = True: keep the last one found
+        'last' = False: keep the first one found
+        """
+
+        if not names:
+            return self
+
+        idx_dict: dict[_FWFSort, _FWFSort] = {}
+        for i in range(self.count()):
+            key = _FWFSort(self, i, names)
+            if last:
+                idx_dict[key] = key
+            else:
+                idx_dict.setdefault(key, key)
+
+        if len(idx_dict) == self.count():
+            return self
+
+        idx = [value.line.lineno for value in idx_dict.values()]
+        return self.fwf_by_indices(idx)
 
 
     def headers(self, *fields: str) -> tuple[str]:
@@ -364,35 +389,47 @@ class FWFViewLike:
 
 
     def __str__(self) -> str:
-        return self.get_string(stop=10, pretty=False)
+        return self.get_string(stop=10, pretty=True)
 
 
     def __repr__(self) -> str:
-        return self.get_string(stop=10, pretty=True)
+        return self.get_string(stop=10, pretty=False)
 
 # --------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------
 
-class FWFSort:
+class _FWFSort:
+    """Support sorting of FWFViewLike Objects"""
+
     def __init__(self, fwf_view: FWFViewLike, i: int, names: tuple[str]) -> None:
         self.fwf_view = fwf_view
         self.line = fwf_view.line_at(i)
         self.names = [(name[1:], True) if name.startswith("-") else (name, False) for name in names]
 
 
-    def __lt__(self, other: 'FWFSort') -> bool:
+    def __lt__(self, other: '_FWFSort') -> bool:
         for name, reverse in self.names:
-            b1 = bytes(self.line[name])
-            b2 = bytes(other.line[name])
+            # TODO we might be able to improve performance with a cmp() type of approach, and memoryview
+            bytes_1 = bytes(self.line[name])
+            bytes_2 = bytes(other.line[name])
             if reverse is False:
-                if b1 < b2:
+                if bytes_1 < bytes_2:
                     return True
-                if b1 > b2:
+                if bytes_1 > bytes_2:
                     return False
             else:
-                if b1 < b2:
+                if bytes_1 < bytes_2:
                     return False
-                if b1 > b2:
+                if bytes_1 > bytes_2:
                     return True
 
         return False
+
+
+    def __hash__(self) -> int:
+        value = tuple(bytes(self.line[name]) for name, _ in self.names)
+        return hash(value)
+
+
+    def __eq__(self, other: '_FWFSort') -> bool:
+        return all(bytes(self.line[name]) == bytes(other.line[name]) for name, _ in self.names)
