@@ -171,7 +171,7 @@ That's it. The records are now accessible. Togther it looks like this:
 
 .. code-block:: Python
 
-  from fwf_db import fwf_open
+  from fwf_db import fwf_open, op
 
   class HumanFileSpec:
       FIELDSPECS = [
@@ -278,29 +278,37 @@ Which can again be filtered and so on.
   +------------------+----------+--------+
 
   >>> # with multiple keywords arguments (and/or combined)
-  >>> first5.filter(op("gender")==b"M", op("birthday") >= b"19900101", is_or=True)
-  +------------------+----------+--------+
-  | name             | birthday | gender |
-  +------------------+----------+--------+
-  | Rosalyn Clark    | 19940213 | M      |
-  | Virginia Lambert | 19930404 | M      |
-  +------------------+----------+--------+
-
+  >>> first5.filter(op("gender") == b"M", op("birthday").bytes() >= b"19900101", is_or=True)
+  +--------------------------+----------+--------+
+  |           name           | birthday | gender |
+  +--------------------------+----------+--------+
+  | Rosalyn Clark            | 19940213 |   M    |
+  | Shirley Gray             | 19510403 |   M    |
+  | Georgia Frank            | 20110508 |   F    |
+  | Virginia Lambert         | 19930404 |   M    |
+  +--------------------------+----------+--------+
   >>> # or chained filters
-  >>> first5.filter(op("name").str().strip().endswith("k")).filter(op("gender")=="F")
+  >>> first5.filter(op("name").str().strip().endswith("k")).filter(op("gender")==b"F")
   +------------------+----------+--------+
   | name             | birthday | gender |
   +------------------+----------+--------+
   | Georgia Frank    | 20110508 | F      |
   +------------------+----------+--------+
 
-  >>> # Convert values first
-  >>> first5.filter(op("birthday").date().year == 1957)
-  +------------------+----------+--------+
-  | name             | birthday | gender |
-  +------------------+----------+--------+
-  | Dianne Mcintosh  | 19570526 | F      |
-  +------------------+----------+--------+
+  >>> # A bit more complicated
+  >>> first5.filter(lambda line: op("birthday").str().date().get(line).year == 1957)
+  >>> # Which could be rewritten as:
+  >>> first5.filter(op("birthday").bytes().startswith(b"1957"))
+  >>> # Or
+  >>> first5.filter(op("birthday")[0:4] == b"1957")
+  >>> # Or with an additional field
+  >>> first5.add_header("birthday_year", start=11, len=4)
+  >>> first5.filter(op("birthday_year") == b"1957")
+  +------------------+----------+--------+---------------+
+  | name             | birthday | gender | birthday_year |
+  +------------------+----------+--------+---------------+
+  | Dianne Mcintosh  | 19570526 | F      | 1957          |
+  +------------------+----------+--------+---------------+
 
 
 .exclude(\*\*kwargs)

@@ -256,38 +256,45 @@ def test_table_filter_by_line():
 
 def test_table_filter_by_field():
     with fwf_open(HumanFile, DATA) as fwf:
-        rtn = fwf.filter(op("gender") == b'F')
-        assert rtn.count() == len(list(rtn)) == 7
-
-        rtn = fwf.filter(op("gender") == b'F')
+        rtn = fwf.filter(op("gender") == b'F')              # "gender == 'F'"
         assert rtn.count() == len(list(rtn)) == 7
 
         rtn = fwf.filter(op("gender") == b'M')
-        assert rtn.count() == len(list(rtn)) == 3
+        assert rtn.count() == len(list(rtn)) == 3           # "gender == 'M'"
 
-        rtn = fwf.filter(op("gender") == b'M')
-        assert rtn.count() == len(list(rtn)) == 3
-
-        rtn = fwf.filter(op("gender").any([b'M', b'F']))
+        rtn = fwf.filter(op("gender").any([b'M', b'F']))    # "gender in ['M', 'F']"
         assert rtn.count() == len(list(rtn)) == 10
 
-        rtn = fwf.filter(op("gender") == b'M', is_or=True)
+        rtn = fwf.filter(op("gender") == b'M', is_or=True)  # "gender == 'M'"
         assert rtn.count() == len(list(rtn)) == 3
 
-        rtn = fwf.filter(op("gender") == b'F', op("state") == b'AR', is_or=True)
+        rtn = fwf.filter(op("gender") == b'F', op("state") == b'AR', is_or=True)    # "gender == 'M' or state == 'AR"
         assert rtn.count() == len(list(rtn)) == 7
 
-        rtn = fwf.filter(op("gender") == b'F', op("state") == b'AR', is_or=False)
+        rtn = fwf.filter(op("gender") == b'F', op("state") == b'AR', is_or=False)   # "gender == 'F' or state == 'AR"
         assert rtn.count() == len(list(rtn)) == 2
 
-        rtn = fwf.filter(op("name").str().strip().endswith("k"))
+        rtn = fwf.filter(op("name").str().strip().endswith("k"))           # "gender.strip.endswith('k')"
         assert rtn.count() == len(list(rtn)) == 2
 
-        rtn = fwf.filter(op("name").str().upper().startswith("D"))
+        rtn = fwf.filter(op("name").str().upper().startswith("D"))         # "gender.upper.startswith('D')"
         assert rtn.count() == len(list(rtn)) == 1
 
-        rtn = fwf.filter(op("state").str().contains("A"))
+        rtn = fwf.filter(op("state").str().contains("A"))           # "state.contains('M')"
         assert rtn.count() == len(list(rtn)) == 3
+
+        rtn = fwf.filter(lambda line: op("birthday").str().date().get(line).year == 1957)    # "birthday.date.year == 1957"
+        assert rtn.count() == len(list(rtn)) == 1
+
+        rtn = fwf.filter(op("birthday").bytes().startswith(b"1957"))    # "birthday.date.year == 1957"
+        assert rtn.count() == len(list(rtn)) == 1
+
+        rtn = fwf.filter(op("birthday")[0:4] == b"1957")    # "birthday.date.year == 1957"
+        assert rtn.count() == len(list(rtn)) == 1
+
+        fwf.add_header("birthday_year", start=11, len=4)
+        rtn = fwf.filter(op("birthday_year") == b"1957")    # "birthday.date.year == 1957"
+        assert rtn.count() == len(list(rtn)) == 1
 
 
 def test_table_filter_by_function():
@@ -353,3 +360,21 @@ def test_empty_data():
     exec_empty_data(b"")
     exec_empty_data(b"# Empty")
     exec_empty_data(b"# Empty\n")
+
+
+def test_sort():
+    with fwf_open(HumanFile, DATA) as fwf:
+        data = fwf[:10]
+        x = data.order_by("state")
+        #x.print(pretty=False)
+        assert x[0].state == b'AR'
+        assert x[0].birthday == b'19570526'
+        assert x[1].state == b'AR'
+        assert x[1].birthday == b'19820125'
+
+        x = data.order_by("state", "-birthday")
+        #x.print(pretty=False)
+        assert x[0].state == b'AR'
+        assert x[0].birthday == b'19820125'
+        assert x[1].state == b'AR'
+        assert x[1].birthday == b'19570526'

@@ -71,6 +71,7 @@ class FWFFile(FWFViewLike):
         assert self._mm is not None
         return bytes(self._mm[fslice])
 
+
     def is_newline(self, byte: int) -> bool:
         """True, if byte if one of the configured newline strings"""
         return byte in self.newline_bytes

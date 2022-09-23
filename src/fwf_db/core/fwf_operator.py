@@ -2,9 +2,11 @@
 # encoding: utf-8
 
 import sys
+from datetime import datetime
 from typing import Callable, Any
 
 from .fwf_line import FWFLine
+
 
 class FWFOperator:
     """ Easily define filter criteria
@@ -97,3 +99,14 @@ class FWFOperator:
     def contains(self, other):
         """Test whether the field data contain 'arg'"""
         return lambda line: other in self.get(line)
+
+    def date(self, fmt="%Y%m%d"):
+        """ Convert the field's value into date """
+        orig = self.func
+        self.func = lambda x: datetime.strptime(orig(x), fmt)
+        return self
+
+    def __getitem__(self, arg):
+        orig = self.func
+        self.func = lambda x: orig(x)[arg]
+        return self

@@ -202,7 +202,6 @@ class FWFViewLike:
 
         if all(isinstance(x, int) for x in row_idx):
             # Don't allow the subset to grow
-            row_idx = [i for i in row_idx]
             return self.fwf_by_indices(row_idx)
 
         raise KeyError(f"Invalid range value: {row_idx}")
@@ -226,12 +225,19 @@ class FWFViewLike:
 
 
     def filter(self, *args: Callable, is_or: bool=False) -> 'FWFViewLike':
-        """Filter either by line or by field.
-        """
+        """Apply filters (keep) and return a new view."""
         if is_or:
             return self.filter_by_line(lambda x: any(arg(x) for arg in args))
 
         return self.filter_by_line(lambda x: all(arg(x) for arg in args))
+
+
+    def exclude(self, *args: Callable, is_or: bool=False) -> 'FWFViewLike':
+        """Apply filters (remove) and return a new view."""
+        if is_or:
+            return self.filter_by_line(lambda x: not any(arg(x) for arg in args))
+
+        return self.filter_by_line(lambda x: not all(arg(x) for arg in args))
 
 
     def filter_by_line(self, func: Callable[[FWFLine], bool]) -> 'FWFViewLike':
@@ -268,6 +274,25 @@ class FWFViewLike:
         return self.fwf_by_indices(rtn)
 
 
+    def order_by(self, *names: str) -> 'FWFViewLike':
+        """Create a new view with the line ordered based on the
+        field names provided.
+
+        Default ordering is ascending. Decending ordering can be achieved
+        by prepending a '-', e.g. '-birthday'
+        """
+
+        if not names:
+            return self
+
+        # TODO This list can grow large. Leverage numpy??
+        indexes = list(range(self.count()))
+
+        indexes.sort(key=lambda i: FWFSort(self, i, names))
+
+        return self.fwf_by_indices(indexes)
+
+
     def headers(self, *fields: str) -> tuple[str]:
         """Get the names for all fields"""
         if not fields:
@@ -289,6 +314,11 @@ class FWFViewLike:
         """Change the order and or selection of columns"""
         self.fields = self.fields.clone(*fields)
         return self
+
+
+    def add_header(self, name:str, **kwargs) -> None:
+        """Add an additional field to the header"""
+        self.fields.add_field(name, **kwargs)
 
 
     def to_list(self, *fields: str, stop: int = -1, header: bool = True) -> Iterator[tuple]:
@@ -339,3 +369,30 @@ class FWFViewLike:
 
     def __repr__(self) -> str:
         return self.get_string(stop=10, pretty=True)
+
+# --------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------
+
+class FWFSort:
+    def __init__(self, fwf_view: FWFViewLike, i: int, names: tuple[str]) -> None:
+        self.fwf_view = fwf_view
+        self.line = fwf_view.line_at(i)
+        self.names = [(name[1:], True) if name.startswith("-") else (name, False) for name in names]
+
+
+    def __lt__(self, other: 'FWFSort') -> bool:
+        for name, reverse in self.names:
+            b1 = bytes(self.line[name])
+            b2 = bytes(other.line[name])
+            if reverse is False:
+                if b1 < b2:
+                    return True
+                if b1 > b2:
+                    return False
+            else:
+                if b1 < b2:
+                    return False
+                if b1 > b2:
+                    return True
+
+        return False

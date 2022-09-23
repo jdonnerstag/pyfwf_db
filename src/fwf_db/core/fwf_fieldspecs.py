@@ -207,6 +207,13 @@ class FWFFileFieldSpecs:
         return spec
 
 
+    def add_field(self, name:str, **kwargs) -> None:
+        """Add an additional field to the spec"""
+        field = FWFFieldSpec(dict(name=name, **kwargs), 0)
+        self.fields[name] = field
+        self.reclen = self.record_length()
+
+
     def __len__(self):
         return len(self.fields)
 
