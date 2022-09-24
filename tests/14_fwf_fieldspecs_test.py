@@ -11,61 +11,32 @@ import pytest
 from fwf_db import FWFFileFieldSpecs, FWFFieldSpec
 
 def test_single():
-    with pytest.raises(Exception):
-        _ = FWFFieldSpec({}, 0)     # "name" is missing
 
     with pytest.raises(Exception):
-        _ = FWFFieldSpec(dict(name="id"), 0)     # requires either len, start, stop, slice
+        _ = FWFFieldSpec(startpos=0, name="id")     # requires either len, start, stop, slice
 
-    field = FWFFieldSpec(dict(name="id", len=2), 0)
+    field = FWFFieldSpec(startpos=0, name="id", len=2)
     assert field.name == "id"
     assert field.len == 2
     assert field.start == 0
     assert field.stop == 2
     assert field.fslice == slice(0, 2)
 
-    field = FWFFieldSpec(dict(name="id", slice=slice(0, 2)), 0)
+    field = FWFFieldSpec(startpos=0, name="id", slice=slice(0, 2))
     assert field.name == "id"
     assert field.len == 2
     assert field.start == 0
     assert field.stop == 2
     assert field.fslice == slice(0, 2)
 
-    field = FWFFieldSpec(dict(name="id", slice=(0, 2)), 0)
+    field = FWFFieldSpec(startpos=0, name="id", slice=(0, 2))
     assert field.name == "id"
     assert field.len == 2
     assert field.start == 0
     assert field.stop == 2
     assert field.fslice == slice(0, 2)
 
-    field = FWFFieldSpec(dict(name="id", slice=[0, 2]), 0)
-    assert field.name == "id"
-    assert field.len == 2
-    assert field.start == 0
-    assert field.stop == 2
-    assert field.fslice == slice(0, 2)
-
-    with pytest.raises(Exception):
-        _ = FWFFieldSpec(dict(name="id", slice=[1, 2, 3]), 0)
-
-    with pytest.raises(Exception):
-        _ = FWFFieldSpec(dict(name="id", slice=(1, 2, 3)), 0)
-
-    field = FWFFieldSpec(dict(name="id", start=0, stop=2), 0)
-    assert field.name == "id"
-    assert field.len == 2
-    assert field.start == 0
-    assert field.stop == 2
-    assert field.fslice == slice(0, 2)
-
-    field = FWFFieldSpec(dict(name="id", start=0, len=2), 0)
-    assert field.name == "id"
-    assert field.len == 2
-    assert field.start == 0
-    assert field.stop == 2
-    assert field.fslice == slice(0, 2)
-
-    field = FWFFieldSpec(dict(name="id", stop=2, len=2), 0)
+    field = FWFFieldSpec(startpos=0, name="id", slice=[0, 2])
     assert field.name == "id"
     assert field.len == 2
     assert field.start == 0
@@ -73,28 +44,55 @@ def test_single():
     assert field.fslice == slice(0, 2)
 
     with pytest.raises(Exception):
-        _ = FWFFieldSpec(dict(name="id", slice=(1, 2), start=2), 0)
+        _ = FWFFieldSpec(startpos=0, name="id", slice=[1, 2, 3])
 
     with pytest.raises(Exception):
-        _ = FWFFieldSpec(dict(name="id", slice=(1, 2), stop=2), 0)
+        _ = FWFFieldSpec(startpos=0, name="id", slice=(1, 2, 3))
+
+    field = FWFFieldSpec(startpos=0, name="id", start=0, stop=2)
+    assert field.name == "id"
+    assert field.len == 2
+    assert field.start == 0
+    assert field.stop == 2
+    assert field.fslice == slice(0, 2)
+
+    field = FWFFieldSpec(startpos=0, name="id", start=0, len=2)
+    assert field.name == "id"
+    assert field.len == 2
+    assert field.start == 0
+    assert field.stop == 2
+    assert field.fslice == slice(0, 2)
+
+    field = FWFFieldSpec(startpos=0, name="id", stop=2, len=2)
+    assert field.name == "id"
+    assert field.len == 2
+    assert field.start == 0
+    assert field.stop == 2
+    assert field.fslice == slice(0, 2)
 
     with pytest.raises(Exception):
-        _ = FWFFieldSpec(dict(name="id", slice=(1, 2), len=2), 0)
+        _ = FWFFieldSpec(startpos=0, name="id", slice=(1, 2), start=2)
 
     with pytest.raises(Exception):
-        _ = FWFFieldSpec(dict(name="id", start=2, len=2, stop=2), 0)
+        _ = FWFFieldSpec(startpos=0, name="id", slice=(1, 2), stop=2)
 
     with pytest.raises(Exception):
-        _ = FWFFieldSpec(dict(name="id", slice=(0, -1)), 0)     # negative len
+        _ = FWFFieldSpec(startpos=0, name="id", slice=(1, 2), len=2)
 
     with pytest.raises(Exception):
-        _ = FWFFieldSpec(dict(name="id", slice=(-10, 0)), 0)    # must be > 0
+        _ = FWFFieldSpec(startpos=0, name="id", start=2, len=2, stop=2)
 
     with pytest.raises(Exception):
-        _ = FWFFieldSpec(dict(name="id", slice=(0, 2_000)), 0)    # too long
+        _ = FWFFieldSpec(startpos=0, name="id", slice=(0, -1))     # negative len
 
     with pytest.raises(Exception):
-        _ = FWFFieldSpec(dict(name="id", start=0, stop="a"), 0)    # must be int
+        _ = FWFFieldSpec(startpos=0, name="id", slice=(-10, 0))    # must be > 0
+
+    with pytest.raises(Exception):
+        _ = FWFFieldSpec(startpos=0, name="id", slice=(0, 2_000))   # too long
+
+    with pytest.raises(Exception):
+        _ = FWFFieldSpec(startpos=0, name="id", start=0, stop="a")   # must be int
 
 
 def test_filespec_ok():
@@ -113,6 +111,7 @@ def test_filespec_ok():
     assert aa.name == "aa"
     assert spec["bb"].name == "bb"
     assert spec.get("AA") is None
+    assert spec["gg"].dtype == "111"
 
     assert "dd" in spec.keys()
     assert list(spec.values())[1].name == "bb"

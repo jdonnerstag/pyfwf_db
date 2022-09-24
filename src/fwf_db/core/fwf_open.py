@@ -9,19 +9,19 @@ from .fwf_multi_file import FWFMultiFile
 
 FilesType = Union[str, bytes, list['FilesType']]
 
-def fwf_open(filespec: type, *files: FilesType) -> FWFFile|FWFMultiFile:
+def fwf_open(filespec: type, *files: FilesType, encoding=None, newline=None, comments=None) -> FWFFile|FWFMultiFile:
     """Open a fwf file (read-only) with the file specification provided"""
 
     assert len(files) > 0, "You must provide at least one file name"
 
     if len(files) == 1 and isinstance(files[0], str|bytes):
-        fwf = FWFFile(filespec)
+        fwf = FWFFile(filespec, encoding, newline, comments)
         fwf.open(files[0])
         return fwf
 
-    fwf = FWFMultiFile(filespec)
+    fwf = FWFMultiFile(filespec, encoding, newline, comments)
     for file in  _flatten(files):
-        fwf.open_and_add(file)
+        fwf.open_and_add(file, encoding, newline, comments)
 
     return fwf
 

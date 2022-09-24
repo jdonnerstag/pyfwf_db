@@ -24,7 +24,7 @@ class FWFFile(FWFViewLike):
     different ways.
     """
 
-    def __init__(self, filespec):
+    def __init__(self, filespec, encoding=None, newline=None, comments=None):
         """Constructor
 
         'reader' is a class that provides information about the
@@ -41,9 +41,9 @@ class FWFFile(FWFViewLike):
         super().__init__(filespec)
 
         # Used when automatically decoding bytes into strings
-        self.encoding = getattr(filespec, "ENCODING", None)
-        self.newline_bytes = getattr(filespec, "NEWLINE", None) or [0, 1, 10, 13]  # These bytes we recognize as newline
-        self.comment_char = getattr(filespec, "COMMENTS", None) or '#'
+        self.encoding = encoding or getattr(filespec, "ENCODING", None)
+        self.newline_bytes = newline or getattr(filespec, "NEWLINE", [0, 1, 10, 13])  # These bytes we recognize as newline
+        self.comments = comments if comments is not None else getattr(filespec, "COMMENTS", '#')
 
         # The number of newline bytes, e.g. "\r\n", "\n" or "\01"...
         # Required to determine overall line length
@@ -73,8 +73,12 @@ class FWFFile(FWFViewLike):
         return byte in self.newline_bytes
 
 
-    def skip_comment_line(self, _mm, comment_char: str) -> int:
+    def skip_comment_line(self, _mm: memoryview, comments: str) -> int:
         """Find the first line that is not a comment line and return its position."""
+
+        clen = len(comments)
+        if clen == 0:
+            return 0
 
         def skip_line(data, pos):
             while pos < len(data):
@@ -85,19 +89,22 @@ class FWFFile(FWFViewLike):
 
             return pos
 
+        bcomment = comments.encode("utf-8")
         pos = 0
-        comment_char_cp = ord(comment_char)
-        while (pos < len(_mm)) and (_mm[pos] == comment_char_cp):
+        while pos < len(_mm):
+            if _mm[pos:pos + clen] != bcomment:
+                break
+
             pos = skip_line(_mm, pos)
 
         return pos
 
 
-    def get_file_size(self, _mm) -> int:
+    def get_file_size(self, _mm: memoryview) -> int:
         """Determine the file size.
 
         Adjust the file size if the last line has no newline.
-        TODO I don't like that it is changing the file size. It may create confusion.
+        TODO I don't like that it is virtually changing the file size. It may create confusion.
         """
 
         fsize = len(_mm)
@@ -141,9 +148,9 @@ class FWFFile(FWFViewLike):
     def record_length(self, _mm: memoryview, fields: FWFFileFieldSpecs, start_pos: int) -> int:
         """Determine the overall record length from the fieldspecs"""
 
-        field_len = max(x.stop for x in fields.values())
+        field_len = max(x.stop for x in fields.values()) if fields else (len(_mm) - start_pos)
         reclen = self._next_newline(_mm, start_pos)
-        return reclen if reclen > 0 else field_len
+        return reclen if reclen > field_len else field_len
 
 
     def __enter__(self):
@@ -191,14 +198,21 @@ class FWFFile(FWFViewLike):
             raise FWFFileException(f"Invalid 'file' argument. Must be of type str or bytes: {type(file)}")
 
         self._mm = memoryview(_mm)
+        self.initialize()
+
+        return self
+
+
+    def initialize(self) -> None:
+        """Determine the newline byte(s), start_pos, line length, etc."""
+
+        assert self._mm is not None
         self.number_of_newline_bytes = self._number_of_newline_bytes(self._mm)
         self.fsize = self.get_file_size(self._mm)
-        self.start_pos = self.skip_comment_line(self._mm, self.comment_char)
+        self.start_pos = self.skip_comment_line(self._mm, self.comments)
         # The length of each line
         self.fwidth = self.record_length(self._mm, self.fields, self.start_pos) + self.number_of_newline_bytes
         self.line_count = self.calculate_line_count(self._mm)
-
-        return self
 
 
     def close(self) -> None:

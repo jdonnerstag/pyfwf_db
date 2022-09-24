@@ -354,6 +354,7 @@ class FWFViewLike:
 
 
     def get_field_line(self, line: FWFLine) -> bytes:
+        """Return the bytes representing the line"""
         return line.get_line()
 
 
@@ -365,15 +366,21 @@ class FWFViewLike:
 
 
     def get_with_fieldspec(self, field: str) -> Callable:
+        """Return a function that retrieves the data for field from a line"""
         field_slice: slice = self.fields[field].fslice
         return lambda line: bytes(line.line[field_slice])
 
 
     def get_with_filespec_func(self, field: str) -> Callable:
+        """If it exists, return from filespec the method which names
+        is equal to the field"""
         return getattr(self.filespec, field)
 
 
     def getter_for_field(self, field: str) -> Callable:
+        """Determine the function that will be used to retrieve the
+        field's value from a line"""
+
         if field == "_lineno":
             rtn = self.get_rooted_lineno
         elif field == "_line":
@@ -406,10 +413,15 @@ class FWFViewLike:
         return self
 
 
-    def add_header(self, name:str, **kwargs) -> None:
+    def add_field(self, name:str, **kwargs) -> None:
         """Add an additional field to the header"""
         self.fields.add_field(name, **kwargs)
         self.field_getter[name] = self.getter_for_field(name)
+
+
+    def update_field(self, name:str, **kwargs) -> None:
+        """Update an existing field"""
+        self.fields.update_field(name, **kwargs)
 
 
     def to_list(self, *fields: str, stop: int = -1, header: bool = True) -> Iterator[tuple]:

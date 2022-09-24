@@ -12,20 +12,61 @@ from collections import OrderedDict
 class FWFFieldSpec:
     """The specification of a single field"""
 
-    def __init__(self, data: dict[str, Any], startpos: int):
-        _data = data.copy()
+    def __init__(self, startpos: int, name: str, **kwargs):
+        assert len(name) > 0
 
-        assert "name" in _data
-        self.name: str = _data.pop("name", "")
+        self.name = name
+        self.fslice = slice(0, 0)
+        self.flen = 0
+        self.set_pos(startpos=startpos, **kwargs)
+        self.attr = kwargs
 
-        fslice = _data.pop("slice", None)
-        flen = _data.pop("len", None)
-        start = _data.pop("start", None)
-        stop = _data.pop("stop", None)
+
+    def _validate(self) -> None:
+        assert 0 <= self.len < 1000
+        assert self.fslice.start >= 0
+        assert self.fslice.stop >= self.fslice.start
+
+
+    def __contains__(self, attr) -> bool:
+        return self.get(attr, None) is not None
+
+
+    def __getitem__(self, attr: str) -> Any:
+        rtn = self.get(attr)
+        if rtn is not None:
+            return rtn
+
+        raise AttributeError(f"Fieldspec('{self.name}'): Attribute '{attr}' not found in {self.attr}")
+
+
+    def __getattr__(self, attr: str) -> Any:
+        return self[attr]
+
+
+    def get(self, attr: str, default=None) -> None|Any:
+        """Get the attribute"""
+
+        if attr == "start":
+            return self.fslice.start
+        if attr == "stop":
+            return self.fslice.stop
+
+        return self.attr.get(attr, default)
+
+
+    def set_pos(self, startpos=0, **kwargs) -> None:
+        """Update the start and stop position of the field and a combination
+        of 'slice', 'len', 'start' and 'stop' attributes"""
+
+        fslice = kwargs.get("slice", None)
+        flen = kwargs.get("len", None)
+        start = kwargs.get("start", None)
+        stop = kwargs.get("stop", None)
 
         if fslice is not None:
             if start is not None or stop is not None or flen is not None:
-                raise KeyError(f"If 'slice' is present, 'start', 'stop' or 'len' are not allowed: {data.keys()}")
+                raise KeyError(f"If 'slice' is present, 'start', 'stop' or 'len' are not allowed: {kwargs.keys()}")
 
             if isinstance(fslice, slice):
                 start = fslice.start
@@ -38,24 +79,24 @@ class FWFFieldSpec:
                 raise KeyError(f"Fieldspec: 'slice' must be one of slice, tuple(2), list(2)': {fslice}")
         elif start is not None and flen is not None:
             if stop is not None:
-                raise KeyError(f"If 'start' and 'len' are present, 'stop' is not allowed: {data.keys()}")
+                raise KeyError(f"If 'start' and 'len' are present, 'stop' is not allowed: {kwargs.keys()}")
 
             stop = start + flen
         elif stop is not None and flen is not None:
             if start is not None:
-                raise KeyError(f"If 'stop' and 'len' are present, 'start' is not allowed: {data.keys()}")
+                raise KeyError(f"If 'stop' and 'len' are present, 'start' is not allowed: {kwargs.keys()}")
 
             start = stop - flen
         elif start is not None and stop is not None:
             if flen is not None:
-                raise KeyError(f"If 'start' and 'stop' are present, 'len' is not allowed: {data.keys()}")
+                raise KeyError(f"If 'start' and 'stop' are present, 'len' is not allowed: {kwargs.keys()}")
 
         elif flen is not None:
             start = startpos
             stop = start + flen
         else:
             raise KeyError(
-                f"Fieldspecs requires either 'len', 'slice', 'start' or 'stop' combinations: {data.keys()}")
+                f"Fieldspecs requires either 'len', 'slice', 'start' or 'stop' combinations: {kwargs.keys()}")
 
         try:
             start = int(start)
@@ -69,37 +110,7 @@ class FWFFieldSpec:
 
         self.fslice = slice(start, stop)
         self.len = self.fslice.stop - self.fslice.start
-        assert 0 <= self.len < 1000
-        assert self.fslice.start >= 0
-        assert self.fslice.stop >= self.fslice.start
-
-        self.attr = _data
-
-
-    def __getattr__(self, attr: str):
-        if attr == "start":
-            return self.fslice.start
-        if attr == "stop":
-            return self.fslice.stop
-
-        return self.attr[attr]
-
-
-    def get(self, attr: str, default=None):
-        """Get the attribute"""
-
-        try:
-            return getattr(self, attr)
-        except (AttributeError, KeyError):
-            return default
-
-
-    def __contains__(self, attr):
-        try:
-            getattr(self, attr)
-            return True
-        except AttributeError:
-            return False
+        self._validate()
 
 
     def __str__(self) -> str:
@@ -138,7 +149,7 @@ class FWFFileFieldSpecs:
             if _name in _fields:
                 raise KeyError(f"Names must be unique: '{_name}' in {specs}")
 
-            field = _fields[_name] = FWFFieldSpec(spec, startpos)
+            field = _fields[_name] = FWFFieldSpec(startpos=startpos, **spec)
             startpos += field.len
             startpos = max(startpos, field.stop)
 
@@ -150,7 +161,7 @@ class FWFFileFieldSpecs:
         if len(self.fields) == 0:
             return 0
 
-        return max(x.stop for x in self.fields.values())
+        return max(x["stop"] for x in self.fields.values())
 
 
     def get(self, key: str, default=None) -> Optional[FWFFieldSpec]:
@@ -209,10 +220,15 @@ class FWFFileFieldSpecs:
 
     def add_field(self, name:str, **kwargs) -> None:
         """Add an additional field to the spec"""
-        field = FWFFieldSpec(dict(name=name, **kwargs), 0)
+        field = FWFFieldSpec(startpos=self.reclen, name=name, **kwargs)
         self.fields[name] = field
         self.reclen = self.record_length()
 
+
+    def update_field(self, name:str, **kwargs) -> None:
+        """Update an existing field to the spec"""
+        self.fields[name].set_pos(**kwargs)
+        self.reclen = self.record_length()
 
     def __len__(self):
         return len(self.fields)

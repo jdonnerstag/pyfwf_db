@@ -2,7 +2,7 @@
 # encoding: utf-8
 
 from collections import OrderedDict
-from typing import Iterator, Iterable, Union, Optional
+from typing import Iterator, Iterable, Union, Optional, Callable
 from typing import overload, TYPE_CHECKING, Any
 
 import sys
@@ -147,7 +147,6 @@ class FWFLine:
             yield (key, data)
 
 
-    # TODO May be that should a method in viewlike to get all fields?
     def __iter__(self) -> Iterator[bytes]:
         return (v for _, v in self.items(to_bytes=True))
 
@@ -171,6 +170,30 @@ class FWFLine:
         """
         view, lineno = self.parent.root(self.lineno, stop_view)
         return FWFLine(view, lineno, self.line)
+
+
+    def validate(self, func: None|Callable = None) -> bool:
+        """Invoke either the filespec __validate__() method,
+        or the function provided, to validate the record.
+
+        Return False, if validation failed."""
+
+        if func is None:
+            func = getattr(self.parent.filespec, "__validate__")
+            assert callable(func)
+
+        return func(self)
+
+
+    def parse(self, func: None|Callable = None):
+        """Invoke either the filespec __parse__() method,
+        or the method provided, to parse and convert the line"""
+
+        if func is None:
+            func = getattr(self.parent.filespec, "__parse__")
+            assert callable(func)
+
+        return func(self)
 
 
     def get_pretty_string(self, *fields: 'str') -> 'str':

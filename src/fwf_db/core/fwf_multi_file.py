@@ -31,11 +31,14 @@ class FWFMultiFile(FWFViewLike):
     necessary to concat the files first.
     """
 
-    def __init__(self, filespec):
+    def __init__(self, filespec, encoding=None, newline=None, comments=None):
         super().__init__(filespec)
 
         self.files: list[FWFFile] = []
         self.line_count = 0
+        self.encoding = encoding
+        self.newline = newline
+        self.comments = comments
 
 
     @classmethod
@@ -72,11 +75,11 @@ class FWFMultiFile(FWFViewLike):
                 close()
 
 
-    def open_and_add(self, file) -> FWFFile:
+    def open_and_add(self, file, encoding=None, newline=None, comments=None) -> FWFFile:
         """Open a file complying to the filespec provided in the
         constructor, and register the file for auto-close"""
 
-        fwf = FWFFile(self.filespec)
+        fwf = FWFFile(self.filespec, encoding, newline, comments)
         fwf.open(file)
         self.add_file(fwf)
 

@@ -1,9 +1,6 @@
-==========================================
-FWF - Fixed-Width-Field file format tools
-==========================================
-
-UNDER RECONSTRUCTION
-
+=================================================
+FWF - Python Fixed-Width-Field file format tools
+=================================================
 
 A python library that provides (very) fast, read-only, NOSQL-like, access
 to (very) large, multi-partitioned, files with fixed-width-fields.
@@ -35,7 +32,7 @@ This lib is especially targetted for the following use cases:
 - Large files: Files can be larger then memory
 - Multi-files: every file is considered a partition and multiple files can be
   combined into a single dataset
-- File replacement: sometimes files are redelivered, e.g. because the original one
+- File replacement: sometimes files get redelivered, e.g. because the original one
   needed corrections. Replacing these files is fast and effortless.
 - Evolving file structures: The exact field structure of a file type might change
   over time. With this library, no transformations or migrations are required.
@@ -51,7 +48,7 @@ This lib is especially targetted for the following use cases:
 - Persisted indexes: Not a huge gain, but saving few more seconds
 - Casts and transformations to convert field data (bytes) into strings, ints,
   dates or anything you want
-- Files which are compressed or from a (remote) object-store can be processed, but
+- Files which are compressed or from a (remote) object-store can still be processed, but
   must fit into memory (or uncompressed and locally cached; not in scope of this lib)
 - Field length is in bytes rather then chars. UTF-8 chars consume 1-6 bytes, which
   leads to variable line lengths in bytes. The lib however relies on a constant line
@@ -81,10 +78,10 @@ Building this lib wasn't our first thought:
   schema that matches your queries best. Hence complexity in the ingest
   layer, and more storage needed. This and because network latency for queries
   didn't go away, it did not make us happy.
-- We also tried converting the source files into hdf5 and similar formats, but
+- We also tried converting the data files into hdf5 and similar formats, but
   (a) it still requires injest, including the hassle with redelivered files,
-  and (b) many (not all) of these formats are columnar. Which is good for analytics,
-  but doesn't help with our use case.
+  and (b) many (not all) of these formats are columnar and thus require
+  transformations. Columnar is good for analytics, but doesn't help with our use case.
 - Several of us have laptops with 24GB RAM and we initially started small with
   a 5GB data set of uncompressed fixed-width files. We tried to load them with
   Pandas, but quickly run into out-of-memory exceptions, even with in-stream
@@ -300,7 +297,7 @@ Which again can be filtered and so on.
   >>> # Or
   >>> first5.filter(op("birthday")[0:4] == b"1957")
   >>> # Or with an additional field
-  >>> first5.add_header("birthday_year", start=11, len=4)
+  >>> first5.add_field("birthday_year", start=11, len=4)
   >>> first5.filter(op("birthday_year") == b"1957")
   +------------------+----------+--------+---------------+
   | name             | birthday | gender | birthday_year |

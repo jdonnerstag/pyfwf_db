@@ -7,7 +7,6 @@
 # Current version of pylint not yet working well with python type hints and is causing plenty false positiv.
 # pylint: disable=not-an-iterable, unsubscriptable-object
 
-from datetime import datetime
 from typing import Iterable
 
 import pytest
@@ -48,6 +47,10 @@ class HumanFile:
     ]
 
 
+class EmptyFileSpec:
+    FIELDSPECS = []
+
+
 def test_open():
     # We need both option:
     # 1) using a 'with' statement and automatically close again
@@ -80,6 +83,56 @@ def test_bytes_input():
         assert fwf.start_pos == 18
         assert fwf.line_count == 10
         assert fwf.count() == len(fwf) == 10
+
+
+def test_initialize():
+    with fwf_open(EmptyFileSpec, DATA, encoding="utf-8", comments="") as fwf:
+        assert isinstance(fwf, FWFFile)
+        assert fwf.encoding == "utf-8"
+        assert len(fwf.fields) == 0         # The filespec is yet empty
+        assert fwf.fwidth == 849            # Assume file size because of lack of details
+        assert fwf.start_pos == 0           # Empty comment char => no comment char
+        assert fwf.line_count == 0
+        assert fwf.count() == len(fwf) == 0
+
+        fwf.comments = "#"
+        fwf.initialize()
+        assert fwf.encoding == "utf-8"
+        assert len(fwf.fields) == 0         # The filespec is yet empty
+        assert fwf.fwidth == 831            # Excluding the comment line
+        assert fwf.start_pos == 18          # Found the comment line
+        assert fwf.line_count == 0
+        assert fwf.count() == len(fwf) == 0
+
+        fwf.add_field(name="location", len=9)
+        fwf.initialize()
+        assert len(fwf.fields) == 1
+        assert fwf.fields["location"].fslice == slice(0, 9)
+        assert fwf.fwidth == 83
+        assert fwf.start_pos == 18
+        assert fwf.line_count == 10
+        assert fwf.count() == len(fwf) == 10
+
+        fwf.add_field(name="state", len=2)
+        fwf.initialize()
+        assert len(fwf.fields) == 2
+        assert fwf.fields["location"].fslice == slice(0, 9)
+        assert fwf.fields["state"].fslice == slice(9, 11)
+        assert fwf.fwidth == 83
+        assert fwf.start_pos == 18
+        assert fwf.line_count == 10
+        assert fwf.count() == len(fwf) == 10
+
+        fwf.add_field(name="name", len=20)
+        assert fwf.fields["location"].fslice == slice(0, 9)
+        assert fwf.fields["state"].fslice == slice(9, 11)
+        assert fwf.fields["name"].fslice == slice(11, 31)
+        print(fwf.fields)
+
+        fwf.update_field(name="name", start=20, len=10)
+        assert fwf.fields["location"].fslice == slice(0, 9)
+        assert fwf.fields["state"].fslice == slice(9, 11)
+        assert fwf.fields["name"].fslice == slice(20, 30)
 
 
 def test_file_input():
@@ -294,7 +347,7 @@ def test_table_filter_by_field():
         rtn = fwf.filter(op("birthday")[0:4] == b"1957")    # "birthday.date.year == 1957"
         assert rtn.count() == len(list(rtn)) == 1
 
-        fwf.add_header("birthday_year", start=11, len=4)
+        fwf.add_field("birthday_year", start=11, len=4)
         rtn = fwf.filter(op("birthday_year") == b"1957")    # "birthday.date.year == 1957"
         assert rtn.count() == len(list(rtn)) == 1
 
@@ -490,3 +543,6 @@ def test_computed_field():
 
         parsed_data = list(fwf.parse())
         assert parsed_data[0] == rtn
+
+        assert line.validate() is False
+        assert line.parse() == rtn
