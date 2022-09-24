@@ -21,8 +21,7 @@ def to_pandas(fwfview: FWFViewLike, dtype=None) -> pd.DataFrame:
             parent = newp
 
         assert isinstance(parent, FWFFile)
-        fieldspecs = parent.fieldspecs
-        dtype = {e.name : e.get("dtype", None) for e in fieldspecs}
+        dtype = {e.name : e.get("dtype", None) for e in parent.fields}
     elif isinstance(dtype, list):
         list_of_strings = all(isinstance(x, str) for x in dtype)
         if list_of_strings:

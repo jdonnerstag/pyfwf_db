@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-from typing import Iterator, Union
+from typing import Union
 
 from .fwf_file import FWFFile
 from .fwf_multi_file import FWFMultiFile

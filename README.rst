@@ -221,7 +221,7 @@ They basically only maintain indexes into their parent view.
   +------------------+----------+--------+
 
   >>> # May be you want to change it for the view?
-  >>> data[0:5].set_headers("name", "birthday", "gender")
+  >>> data[0:5].set_header("name", "birthday", "gender")
 
   >>> # Getting a specific item returns a line instance
   >>> data[327]
@@ -253,7 +253,7 @@ Which again can be filtered and so on.
 .. code-block:: Python
 
   >>> data = fwf_open(HumanFileSpec, "sample_data/humans.txt")
-  >>> data.set_headers("name", "birthday", "gender")
+  >>> data.set_header("name", "birthday", "gender")
   >>> first5 = data[:5]
   >>> first5
   +------------------+----------+--------+
@@ -398,7 +398,7 @@ Pretty much the opposite of `.filter()`
 .. code-block:: Python
 
   >>> data = fwf_open(HumanFileSpec, "sample_data/humans.txt")
-  >>> data.header("name", "birthday", "gender")
+  >>> data.set_header("name", "birthday", "gender")
   >>> first5 = data[:5]
   +------------------+----------+--------+
   | name             | birthday | gender |
@@ -429,7 +429,7 @@ is ascending. For descending sorting prepend the field name with
 .. code-block:: Python
 
   >>> data = fwf_open(HumanFileSpec, "sample_data/humans.txt")
-  >>> data.header("name", "birthday", "gender")
+  >>> data.set_header("name", "birthday", "gender")
   >>> first5 = data[:5]
   +------------------+----------+--------+
   | name             | birthday | gender |
@@ -552,7 +552,7 @@ For how to add your own computed fields, please see further down below.
   +--------------+------------------+--------+----------+----------+-------+--------------+------------+
 
   >>> # Note the trailing whitespaces and breakline on __line
-  >>> first5.set_headers("_lineno", "_line")
+  >>> first5.set_header("_lineno", "_line")
   +--------------+-----------------------------------------------------------------------------------+
   | _lineno      | _line                                                                             |
   +--------------+-----------------------------------------------------------------------------------+

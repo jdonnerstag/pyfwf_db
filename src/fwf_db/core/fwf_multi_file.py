@@ -31,12 +31,10 @@ class FWFMultiFile(FWFViewLike):
     necessary to concat the files first.
     """
 
-    def __init__(self, reader):
-        super().__init__(self._determine_fieldspecs(reader))
+    def __init__(self, filespec):
+        super().__init__(filespec)
 
-        self.reader = reader
         self.files: list[FWFFile] = []
-
         self.line_count = 0
 
 
@@ -78,7 +76,7 @@ class FWFMultiFile(FWFViewLike):
         """Open a file complying to the filespec provided in the
         constructor, and register the file for auto-close"""
 
-        fwf = FWFFile(self.reader)
+        fwf = FWFFile(self.filespec)
         fwf.open(file)
         self.add_file(fwf)
 
@@ -135,11 +133,11 @@ class FWFMultiFile(FWFViewLike):
 
 
     def _fwf_by_indices(self, indices: list[int]) -> FWFSubset:
-        return FWFSubset(self, indices, self.get_fields())
+        return FWFSubset(self, indices)
 
 
     def _fwf_by_slice(self, start: int, stop: int) -> FWFRegion:
-        return FWFRegion(self, start, stop, self.get_fields())
+        return FWFRegion(self, start, stop)
 
 
     def iter_lines(self) -> Iterator[memoryview]:

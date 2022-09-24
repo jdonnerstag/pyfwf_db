@@ -26,7 +26,7 @@ import pytest
 from fwf_db import FWFFile
 from fwf_db import FWFDict
 from fwf_db import FWFLine
-from fwf_db import FWFOperator as op
+from fwf_db import op
 from fwf_db._cython import fwf_db_cython
 from fwf_db import FWFIndexDict, FWFUniqueIndexDict
 from fwf_db import FWFCythonIndexBuilder

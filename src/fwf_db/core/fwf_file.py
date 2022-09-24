@@ -24,7 +24,7 @@ class FWFFile(FWFViewLike):
     different ways.
     """
 
-    def __init__(self, reader):
+    def __init__(self, filespec):
         """Constructor
 
         'reader' is a class that provides information about the
@@ -38,14 +38,12 @@ class FWFFile(FWFViewLike):
         Please see the unit tests for an example.
         """
 
-        # TODO Currently 'reader' is fully dynamic. Would like something more explicit.
-        self._reader = reader
+        super().__init__(filespec)
 
         # Used when automatically decoding bytes into strings
-        self.encoding = getattr(reader, "ENCODING", None)
-        self.fieldspecs = FWFFileFieldSpecs(reader.FIELDSPECS)     # fixed width file spec
-        self.newline_bytes = getattr(reader, "NEWLINE", None) or [0, 1, 10, 13]  # These bytes we recognize as newline
-        self.comment_char = getattr(reader, "COMMENTS", None) or '#'
+        self.encoding = getattr(filespec, "ENCODING", None)
+        self.newline_bytes = getattr(filespec, "NEWLINE", None) or [0, 1, 10, 13]  # These bytes we recognize as newline
+        self.comment_char = getattr(filespec, "COMMENTS", None) or '#'
 
         # The number of newline bytes, e.g. "\r\n", "\n" or "\01"...
         # Required to determine overall line length
@@ -58,8 +56,6 @@ class FWFFile(FWFViewLike):
         self.file = None        # File name
         self._fd = None         # open file handle
         self._mm: memoryview|None = None   # memory map (read-only)
-
-        super().__init__(self.fieldspecs)
 
         # This is only to be consistent with FWFMultiFile and thus avoid
         # false-positiv pylint warnings
@@ -257,11 +253,11 @@ class FWFFile(FWFViewLike):
 
 
     def _fwf_by_indices(self, indices: list[int]) -> FWFSubset:
-        return FWFSubset(self, indices, self.fields)
+        return FWFSubset(self, indices)
 
 
     def _fwf_by_slice(self, start: int, stop: int) -> FWFRegion:
-        return FWFRegion(self, start, stop, self.fields)
+        return FWFRegion(self, start, stop)
 
 
     def iter_lines(self) -> Iterator[memoryview]:

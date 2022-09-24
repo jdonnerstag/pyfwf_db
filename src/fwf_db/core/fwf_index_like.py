@@ -136,7 +136,7 @@ class FWFIndexDict(FWFIndexLike[FWFSubset]):
 
 
     def to_T(self, value: list[int]) -> FWFSubset:      # pylint: disable=invalid-name
-        return FWFSubset(self.fwfview, value, self.fwfview.fields)
+        return FWFSubset(self.fwfview, value)
 
 
     # Pylint has still issues with Generics. This is to prevent false positive warnings

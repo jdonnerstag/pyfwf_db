@@ -14,13 +14,13 @@ class FWFRegion(FWFViewLike):
     and stop indexes
     """
 
-    def __init__(self, fwffile: FWFViewLike, start: int, stop: int, fields):
-        super().__init__(fields)
+    def __init__(self, parent: FWFViewLike, start: int, stop: int):
+        super().__init__(parent.filespec)
 
         assert start >= 0
         assert start <= stop
 
-        self.parent = fwffile
+        self.parent = parent
         self.start = start
         self.stop = stop
 
@@ -44,13 +44,13 @@ class FWFRegion(FWFViewLike):
 
     def _fwf_by_indices(self, indices: list[int]) -> FWFSubset:
         indices = [self.parent_index(i) for i in indices]
-        return FWFSubset(self.parent, indices, self.fields)
+        return FWFSubset(self.parent, indices)
 
 
     def _fwf_by_slice(self, start: int, stop: int) -> 'FWFRegion':
         start = self._normalize_index(self._parent_index(start), 0)
         stop = self._normalize_index(self._parent_index(stop), len(self))
-        return FWFRegion(self.parent, start, stop, self.fields)
+        return FWFRegion(self.parent, start, stop)
 
 
     def iter_lines(self) -> Iterator[memoryview]:

@@ -19,8 +19,13 @@ class FWFViewLike:
     indiviual indexes.
     """
 
-    def __init__(self, fields: FWFFileFieldSpecs):
-        self.fields = fields
+    def __init__(self, filespec):
+        self.filespec = filespec
+        if hasattr(self.filespec, "__fields__"):
+            self.fields = getattr(self.filespec, "__fields__")
+        else:
+            self.fields = FWFFileFieldSpecs(filespec.FIELDSPECS)
+            setattr(self.filespec, "__fields__", self.fields)
 
 
     def __len__(self) -> int:
@@ -325,9 +330,9 @@ class FWFViewLike:
 
         rtn = set()
         for field in fields:
-            if field in ["_lineno", "_line"]:
+            if field in self.fields:
                 rtn.add(field)
-            elif field in self.fields:
+            elif field in ["_lineno", "_line", "_file"]:
                 rtn.add(field)
             else:
                 raise AttributeError(f"Field not found. name='{field}'")
@@ -335,7 +340,7 @@ class FWFViewLike:
         return tuple(rtn)
 
 
-    def set_headers(self, *fields: str) -> 'FWFViewLike':
+    def set_header(self, *fields: str) -> 'FWFViewLike':
         """Change the order and or selection of columns"""
         self.fields = self.fields.clone(*fields)
         return self
