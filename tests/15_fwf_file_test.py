@@ -446,9 +446,9 @@ class HumanFileSpec:
             {"name": "birthday",   "slice": (11, 19)},
         ]
 
-    def __headers__(self) -> list[str]:
+    def __header__(self) -> list[str]:
         # Re-define the default for header
-        return ["name", "gender", "birthday", "birthday_year", "age"]
+        return ["name", "gender", "birthday", "birthday_year", "age", "_lineno"]
 
     def birthday_year(self, line: FWFLine):
         return int(line["birthday"][0:4])
@@ -457,10 +457,12 @@ class HumanFileSpec:
         #return datetime.today().year - self.birthday_year(line)
         return 2021 - self.birthday_year(line)
 
-    def __parse__(self, line: FWFLine) -> bool:
-        # TODO Throw exception to stop processing !!!
+    def __validate__(self, line: FWFLine) -> bool:
+        rtn = (line._lineno % 2) != 0
+        return rtn  # False => Error
 
-        return True  # False => Filter out
+    def __parse__(self, line: FWFLine):
+        return line.to_dict()
 
     def my_comment_filter(self, line: FWFLine) -> bool:
         return line[0] != ord("#")
@@ -474,3 +476,17 @@ def test_computed_field():
         assert line.birthday == b"19570526"
         assert line.birthday_year == 1957
         assert line.age == 64
+        assert line._lineno == 0
+
+        # Use the __header__ configured to create the dict
+        rtn = line.to_dict()
+        assert rtn
+        assert rtn["birthday_year"] == 1957
+        assert rtn["age"] == 64
+        assert rtn["_lineno"] == 0
+
+        errors = fwf.validate()
+        assert errors.count() == 5
+
+        parsed_data = list(fwf.parse())
+        assert parsed_data[0] == rtn

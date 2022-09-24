@@ -6,10 +6,11 @@
 import abc
 import sys
 from typing import overload, Callable, Iterator, Iterable, Optional
+from collections import OrderedDict
 from itertools import islice
 from prettytable import PrettyTable
 
-from .fwf_fieldspecs import FWFFileFieldSpecs, FWFFieldSpec
+from .fwf_fieldspecs import FWFFileFieldSpecs
 from .fwf_line import FWFLine
 
 
@@ -33,6 +34,9 @@ class FWFViewLike:
             self.fields = FWFFileFieldSpecs(getattr(self.filespec, "FIELDSPECS"))
             setattr(self.filespec, "__fields__", self.fields)
 
+        # Map field name to function able to determine the field value
+        self.field_getter: OrderedDict[str, Callable] = self._update_all_field_getter()
+
 
     def __len__(self) -> int:
         """Varies depending on the view implementation"""
@@ -42,16 +46,6 @@ class FWFViewLike:
     @abc.abstractmethod
     def count(self) -> int:
         """Provide the number of records in this view"""
-
-
-    def get_fields(self) -> FWFFileFieldSpecs:
-        """Return the fieldspec for all the fields"""
-        return self.fields
-
-
-    def field(self, index: str) -> FWFFieldSpec:
-        """Return the fieldspec for the field"""
-        return self.fields[index]
 
 
     def validate_index(self, index: int) -> int:
@@ -145,16 +139,15 @@ class FWFViewLike:
 
     def field_from_index(self, idx):
         """Determine the field name from the index"""
-        fields = self.get_fields()
         if isinstance(idx, int):
-            return next(islice(fields.keys(), idx, None))
+            return next(islice(self.fields.keys(), idx, None))
 
         return idx
 
 
     def field_dtype(self, field) -> str:
-        """Return the dtype for the field. NOTE: currently on string types are returned"""
-        field = self.get_fields()[self.field_from_index(1)]
+        """Return the dtype for the field. NOTE: currently only string types are returned"""
+        field = self.fields[self.field_from_index(1)]
         flen = field.stop - field.start
         return f"S{flen}"
 
@@ -230,7 +223,7 @@ class FWFViewLike:
 
     def iter_lines_with_field(self, field) -> Iterator[memoryview]:
         """Iterate over all lines in the file returning the raw field data"""
-        sslice: slice = self.get_fields()[field].fslice
+        sslice: slice = self.fields[field].fslice
         gen = (line[sslice] for line in self.iter_lines())
         return gen
 
@@ -332,20 +325,79 @@ class FWFViewLike:
     def header(self, *fields: str) -> tuple[str]:
         """Get the names for all fields"""
         if not fields:
-            return tuple(self.fields.keys())
+            return tuple(self.field_getter.keys())
 
         rtn = set()
         for field in fields:
-            if field in self.fields:
-                rtn.add(field)
-            elif field in ["_lineno", "_line", "_file"]:
-                rtn.add(field)
-            elif hasattr(self.filespec, field):
+            if field in self.field_getter:
                 rtn.add(field)
             else:
                 raise AttributeError(f"Field not found. name='{field}'")
 
         return tuple(rtn)
+
+
+    def _default_header(self) -> tuple[str]:
+        func = getattr(self.filespec, "__header__", None)
+        if callable(func):
+            header = func()
+        else:
+            header = self.fields.names()
+
+        return tuple(header)
+
+
+    def get_rooted_lineno(self, line: FWFLine) -> int:
+        """Get line number of this line in the file (vs the view)."""
+        _, lineno = self.root(line.lineno)
+        return lineno
+
+
+    def get_field_line(self, line: FWFLine) -> bytes:
+        return line.get_line()
+
+
+    def get_file_name(self, line: FWFLine) -> str:
+        """Get the file name"""
+        root, _ = self.root(line.lineno)
+        file = getattr(root, "file")
+        return "<literal>" if isinstance(file, int) else file
+
+
+    def get_with_fieldspec(self, field: str) -> Callable:
+        field_slice: slice = self.fields[field].fslice
+        return lambda line: bytes(line.line[field_slice])
+
+
+    def get_with_filespec_func(self, field: str) -> Callable:
+        return getattr(self.filespec, field)
+
+
+    def getter_for_field(self, field: str) -> Callable:
+        if field == "_lineno":
+            rtn = self.get_rooted_lineno
+        elif field == "_line":
+            rtn = self.get_field_line
+        elif field == "_file":
+            rtn = self.get_file_name
+        else:
+            try:
+                rtn = self.get_with_fieldspec(field)
+            except KeyError:
+                try:
+                    rtn = self.get_with_filespec_func(field)
+                except AttributeError:
+                    # pylint: disable=raise-missing-from
+                    raise KeyError(f"Filespec has no field with name: '{field}'")
+
+        return rtn
+
+
+    def _update_all_field_getter(self, *fields: str) -> OrderedDict[str, Callable]:
+        if not fields:
+            fields = self._default_header()
+
+        return OrderedDict((field, self.getter_for_field(field)) for field in fields)
 
 
     def set_header(self, *fields: str) -> 'FWFViewLike':
@@ -357,6 +409,7 @@ class FWFViewLike:
     def add_header(self, name:str, **kwargs) -> None:
         """Add an additional field to the header"""
         self.fields.add_field(name, **kwargs)
+        self.field_getter[name] = self.getter_for_field(name)
 
 
     def to_list(self, *fields: str, stop: int = -1, header: bool = True) -> Iterator[tuple]:
@@ -374,17 +427,47 @@ class FWFViewLike:
             yield values
 
 
+    def validate(self, func: None|Callable = None) -> 'FWFViewLike':
+        """Basically a filter, it either uses the filespec __validate__()
+        method to filter (validate) records, or the function provided"""
+
+        if func is None:
+            func = getattr(self.filespec, "__validate__")
+            assert callable(func)
+
+        return self.filter(func)
+
+
+    def parse(self, func: None|Callable = None, stop: int = -1):
+        """Iterate over all records in the view and either invoke
+        the filespec __parse__() method, or the method provided """
+
+        if func is None:
+            func = getattr(self.filespec, "__parse__")
+            assert callable(func)
+
+        stop = self.count() if stop < 0 else min(self.count(), stop)
+        for i in range(stop):
+            yield func(self[i])
+
+
+    def get_pretty_string(self, *fields: str, stop: int = 10) -> str:
+        """Create a string representation of the data"""
+        stop = self.count() if stop < 0 else min(self.count(), stop)
+        rtn = PrettyTable()
+        rtn.field_names = self.header(*fields)
+        gen = self.to_list(*fields, stop=stop, header=False)
+        gen = (tuple(str(v, "utf-8") for v in row) for row in gen)
+        rtn.add_rows(gen)
+        return rtn.get_string() + f"\n  len: {stop:,}/{self.count():,}"
+
+
     def get_string(self, *fields: str, stop: int = 10, pretty: bool = True) -> str:
         """Create a string representation of the data"""
         stop = self.count() if stop < 0 else min(self.count(), stop)
 
         if pretty:
-            rtn = PrettyTable()
-            rtn.field_names = self.header(*fields)
-            gen = self.to_list(*fields, stop=stop, header=False)
-            gen = (tuple(str(v, "utf-8") for v in row) for row in gen)
-            rtn.add_rows(gen)
-            return rtn.get_string() + f"\n  len: {stop:,}/{self.count():,}"
+            return self.get_pretty_string(*fields, stop=stop)
 
         rtn = f"{self.__class__.__name__}(count={self.count()}):\n"
         data = self.to_list(*fields, stop=stop, header=True)
@@ -412,7 +495,7 @@ class FWFViewLike:
 # --------------------------------------------------------------------------------
 
 class _FWFSort:
-    """Support sorting of FWFViewLike Objects"""
+    """Support order_by and unique for FWFViewLike objects"""
 
     def __init__(self, fwf_view: FWFViewLike, i: int, names: tuple[str]) -> None:
         self.fwf_view = fwf_view

@@ -599,7 +599,7 @@ methods can be added to it, e.g:
               {"name": "birthday",   "slice": (11, 19)},
           ]
 
-      def __headers__(self) -> list[str]:   # TODO to be implemented
+      def __header__(self) -> list[str]:
           # Re-define the default for header
           return ["name", "gender", "birthday", "birthday_year", "age"]
 
@@ -609,10 +609,8 @@ methods can be added to it, e.g:
       def age(self, line: FWFLine):
           return datetime.today().year - self.birthday_year(line)
 
-      def __parse__(self, line: FWFLine) -> bool:
-          TODO Throw exception to stop processing !!!
-
-          return True  # False => Filter out
+      def __validate__(self, line: FWFLine) -> bool:
+          return True  # False => Error
 
       def my_comment_filter(self, line: FWFLine) -> bool:
           return line[0] != ord("#")

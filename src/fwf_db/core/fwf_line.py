@@ -2,7 +2,8 @@
 # encoding: utf-8
 
 from collections import OrderedDict
-from typing import Iterable, Union, Optional, overload, TYPE_CHECKING, Any, Iterator
+from typing import Iterator, Iterable, Union, Optional
+from typing import overload, TYPE_CHECKING, Any
 
 import sys
 from datetime import datetime
@@ -36,7 +37,7 @@ class FWFLine:
         return bytes(self.line)
 
 
-    def __getattr__(self, key):
+    def __getattr__(self, key) -> Any:
         # we don't need a special call to super here because getattr is only
         # called when an attribute is NOT found in the instance's dictionary
         try:
@@ -73,10 +74,14 @@ class FWFLine:
         raise KeyError(f"Invalid Index: {arg}")
 
 
-    def _get(self, field: 'str') -> memoryview:
-        """Get the binary data for the field"""
-        field_slice: slice = self.parent.fields[field].fslice
-        return self.line[field_slice]
+    def get_rooted_lineno(self) -> 'int':
+        """Get line number of this line in the file (vs the view)."""
+        return self.parent.get_rooted_lineno(self)
+
+
+    def get_file_name(self) -> 'str':
+        """Get the file name"""
+        return self.parent.get_file_name(self)
 
 
     def get(self, arg: Union['str', 'int', slice, FWFFieldSpec], default = None):
@@ -88,34 +93,17 @@ class FWFLine:
         slice: return the bytes associated with the slice
         """
         if isinstance(arg, FWFFieldSpec):
-            return bytes(self.line[arg.fslice])
-        if isinstance(arg, str):
-            if arg == "_lineno":
-                return self.rooted().lineno
-            if arg == "_line":
-                return self.line
-            if arg == "_file":
-                file = getattr(self.rooted().parent, "file")
-                return "<literal>" if isinstance(file, int) else file
+            rtn = bytes(self.line[arg.fslice])
+        elif isinstance(arg, str):
+            rtn = self.parent.getter_for_field(arg)(self)
+        elif isinstance(arg, int):
+            rtn = self.line[arg]
+        elif isinstance(arg, slice):
+            rtn = self.line[arg]
+        else:
+            rtn = default
 
-            try:
-                return bytes(self._get(arg))
-            except KeyError:
-                pass
-
-            filespec = self.parent.filespec
-            func = getattr(filespec, arg)
-            if callable(func):
-                return func(self)
-
-            raise KeyError(f"Filespec has no field with name: '{arg}'")
-
-        if isinstance(arg, int):
-            return self.line[arg]
-        if isinstance(arg, slice):
-            return self.line[arg]
-        return default
-
+        return rtn
 
     def str(self, field: str, encoding=None) -> str:
         """Get the data for the field converted into a string, optionally
@@ -140,27 +128,26 @@ class FWFLine:
 
 
     def __contains__(self, key) -> bool:
-        """Suppot pythons 'in' operator"""
-        return key in self.parent.fields
+        return key in self.parent.field_getter
 
 
     def keys(self):
-        """Like dict's keys() method, return all field names"""
-        return self.parent.fields.keys()
+        """The list all available fields"""
+        return self.parent.field_getter.keys()
 
 
     def items(self, *keys: 'str', to_bytes: bool = True) -> Iterable[tuple['str', Any]]:
-        """Similar to dict's items(), return field name and value tuples"""
-
+        """A list of items of the lines"""
         names = self.parent.header(*keys)
         for key in names:
-            data = self[key]
-            if to_bytes:
+            data = self.parent.field_getter[key](self)
+            if isinstance(data, memoryview) and to_bytes:
                 data = bytes(data)
 
             yield (key, data)
 
 
+    # TODO May be that should a method in viewlike to get all fields?
     def __iter__(self) -> Iterator[bytes]:
         return (v for _, v in self.items(to_bytes=True))
 
@@ -186,16 +173,20 @@ class FWFLine:
         return FWFLine(view, lineno, self.line)
 
 
-    def get_string(self, *fields: 'str', pretty: bool = True) -> 'str':
-        """Create a string representation of the data"""
-
+    def get_pretty_string(self, *fields: 'str') -> 'str':
+        """Get a pretty line represention"""
         headers = self.parent.header(*fields)
         data = self.to_list(*fields)
+        rtn = PrettyTable()
+        rtn.field_names = headers
+        rtn.add_row([str(v, "utf-8") for v in data])
+        return rtn.get_string()
+
+
+    def get_string(self, *fields: 'str', pretty: bool = True) -> 'str':
+        """Create a string representation of the data"""
         if pretty:
-            rtn = PrettyTable()
-            rtn.field_names = headers
-            rtn.add_row([str(v, "utf-8") for v in data])
-            return rtn.get_string()
+            return self.get_pretty_string(*fields)
 
         rtn = f"{self.__class__.__name__}(_lineo={self.lineno}):\n"
         rtn += str(self.to_dict())
