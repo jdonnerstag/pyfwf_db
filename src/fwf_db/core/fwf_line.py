@@ -87,25 +87,28 @@ class FWFLine:
         int: return the byte at the position provided
         slice: return the bytes associated with the slice
         """
-        if arg == "_lineno":
-            return self.rooted().lineno
-        if arg == "_line":
-            return self.line
-        if arg == "_file":
-            file = getattr(self.rooted().parent, "file")
-            return "<literal>" if isinstance(file, int) else file
         if isinstance(arg, FWFFieldSpec):
             return bytes(self.line[arg.fslice])
         if isinstance(arg, str):
+            if arg == "_lineno":
+                return self.rooted().lineno
+            if arg == "_line":
+                return self.line
+            if arg == "_file":
+                file = getattr(self.rooted().parent, "file")
+                return "<literal>" if isinstance(file, int) else file
+
             try:
                 return bytes(self._get(arg))
             except KeyError:
                 pass
 
-            func = getattr(self.parent.filespec, arg)
+            filespec = self.parent.filespec
+            func = getattr(filespec, arg)
             if callable(func):
                 return func(self)
-            raise KeyError(f"Filespec has not field with name: '{arg}'")
+
+            raise KeyError(f"Filespec has no field with name: '{arg}'")
 
         if isinstance(arg, int):
             return self.line[arg]

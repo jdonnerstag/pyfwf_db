@@ -7,6 +7,7 @@
 # Current version of pylint not yet working well with python type hints and is causing plenty false positiv.
 # pylint: disable=not-an-iterable, unsubscriptable-object
 
+from datetime import datetime
 from typing import Iterable
 
 import pytest
@@ -436,3 +437,40 @@ def test_lineno_line_file():
         assert line._lineno == 5
         assert bytes(line._line).find(b"Richard Botto")
         assert line._file == "sample_data/humans-subset.txt"
+
+
+class HumanFileSpec:
+    FIELDSPECS = [
+            {"name": "name",       "slice": (32, 56)},
+            {"name": "gender",     "slice": (19, 20)},
+            {"name": "birthday",   "slice": (11, 19)},
+        ]
+
+    def __headers__(self) -> list[str]:
+        # Re-define the default for header
+        return ["name", "gender", "birthday", "birthday_year", "age"]
+
+    def birthday_year(self, line: FWFLine):
+        return int(line["birthday"][0:4])
+
+    def age(self, line: FWFLine):
+        #return datetime.today().year - self.birthday_year(line)
+        return 2021 - self.birthday_year(line)
+
+    def __parse__(self, line: FWFLine) -> bool:
+        # TODO Throw exception to stop processing !!!
+
+        return True  # False => Filter out
+
+    def my_comment_filter(self, line: FWFLine) -> bool:
+        return line[0] != ord("#")
+
+
+def test_computed_field():
+    with fwf_open(HumanFileSpec, DATA) as fwf:
+        line = fwf[0]
+        assert line.name == b"Dianne Mcintosh         "
+        assert line.gender == b"F"
+        assert line.birthday == b"19570526"
+        assert line.birthday_year == 1957
+        assert line.age == 64

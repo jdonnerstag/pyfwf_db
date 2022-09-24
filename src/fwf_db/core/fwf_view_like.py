@@ -20,11 +20,17 @@ class FWFViewLike:
     """
 
     def __init__(self, filespec):
-        self.filespec = filespec
+        # Filespec often is only the class (type) and not an instance of a class.
+        # If that is the case, then first create an instance.
+        self.filespec = filespec() if isinstance(filespec, type) else filespec
+
+        # We don't want to re-create fields, if not necessary. Since filespec
+        # gets passed to FWFRegion, FWFSubset etc., we need to put the fields
+        # into the filespec.
         if hasattr(self.filespec, "__fields__"):
             self.fields = getattr(self.filespec, "__fields__")
         else:
-            self.fields = FWFFileFieldSpecs(filespec.FIELDSPECS)
+            self.fields = FWFFileFieldSpecs(getattr(self.filespec, "FIELDSPECS"))
             setattr(self.filespec, "__fields__", self.fields)
 
 

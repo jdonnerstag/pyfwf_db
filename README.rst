@@ -601,7 +601,7 @@ methods can be added to it, e.g:
 
       def __headers__(self) -> list[str]:   # TODO to be implemented
           # Re-define the default for header
-          return ["name, "gender", "birthday", "birthday_year", "age"]
+          return ["name", "gender", "birthday", "birthday_year", "age"]
 
       def birthday_year(self, line: FWFLine):
           return int(line.birthday[0:4])
