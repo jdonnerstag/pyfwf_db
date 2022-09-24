@@ -701,7 +701,7 @@ Filtering is also also still possible.
 
           # then update table headers so 'age' and 'address' become available and
           # 'location' and 'state' are removed.
-          self._update_headers()
+          self._update_header()
           # Please note that the new columns have been added at the end of the
           # table. If you want some specific column order just set self._headers
           # manually

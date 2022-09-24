@@ -182,10 +182,10 @@ def test_cython_index():
         assert len(mi[b"1    "]) == 2
         assert len(mi[b"22   "]) == 1
 
-        assert mi[b"1    "][0].rooted().fwf_view == mf.files[0]
-        assert mi[b"1    "][1].rooted().fwf_view == mf.files[1]
-        assert mi[b"2    "][0].rooted().fwf_view == mf.files[0]
-        assert mi[b"22   "][0].rooted().fwf_view == mf.files[1]
+        assert mi[b"1    "][0].rooted().parent == mf.files[0]
+        assert mi[b"1    "][1].rooted().parent == mf.files[1]
+        assert mi[b"2    "][0].rooted().parent == mf.files[0]
+        assert mi[b"22   "][0].rooted().parent == mf.files[1]
 
         assert mi[b"1    "][0].rooted().lineno == 0
         assert mi[b"1    "][1].rooted().lineno == 0
@@ -200,10 +200,10 @@ def test_cython_index():
         assert len(mi[b"1    "]) == 2
         assert len(mi[b"22   "]) == 1
 
-        assert mi[b"1    "][0].rooted().fwf_view == mf.files[0]
-        assert mi[b"1    "][1].rooted().fwf_view == mf.files[1]
-        assert mi[b"2    "][0].rooted().fwf_view == mf.files[0]
-        assert mi[b"22   "][0].rooted().fwf_view == mf.files[1]
+        assert mi[b"1    "][0].rooted().parent == mf.files[0]
+        assert mi[b"1    "][1].rooted().parent == mf.files[1]
+        assert mi[b"2    "][0].rooted().parent == mf.files[0]
+        assert mi[b"22   "][0].rooted().parent == mf.files[1]
 
         assert mi[b"1    "][0].rooted().lineno == 0
         assert mi[b"1    "][1].rooted().lineno == 0
@@ -222,9 +222,9 @@ def test_cython_unique_index():
         assert mi[b"2    "].lineno == 1
         assert mi[b"22   "].lineno == 11
 
-        assert mi[b"1    "].rooted().fwf_view is mf.files[1]
-        assert mi[b"2    "].rooted().fwf_view is mf.files[0]
-        assert mi[b"22   "].rooted().fwf_view is mf.files[1]
+        assert mi[b"1    "].rooted().parent is mf.files[1]
+        assert mi[b"2    "].rooted().parent is mf.files[0]
+        assert mi[b"22   "].rooted().parent is mf.files[1]
 
         assert mi[b"1    "].rooted().lineno == 0
         assert mi[b"2    "].rooted().lineno == 1

@@ -540,7 +540,7 @@ For how to add your own computed fields, please see further down below.
   | 6378         | Helen Villarreal |
   +--------------+------------------+
 
-  >>> first5.print("_lineno", *first5.headers())
+  >>> first5.print("_lineno", *first5.header())
   +--------------+------------------+--------+----------+----------+-------+--------------+------------+
   | _line_number | name             | gender | birthday | location | state | universe     | profession |
   +--------------+------------------+--------+----------+----------+-------+--------------+------------+
@@ -599,14 +599,17 @@ methods can be added to it, e.g:
               {"name": "birthday",   "slice": (11, 19)},
           ]
 
-      def __headers__(self) -> list[str]:   # TODO
-          # Define the default for headers
+      def __headers__(self) -> list[str]:   # TODO to be implemented
+          # Re-define the default for header
           return ["name, "gender", "birthday", "birthday_year", "age"]
 
-      def __parse__(self, line: FWFLine) -> bool:
-          line.birthday_year = int(line.birthday[0:4])
-          self.age = datetime.today().year - self.birthday_year(line)
+      def birthday_year(self, line: FWFLine):
+          return int(line.birthday[0:4])
 
+      def age(self, line: FWFLine):
+          return datetime.today().year - self.birthday_year(line)
+
+      def __parse__(self, line: FWFLine) -> bool:
           TODO Throw exception to stop processing !!!
 
           return True  # False => Filter out

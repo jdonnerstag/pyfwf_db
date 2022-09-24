@@ -413,3 +413,26 @@ def test_unique():
 
         x = fwf.unique("universe", "profession")
         assert x.count() == 6
+
+
+def test_lineno_line_file():
+    with fwf_open(HumanFile, DATA) as fwf:
+        data = fwf[5:]
+        line = data[0]
+        assert line._lineno == 5
+        assert bytes(line._line).find(b"Richard Botto")
+        assert line._file == "<literal>"
+
+    with fwf_open(HumanFile, "sample_data/humans.txt") as fwf:
+        data = fwf[5:]
+        line = data[0]
+        assert line._lineno == 5
+        assert bytes(line._line).find(b"Richard Botto")
+        assert line._file == "sample_data/humans.txt"
+
+    with fwf_open(HumanFile, "sample_data/humans-subset.txt", "sample_data/humans.txt") as fwf:
+        data = fwf[5:]
+        line = data[0]
+        assert line._lineno == 5
+        assert bytes(line._line).find(b"Richard Botto")
+        assert line._file == "sample_data/humans-subset.txt"

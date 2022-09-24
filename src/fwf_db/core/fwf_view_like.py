@@ -323,7 +323,7 @@ class FWFViewLike:
         return self.fwf_by_indices(idx)
 
 
-    def headers(self, *fields: str) -> tuple[str]:
+    def header(self, *fields: str) -> tuple[str]:
         """Get the names for all fields"""
         if not fields:
             return tuple(self.fields.keys())
@@ -333,6 +333,8 @@ class FWFViewLike:
             if field in self.fields:
                 rtn.add(field)
             elif field in ["_lineno", "_line", "_file"]:
+                rtn.add(field)
+            elif hasattr(self.filespec, field):
                 rtn.add(field)
             else:
                 raise AttributeError(f"Field not found. name='{field}'")
@@ -355,7 +357,7 @@ class FWFViewLike:
         """Create an ordinary python list from the view"""
 
         if header:
-            yield self.headers()
+            yield self.header()
 
         if stop <= 0:
             stop = self.count()
@@ -372,7 +374,7 @@ class FWFViewLike:
 
         if pretty:
             rtn = PrettyTable()
-            rtn.field_names = self.headers(*fields)
+            rtn.field_names = self.header(*fields)
             gen = self.to_list(*fields, stop=stop, header=False)
             gen = (tuple(str(v, "utf-8") for v in row) for row in gen)
             rtn.add_rows(gen)

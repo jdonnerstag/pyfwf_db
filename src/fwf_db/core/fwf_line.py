@@ -22,12 +22,12 @@ class FWFLine:
     """
 
     # Note: 'int' and 'str' is required because of str() and int()
-    def __init__(self, fwf_view: 'FWFViewLike', lineno: 'int', line: memoryview):
-        assert fwf_view is not None
+    def __init__(self, parent: 'FWFViewLike', lineno: 'int', line: memoryview):
+        assert parent is not None
         #assert isinstance(lineno, int)     Numpy provides a int-like object
 
-        self.fwf_view: 'FWFViewLike' = fwf_view
-        self.lineno: int = lineno    # Line number in the context of 'fwf_view'
+        self.parent: 'FWFViewLike' = parent
+        self.lineno: int = lineno    # Line number in the context of 'parent'
         self.line: memoryview = line
 
 
@@ -40,7 +40,7 @@ class FWFLine:
         # we don't need a special call to super here because getattr is only
         # called when an attribute is NOT found in the instance's dictionary
         try:
-            return bytes(self[key])
+            return self[key]
         except KeyError:
             # pylint: disable=raise-missing-from
             raise AttributeError(f"FWFLine has not field with name '{key}'")
@@ -58,7 +58,7 @@ class FWFLine:
     @overload
     def __getitem__(self, arg: slice) -> memoryview: ...
 
-    def __getitem__(self, arg: Union['str', 'int', slice, FWFFieldSpec]) -> memoryview|int:
+    def __getitem__(self, arg: Union['str', 'int', slice, FWFFieldSpec]):
         """Get a field or range of bytes from the line.
 
         fieldspec: return the line data associated with the fieldspec (slice)
@@ -75,7 +75,7 @@ class FWFLine:
 
     def _get(self, field: 'str') -> memoryview:
         """Get the binary data for the field"""
-        field_slice: slice = self.fwf_view.fields[field].fslice
+        field_slice: slice = self.parent.fields[field].fslice
         return self.line[field_slice]
 
 
@@ -88,13 +88,25 @@ class FWFLine:
         slice: return the bytes associated with the slice
         """
         if arg == "_lineno":
-            return self.lineno
+            return self.rooted().lineno
         if arg == "_line":
             return self.line
+        if arg == "_file":
+            file = getattr(self.rooted().parent, "file")
+            return "<literal>" if isinstance(file, int) else file
         if isinstance(arg, FWFFieldSpec):
-            return self.line[arg.fslice]
+            return bytes(self.line[arg.fslice])
         if isinstance(arg, str):
-            return self._get(arg)
+            try:
+                return bytes(self._get(arg))
+            except KeyError:
+                pass
+
+            func = getattr(self.parent.filespec, arg)
+            if callable(func):
+                return func(self)
+            raise KeyError(f"Filespec has not field with name: '{arg}'")
+
         if isinstance(arg, int):
             return self.line[arg]
         if isinstance(arg, slice):
@@ -126,18 +138,18 @@ class FWFLine:
 
     def __contains__(self, key) -> bool:
         """Suppot pythons 'in' operator"""
-        return key in self.fwf_view.fields
+        return key in self.parent.fields
 
 
     def keys(self):
         """Like dict's keys() method, return all field names"""
-        return self.fwf_view.fields.keys()
+        return self.parent.fields.keys()
 
 
     def items(self, *keys: 'str', to_bytes: bool = True) -> Iterable[tuple['str', Any]]:
         """Similar to dict's items(), return field name and value tuples"""
 
-        names = self.fwf_view.headers(*keys)
+        names = self.parent.header(*keys)
         for key in names:
             data = self[key]
             if to_bytes:
@@ -167,14 +179,14 @@ class FWFLine:
         Note that this function is NOT validating the index value. It
         simply applies the mapping from one view to its parent.
         """
-        view, lineno = self.fwf_view.root(self.lineno, stop_view)
+        view, lineno = self.parent.root(self.lineno, stop_view)
         return FWFLine(view, lineno, self.line)
 
 
     def get_string(self, *fields: 'str', pretty: bool = True) -> 'str':
         """Create a string representation of the data"""
 
-        headers = self.fwf_view.headers(*fields)
+        headers = self.parent.header(*fields)
         data = self.to_list(*fields)
         if pretty:
             rtn = PrettyTable()

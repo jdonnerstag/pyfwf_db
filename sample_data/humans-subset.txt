@@ -1,0 +1,11 @@
+# This file is just a subset of humans.txt
+US       AR19570526Fbe56008be36eDianne Mcintosh         Whatever    Medic        #
+US       MI19940213M706a6e0afc3dRosalyn Clark           Whatever    Comedian     #
+US       WI19510403M451ed630accbShirley Gray            Whatever    Comedian     #
+US       MD20110508F7e5cd7324f38Georgia Frank           Whatever    Comedian     #
+US       PA19930404Mecc7f17c16a6Virginia Lambert        Whatever    Shark tammer #
+US       VT19770319Fd2bd88100facRichard Botto           Whatever    Time traveler#
+US       OK19910917F9c704139a6e3Alberto Giel            Whatever    Student      #
+US       NV20120604F5f02187599d7Mildred Henke           Whatever    Super hero   #
+US       RI19820125Fcf54b2eb5219Marc Kidd               Whatever    Medic        #
+US       ME20080503F0f51da89a299Kelly Crose             Whatever    Comedian     #

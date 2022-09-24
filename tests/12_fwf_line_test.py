@@ -166,7 +166,7 @@ def test_rooted():
     fwf = FWFFile(HumanFile)
     line = FWFLine(fwf, 0, DATA)
     x = line.rooted()
-    assert x.fwf_view == line.fwf_view == fwf
+    assert x.parent == line.parent == fwf
     assert x.lineno == line.lineno == 0
     assert x.line == line.line == DATA
 
