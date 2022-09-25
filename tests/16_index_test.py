@@ -52,6 +52,8 @@ def test_simple_index():
         rtn = FWFIndexDict(fwf)
         FWFSimpleIndexBuilder(rtn).index(fwf, "state")
         assert rtn.count() == len(rtn) == 9
+        assert rtn.get_string(pretty=True, stop=5)
+        assert rtn.get_string(pretty=False)
 
         rtn = FWFIndexDict(fwf)
         FWFSimpleIndexBuilder(rtn).index(fwf, "gender")
@@ -80,7 +82,7 @@ def test_simple_index():
             assert rec.lines == value.lines
             assert len(rec) == 3 or len(rec) == 7
 
-        x = FWFSubset(rtn.fwfview, rtn.data["M"])
+        x = FWFSubset(rtn.parent, rtn.data["M"])
         assert isinstance(x, FWFSubset)
         for rec in x:
             assert rec.rooted().lineno in [1, 2, 4]
@@ -166,7 +168,7 @@ def test_simple_index_with_mem_optimized_dict():
             np.testing.assert_array_equal(rec.lines, value.lines)
             assert len(rec) == 3 or len(rec) == 7
 
-        x = FWFSubset(rtn.fwfview, rtn.data["M"])
+        x = FWFSubset(rtn.parent, rtn.data["M"])
         assert isinstance(x, FWFSubset)
         for rec in x:
             assert rec.rooted().lineno in [1, 2, 4]
@@ -318,6 +320,8 @@ def test_simple_unique_index():
         rtn = FWFUniqueIndexDict(fwf, {})
         FWFSimpleIndexBuilder(rtn).index(fwf, "state")
         assert rtn.count() == len(rtn) == 9
+        assert rtn.get_string("birthday", "gender", "name", pretty=True, stop=5)
+        assert rtn.get_string(pretty=False)
 
         rtn = FWFUniqueIndexDict(fwf, {})
         FWFSimpleIndexBuilder(rtn).index(fwf, "gender")

@@ -50,6 +50,20 @@ class DataFile:
     ]
 
 
+class HumanFileSpec:
+
+    FIELDSPECS = [
+        {"name": "location", "len": 9},
+        {"name": "state", "len": 2},
+        {"name": "birthday", "len": 8},
+        {"name": "gender", "len": 1},
+        {"name": "name", "len": 36},
+        {"name": "universe", "len": 12},
+        {"name": "profession", "len": 13},
+        {"name": "dummy", "len": 1},
+    ]
+
+
 def test_with_statement():
     with fwf_open(DataFile, DATA_1, DATA_2) as mf:
         assert isinstance(mf, FWFMultiFile)
@@ -229,5 +243,18 @@ def test_cython_unique_index():
         assert mi[b"1    "].rooted().lineno == 0
         assert mi[b"2    "].rooted().lineno == 1
         assert mi[b"22   "].rooted().lineno == 1
+
+
+def test_pretty_print():
+    with fwf_open(HumanFileSpec, "sample_data/humans-subset.txt", "sample_data/humans.txt") as mf:
+
+        data = list(mf[8:12].to_list("_lineno", "_file", header=False))
+        assert data[0] == (8, "sample_data/humans-subset.txt")
+        assert data[1] == (9, "sample_data/humans-subset.txt")
+        assert data[2] == (0, "sample_data/humans.txt")
+        assert data[3] == (1, "sample_data/humans.txt")
+
+        assert mf[8:12].get_string("_lineno", "_file", pretty=True)
+
 
 # TODO We need multi-file tests with mem-optimized index

@@ -2,8 +2,10 @@
 # encoding: utf-8
 
 import abc
+import sys
 import collections.abc
 from typing import Iterable, Iterator, Any, TypeVar, Generic
+from prettytable import PrettyTable
 
 from .fwf_dict import FWFDict
 from .fwf_view_like import FWFViewLike
@@ -17,13 +19,13 @@ from .fwf_line import FWFLine
 class FWFIndexBuilder:
     """An Mixin defining some common core functionalities to build an index."""
 
-    def index(self, fwfview: FWFViewLike, field: int|str, **kwargs):
+    def index(self, parent: FWFViewLike, field: int|str, **kwargs):
         """A convience function to create the index without generator"""
 
-        field = fwfview.field_from_index(field)
+        field = parent.field_from_index(field)
 
         # Create an iterator which iterates over all relevant records
-        gen = self.index_generator(fwfview, field, **kwargs)
+        gen = self.index_generator(parent, field, **kwargs)
 
         # Do we need to apply any transformations...
         func = kwargs.get("func", None)
@@ -33,20 +35,20 @@ class FWFIndexBuilder:
         # Print some log-progress if requested, possible with every line
         log_progress = kwargs.get("log_progress", None)
         if log_progress is not None and callable(log_progress):
-            gen = (log_progress(fwfview, i) or v for i, v in enumerate(gen))
+            gen = (log_progress(parent, i) or v for i, v in enumerate(gen))
 
         # Consume the iterator and create the index
-        self.create_index_from_generator(fwfview, gen, **kwargs)
+        self.create_index_from_generator(parent, gen, **kwargs)
 
         return self
 
 
-    def index_generator(self, fwfview: FWFViewLike, field: int|str, **_) -> Iterator[memoryview]:
+    def index_generator(self, parent: FWFViewLike, field: int|str, **_) -> Iterator[memoryview]:
         '''Provide an iterator (e.g generator) which iterates over all relevant records'''
-        return fwfview.iter_lines_with_field(field)
+        return parent.iter_lines_with_field(field)
 
 
-    def create_index_from_generator(self, fwfview: FWFViewLike, gen: Iterator[memoryview], **kwargs) -> None:
+    def create_index_from_generator(self, parent: FWFViewLike, gen: Iterator[memoryview], **kwargs) -> None:
         """Consume the iterator or generator and create the index"""
 
 
@@ -61,8 +63,8 @@ class FWFIndexLike(Generic[T], collections.abc.Mapping[Any, T]):
     required core functionalities of every index like class.
     """
 
-    def __init__(self, fwfview: FWFViewLike, data: dict):
-        self.fwfview = fwfview
+    def __init__(self, parent: FWFViewLike, data: dict):
+        self.parent = parent
         self.data: dict = data
 
 
@@ -122,6 +124,39 @@ class FWFIndexLike(Generic[T], collections.abc.Mapping[Any, T]):
         self.data[key] = value
 
 
+    # pylint: disable=unused-argument
+    def get_string(self, *fields: str, stop: int = 10, pretty: bool = True) -> str:
+        """Get a string represention of the index"""
+
+        rtn = f"{self.__class__.__name__}(count={self.count()}): ["
+
+        stop = self.count() if stop < 0 else min(self.count(), stop)
+        for i, key in enumerate(self.keys()):
+            if i >= stop:
+                rtn += " ..."
+                break
+
+            if i > 0:
+                rtn += ", "
+
+            rtn += str(key)
+
+        rtn += "]\n"
+        return rtn
+
+
+    def print(self, *fields: str, stop: int=10, pretty: bool=True, file=sys.stdout) -> None:
+        """Print the table content"""
+        print(self.get_string(*fields, stop=stop, pretty=pretty), file=file)
+
+
+    def __str__(self) -> str:
+        return self.get_string(stop=10, pretty=True)
+
+
+    def __repr__(self) -> str:
+        return self.get_string(stop=10, pretty=False)
+
 # ---------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------
 
@@ -130,18 +165,38 @@ class FWFIndexDict(FWFIndexLike[FWFSubset]):
     required core functionalities of a dict like index class
     """
 
-    def __init__(self, fwfview: FWFViewLike, data: None|dict[Any, list[int]] = None):
+    def __init__(self, parent: FWFViewLike, data: None|dict[Any, list[int]] = None):
         data = data if data is not None else FWFDict()
-        super().__init__(fwfview, data)
+        super().__init__(parent, data)
 
 
     def to_T(self, value: list[int]) -> FWFSubset:      # pylint: disable=invalid-name
-        return FWFSubset(self.fwfview, value)
+        return FWFSubset(self.parent, value)
 
 
     # Pylint has still issues with Generics. This is to prevent false positive warnings
     def __getitem__(self, key) -> FWFSubset:
         return super().__getitem__(key)
+
+
+    def get_string(self, *fields: str, stop: int = 10, pretty: bool = True) -> str:
+        """Get a string represention of the index"""
+
+        rtn = f"{self.__class__.__name__}(count={self.count()}): ["
+
+        stop = self.count() if stop < 0 else min(self.count(), stop)
+        for i, (key, subset) in enumerate(self):
+            if i >= stop:
+                rtn += " ..."
+                break
+
+            if i > 0:
+                rtn += ", "
+
+            rtn += f"{str(key)}: len({len(subset)})"
+
+        rtn += "]\n"
+        return rtn
 
 
 # ---------------------------------------------------------------------------------------
@@ -152,15 +207,35 @@ class FWFUniqueIndexDict(FWFIndexLike[FWFLine]):
     required core functionalities of a dict like index class
     """
 
-    def __init__(self, fwfview: FWFViewLike, data: None|dict[Any, int] = None):
+    def __init__(self, parent: FWFViewLike, data: None|dict[Any, int] = None):
         data = data if data is not None else {}
-        super().__init__(fwfview, data)
+        super().__init__(parent, data)
 
 
     def to_T(self, value: int) -> FWFLine:      # pylint: disable=invalid-name
-        return self.fwfview.line_at(value)
+        return self.parent.line_at(value)
 
 
     # Pylint has still issues with Generics. This is to prevent false positive warnings
     def __getitem__(self, key) -> FWFLine:
         return super().__getitem__(key)
+
+
+    def get_pretty_string(self, *fields: str, stop: int = 10) -> str:
+        """Create a string representation of the data"""
+        stop = self.count() if stop < 0 else min(self.count(), stop)
+        rtn = PrettyTable()
+
+        rtn.field_names = self.parent.header(*fields)
+        gen = (tuple(row[v] for v in rtn.field_names) for i, (_, row) in enumerate(self) if i < stop)
+        gen = list(gen)
+        rtn.add_rows(gen)
+        return rtn.get_string() + f"\n  len: {stop:,}/{self.count():,}"
+
+
+    def get_string(self, *fields: str, stop: int = 10, pretty: bool = True) -> str:
+        """Create a string representation of the data"""
+        if pretty:
+            return self.get_pretty_string(*fields, stop=stop)
+
+        return super().get_string(*fields, stop=stop, pretty=pretty)

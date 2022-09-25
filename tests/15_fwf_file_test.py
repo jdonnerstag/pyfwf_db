@@ -127,7 +127,7 @@ def test_initialize():
         assert fwf.fields["location"].fslice == slice(0, 9)
         assert fwf.fields["state"].fslice == slice(9, 11)
         assert fwf.fields["name"].fslice == slice(11, 31)
-        print(fwf.fields)
+        #print(fwf.fields)
 
         fwf.update_field(name="name", start=20, len=10)
         assert fwf.fields["location"].fslice == slice(0, 9)

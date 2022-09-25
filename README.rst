@@ -151,8 +151,8 @@ The slices represent the first and last positions of each information
 within the line. Alternatively you may provide combinations of 'start', 'len' and
 'stop'.
 
-The sequence of fields is only relevant for (pretty) printing the dataset,
-or exporting it.
+The sequence of fields is relevant for exporting and (pretty) printing
+the dataset.
 
 Now, lets open the file.
 
@@ -185,14 +185,17 @@ Views
 and is accessible almost like a standard python list. You may consider it the
 root-view, as it doesn't have another parent view.
 
-Slices, filters, etc. create views on top of their parent view.
+Slices, filters, etc. create views on top of their parent views.
 Views are very light-weight and do not copy any data from the file.
 They basically only maintain indexes into their parent view.
+
+Views inherit the header (fields) from their parent, but maintain their
+own copy. It can be modified without affecting the parents header.
 
 .. code-block:: Python
 
   >>> data = fwf_open(HumanFileSpec, "sample_data/humans.txt")
-  >>> # slices provide a view (subset) onto the full data set
+  >>> # slices provide a view (subset) on the full data set
   >>> data[0:5]
   +----------+--------+--------------------------+
   | birthday | gender |           name           |
@@ -205,7 +208,7 @@ They basically only maintain indexes into their parent view.
   +----------+--------+--------------------------+
   len: 5/5
 
-  >>> # You want to change field order?
+  >>> # You want to change the field order?
   >>> data[0:5].print("name", "birthday", "gender")
   +------------------+----------+--------+
   | name             | birthday | gender |
@@ -220,7 +223,7 @@ They basically only maintain indexes into their parent view.
   >>> # May be you want to change it for the view?
   >>> data[0:5].set_header("name", "birthday", "gender")
 
-  >>> # Getting a specific item returns a line instance
+  >>> # Indivial lines can be requested as well
   >>> data[327]
   +------------+----------+--------+
   | name       | birthday | gender |
@@ -228,7 +231,7 @@ They basically only maintain indexes into their parent view.
   | Jack Brown | 19490106 | M      |
   +------------+----------+--------+
 
-  >>> # Note that the table is only a shell representation of the objects
+  >>> # The table is only a shell representation of the objects
   >>> data[327].name
   'Jack Brown'
   >>> data[327].birthday
@@ -271,7 +274,7 @@ Which again can be filtered and so on.
   | Georgia Frank    | 20110508 | F      |
   +------------------+----------+--------+
 
-  >>> # with multiple filters and support to 'and'/'or' the individual results
+  >>> # Multiple combinations (and/or) of filters
   >>> first5.filter(op("gender") == b"M", op("birthday").bytes() >= b"19900101", is_or=True)
   +--------------------------+----------+--------+
   |           name           | birthday | gender |
@@ -290,13 +293,13 @@ Which again can be filtered and so on.
   | Georgia Frank    | 20110508 | F      |
   +------------------+----------+--------+
 
-  >>> # Filters conditions are function invoked for each record.
+  >>> # Filters are function invoked for each record.
   >>> first5.filter(lambda line: op("birthday").str().date().get(line).year == 1957)
   >>> # Which could be rewritten as:
   >>> first5.filter(op("birthday").bytes().startswith(b"1957"))
   >>> # Or
   >>> first5.filter(op("birthday")[0:4] == b"1957")
-  >>> # Or with an additional field
+  >>> # Or with an additional field added to the view
   >>> first5.add_field("birthday_year", start=11, len=4)
   >>> first5.filter(op("birthday_year") == b"1957")
   +------------------+----------+--------+---------------+
@@ -320,26 +323,61 @@ Unique index:
 
 .. code-block:: Python
 
-  >>> data = fwf_open(HumanFileSpec, "sample_data/humans.txt")
-  >>>
-  >>> # Create an unique index over column 'state'
-  >>> index = FWFUniqueIndexDict(data, {})
-  >>> FWFCythonIndexBuilder(rtn).index(data, "state")
-  >>> index
+  >>> import fwf_db
+  >>> from fwf_db import fwf_open, op
 
+  >>> class HumanFileSpec:
+      FIELDSPECS = [
+              {"name": "name",       "slice": (32, 56)},
+              {"name": "gender",     "slice": (19, 20)},
+              {"name": "birthday",   "slice": (11, 19)},
+              {"name": "location",   "slice": ( 0,  9)},
+              {"name": "state",      "slice": ( 9, 11)},
+              {"name": "universe",   "slice": (56, 68)},
+              {"name": "profession", "slice": (68, 81)},
+          ]
+
+  >>> data = fwf_open(HumanFileSpec, "sample_data/humans.txt")
+
+  >>> # Create a unique index over column 'state'.
+  >>> index = fwf_db.FWFUniqueIndexDict(data)
+  >>> fwf_db.FWFCythonIndexBuilder(index).index(data, "state")
+  >>> index.print("name", "state", "birthday", pretty=True, stop=5)
+  +-------+-----------------------------+-------------+
+  | state |             name            |   birthday  |
+  +-------+-----------------------------+-------------+
+  | b'AR' | b'Paul Dash               ' | b'19710316' |
+  | b'MI' | b'Alex Taylor             ' | b'19420108' |
+  | b'WI' | b'Terry Shelton           ' | b'19900906' |
+  | b'MD' | b'James Clark             ' | b'20090909' |
+  | b'PA' | b'Margaret Radford        ' | b'20130316' |
+  +-------+-----------------------------+-------------+
+    len: 5/51
 
   >>> # The index is dict-like, and the dict-value represent a single line
   >>> # in the file. Only the index itself consumes memory.
-  >>> index[b"AR"]
+  >>> index[b"AR"].print(pretty=True)
+  +--------------------------+--------+----------+-----------+-------+--------------+---------------+
+  |           name           | gender | birthday |  location | state |   universe   |   profession  |
+  +--------------------------+--------+----------+-----------+-------+--------------+---------------+
+  | Paul Dash                |   F    | 19710316 | US        |   AR  | Whatever     | Student       |
+  +--------------------------+--------+----------+-----------+-------+--------------+---------------+
 
 
 In case a value is not unique, the last one will be stored in the index.
-Which is quite handy: consider a CDC use case (change data capture), where
+Which comes quite handy: consider a CDC use case (change data capture), where
 the file contains potentially several records with the same ID and you only
-need the last one. Or a multi-file scenario where the first file every month
-is few a full exports, whereas the daily ones are delta exports. In SQL and
+need the last one. Or a multi-file scenario where in every month the first file
+is a full export, whereas the remaining daily ones are delta exports. In SQL and
 Pandas you need `group_by` operations, which are much more expensive (memory,
 time).
+
+The library does not support multi-level indexes. You may have recognized,
+that we avoid to eagerly load all lines, parse all values, and so on. Same
+for multi-level indexes. Because it is so fast to create an index, we rather
+create the 2nd-level index if and when needed on the relevant subset. We
+found it saves a lot of memory and has not shown up as performance bottleneck
+so far.
 
 
 None-unique index:
@@ -347,18 +385,28 @@ None-unique index:
 .. code-block:: Python
 
   >>> data = fwf_open(HumanFileSpec, "sample_data/humans.txt")
-  >>>
 
   >>> # Create a none-unique index over column 'state'. The difference compared
   >>> # to the unique-index, is the dict-like object to maintain the index.
-  >>> index = FWFIndexDict(data)
-  >>> FWFCythonIndexBuilder(rtn).index(data, "state")
+  >>> index = fwf_db.FWFIndexDict(data)
+  >>> fwf_db.FWFCythonIndexBuilder(index).index(data, "state")
+  >>> # There is no sensible
   >>> index
-
+  FWFIndexDict(count=51): [b'AR': len(195), b'MI': len(222), b'WI': len(191), ...
 
   >>> # The dict-values are views. Exactly the ones we've seen in the previous
   >>> # section. Only the index itself consumes memory.
   >>> index[b"AR"]
+  +--------------------------+--------+----------+-----------+-------+--------------+---------------+
+  |           name           | gender | birthday |  location | state |   universe   |   profession  |
+  +--------------------------+--------+----------+-----------+-------+--------------+---------------+
+  | Dianne Mcintosh          |   F    | 19570526 | US        |   AR  | Whatever     | Medic         |
+  | Karl Carney              |   M    | 19640508 | US        |   AR  | Whatever     | Shark tammer  |
+  | Betsy Shipley            |   M    | 19950925 | US        |   AR  | Whatever     | Super hero    |
+  | Elizabeth Lewis          |   F    | 20100330 | US        |   AR  | Whatever     | Time traveler |
+  | Rosalyn Gamache          |   M    | 20030912 | US        |   AR  | Whatever     | Artist        |
+  +--------------------------+--------+----------+-----------+-------+--------------+---------------+
+  len: 5/195
 
 
 Multi-File
@@ -375,11 +423,20 @@ as well. Including redelivered files, and including file schema evolution.
 
   >>> # Create a multi-file dataset, but passing all the file names to fwf_open()
   >>> # In this example it is twice the same file, only for demonstration purposes.
-  >>> files = ["sample_data/humans.txt", "sample_data/humans.txt"]
-  >>> data = fwf_open(HumanFileSpec, files)
-
+  >>> data = fwf_open(HumanFileSpec, "sample_data/humans-subset.txt", "sample_data/humans.txt")
+  >>> # We'll get to hidden and computed fields a little later
+  >>> data[8:12].print("_lineno", "_file", pretty=True)
+  +---------+-------------------------------+
+  | _lineno |             _file             |
+  +---------+-------------------------------+
+  |    8    | sample_data/humans-subset.txt |
+  |    9    | sample_data/humans-subset.txt |
+  |    0    |     sample_data/humans.txt    |
+  |    1    |     sample_data/humans.txt    |
+  +---------+-------------------------------+
 
 Everything else remains the same: views, filters, indexes
+
 
 More on Views
 ==============
@@ -618,6 +675,9 @@ methods can be added to it, e.g:
   >>> data.filter(data.filespec.my_comment_filter)
   >>> data[:5]    # Will print headers as defined in __headers__()
 
+
+More on "debugging" fwf files
+==============================
 
 Development
 ============

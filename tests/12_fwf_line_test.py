@@ -179,5 +179,5 @@ def test_get_string():
     _ = line.get_string(pretty=False)
     _ = line.get_string("location", "state", "birthday", pretty=False)
 
-    with pytest.raises(AttributeError):
+    with pytest.raises(KeyError):
         _ = line.get_string("does not exist")

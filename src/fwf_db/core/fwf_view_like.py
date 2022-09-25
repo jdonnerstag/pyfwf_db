@@ -329,10 +329,8 @@ class FWFViewLike:
 
         rtn = set()
         for field in fields:
-            if field in self.field_getter:
-                rtn.add(field)
-            else:
-                raise AttributeError(f"Field not found. name='{field}'")
+            _ = self.getter_for_field(field)
+            rtn.add(field)
 
         return tuple(rtn)
 
@@ -428,14 +426,12 @@ class FWFViewLike:
         """Create an ordinary python list from the view"""
 
         if header:
-            yield self.header()
+            yield self.header(*fields)
 
-        if stop <= 0:
-            stop = self.count()
-
-        stop = min(self.count(), stop)
+        stop = self.count() if stop < 0 else min(self.count(), stop)
+        getter = self._update_all_field_getter(*fields)
         for i in range(stop):
-            values = self[i].to_list(*fields)
+            values = tuple(getter[field](self[i]) for field in fields)
             yield values
 
 
@@ -469,7 +465,7 @@ class FWFViewLike:
         rtn = PrettyTable()
         rtn.field_names = self.header(*fields)
         gen = self.to_list(*fields, stop=stop, header=False)
-        gen = (tuple(str(v, "utf-8") for v in row) for row in gen)
+        gen = (tuple(str(v) for v in row) for row in gen)
         rtn.add_rows(gen)
         return rtn.get_string() + f"\n  len: {stop:,}/{self.count():,}"
 
