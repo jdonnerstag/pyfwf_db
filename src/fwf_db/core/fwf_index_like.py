@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+"""Base classes for indexes"""
+
 import abc
 import sys
 import collections.abc
@@ -226,7 +228,7 @@ class FWFUniqueIndexDict(FWFIndexLike[FWFLine]):
         stop = self.count() if stop < 0 else min(self.count(), stop)
         rtn = PrettyTable()
 
-        rtn.field_names = self.parent.header(*fields)
+        rtn.field_names = fields or tuple(self.parent.field_getter.keys())
         gen = (tuple(row[v] for v in rtn.field_names) for i, (_, row) in enumerate(self) if i < stop)
         gen = list(gen)
         rtn.add_rows(gen)

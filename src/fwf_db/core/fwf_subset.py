@@ -3,18 +3,21 @@
 
 """Define a view which is a subset of the parent view"""
 
-from typing import Iterator
+from typing import Iterator, TYPE_CHECKING
 
 from .fwf_view_like import FWFViewLike
+
+# To prevent circular dependencies only during type checking
+if TYPE_CHECKING:
+    from .fwf_region import FWFRegion
 
 
 class FWFSubset(FWFViewLike):
     """A view based on a list of individual indices"""
 
     def __init__(self, parent: FWFViewLike, lines: list[int]):
-        super().__init__(parent.filespec)
+        super().__init__(None, parent)
 
-        self.parent = parent
         self.lines = lines
 
 
@@ -22,33 +25,27 @@ class FWFSubset(FWFViewLike):
         return len(self.lines)
 
 
-    def get_parent(self) -> 'FWFViewLike':
-        return self.parent
-
-
     def _parent_index(self, index: int) -> int:
         return self.lines[index]
 
 
     def _raw_line_at(self, index: int) -> memoryview:
+        assert self.parent is not None
         index = self._parent_index(index)
-        return self.get_parent().raw_line_at(index)
+        return self.parent.raw_line_at(index)
 
 
     def iter_lines(self) -> Iterator[memoryview]:
+        assert self.parent is not None
         for idx in self.lines:
-            yield self.get_parent().raw_line_at(idx)
+            # pylint: disable=reportOptionalMemberAccess
+            yield self.parent.raw_line_at(idx)
 
 
     def _fwf_by_indices(self, indices: list[int]) -> 'FWFSubset':
-        indices = [self.parent_index(i) for i in indices]
-        return FWFSubset(self.get_parent(), indices)
+        return FWFSubset(self, indices)
 
 
-    def _fwf_by_slice(self, start: int, stop: int) -> 'FWFSubset':
-        # Note: we are creating a FWFSubset rather then a FWFRegion for
-        # two reasons:
-        # 1. We avoid one extra redirection when accessing elements
-        # 2. We avoid a circular dependency between FWFSubset and FWFRegion
-        lines = [self.parent_index(i) for i in range(start, stop)]
-        return FWFSubset(self.get_parent(), lines)
+    def _fwf_by_slice(self, start: int, stop: int) -> 'FWFRegion':
+        from .fwf_region import FWFRegion   # pylint: disable=import-outside-toplevel
+        return FWFRegion(self, start, stop)

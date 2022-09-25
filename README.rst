@@ -136,7 +136,9 @@ Lets take `this file`_ as an example. The first line looks like:
 - 24 bytes: name
 - \.\. and so on
 
-In our examples below, we only use 'name', 'birthday' and 'gender'. So let's write the model:
+In our examples below, we only use 'name', 'birthday' and 'gender'. So let's write the model.
+`./sample_data/intro.ipynb`` contains a jupyter notebook with all the snippets from
+below and can be used to follow along easily.
 
 .. code-block:: Python
 
@@ -196,7 +198,7 @@ own copy. It can be modified without affecting the parents header.
 
   >>> data = fwf_open(HumanFileSpec, "sample_data/humans.txt")
   >>> # slices provide a view (subset) on the full data set
-  >>> data[0:5]
+  >>> data[0:5].print(pretty=True)
   +----------+--------+--------------------------+
   | birthday | gender |           name           |
   +----------+--------+--------------------------+
@@ -209,7 +211,7 @@ own copy. It can be modified without affecting the parents header.
   len: 5/5
 
   >>> # You want to change the field order?
-  >>> data[0:5].print("name", "birthday", "gender")
+  >>> data[0:5].print("name", "birthday", "gender", pretty=True)
   +------------------+----------+--------+
   | name             | birthday | gender |
   +------------------+----------+--------+
@@ -224,7 +226,7 @@ own copy. It can be modified without affecting the parents header.
   >>> data[0:5].set_header("name", "birthday", "gender")
 
   >>> # Indivial lines can be requested as well
-  >>> data[327]
+  >>> data[327].print(pretty=True)
   +------------+----------+--------+
   | name       | birthday | gender |
   +------------+----------+--------+
@@ -255,7 +257,7 @@ Which again can be filtered and so on.
   >>> data = fwf_open(HumanFileSpec, "sample_data/humans.txt")
   >>> data.set_header("name", "birthday", "gender")
   >>> first5 = data[:5]
-  >>> first5
+  >>> first5.print(pretty=True)
   +------------------+----------+--------+
   | name             | birthday | gender |
   +------------------+----------+--------+
@@ -266,7 +268,7 @@ Which again can be filtered and so on.
   | Virginia Lambert | 19930404 | M      |
   +------------------+----------+--------+
 
-  >>> first5.filter(op("gender") == b"F")
+  >>> first5.filter(op("gender") == b"F").print(pretty=True)
   +------------------+----------+--------+
   | name             | birthday | gender |
   +------------------+----------+--------+
@@ -275,7 +277,7 @@ Which again can be filtered and so on.
   +------------------+----------+--------+
 
   >>> # Multiple combinations (and/or) of filters
-  >>> first5.filter(op("gender") == b"M", op("birthday").bytes() >= b"19900101", is_or=True)
+  >>> first5.filter(op("gender") == b"M", op("birthday").bytes() >= b"19900101", is_or=True).print(pretty=True)
   +--------------------------+----------+--------+
   |           name           | birthday | gender |
   +--------------------------+----------+--------+
@@ -286,7 +288,7 @@ Which again can be filtered and so on.
   +--------------------------+----------+--------+
 
   >>> # or chained filters
-  >>> first5.filter(op("name").str().strip().endswith("k")).filter(op("gender")==b"F")
+  >>> first5.filter(op("name").str().strip().endswith("k")).filter(op("gender")==b"F").print(pretty=True)
   +------------------+----------+--------+
   | name             | birthday | gender |
   +------------------+----------+--------+
@@ -301,7 +303,7 @@ Which again can be filtered and so on.
   >>> first5.filter(op("birthday")[0:4] == b"1957")
   >>> # Or with an additional field added to the view
   >>> first5.add_field("birthday_year", start=11, len=4)
-  >>> first5.filter(op("birthday_year") == b"1957")
+  >>> first5.filter(op("birthday_year") == b"1957").print(pretty=True)
   +------------------+----------+--------+---------------+
   | name             | birthday | gender | birthday_year |
   +------------------+----------+--------+---------------+
@@ -396,7 +398,7 @@ None-unique index:
 
   >>> # The dict-values are views. Exactly the ones we've seen in the previous
   >>> # section. Only the index itself consumes memory.
-  >>> index[b"AR"]
+  >>> index[b"AR"].print(pretty=True)
   +--------------------------+--------+----------+-----------+-------+--------------+---------------+
   |           name           | gender | birthday |  location | state |   universe   |   profession  |
   +--------------------------+--------+----------+-----------+-------+--------------+---------------+
@@ -453,7 +455,7 @@ Pretty much the opposite of `.filter()`
 
   >>> data = fwf_open(HumanFileSpec, "sample_data/humans.txt")
   >>> data.set_header("name", "birthday", "gender")
-  >>> first5 = data[:5]
+  >>> data[:5].print(pretty=True)
   +------------------+----------+--------+
   | name             | birthday | gender |
   +------------------+----------+--------+
@@ -463,7 +465,8 @@ Pretty much the opposite of `.filter()`
   | Georgia Frank    | 20110508 | F      |
   | Virginia Lambert | 19930404 | M      |
   +------------------+----------+--------+
-  >>> first5.exclude(op("gender")=="F")
+
+  >>> data[:5].exclude(op("gender")==b"F").print(pretty=True)
   +------------------+----------+--------+
   | name             | birthday | gender |
   +------------------+----------+--------+
@@ -484,7 +487,7 @@ is ascending. For descending sorting prepend the field name with
 
   >>> data = fwf_open(HumanFileSpec, "sample_data/humans.txt")
   >>> data.set_header("name", "birthday", "gender")
-  >>> first5 = data[:5]
+  >>> data[:5].print(pretty=True)
   +------------------+----------+--------+
   | name             | birthday | gender |
   +------------------+----------+--------+
@@ -494,7 +497,8 @@ is ascending. For descending sorting prepend the field name with
   | Georgia Frank    | 20110508 | F      |
   | Virginia Lambert | 19930404 | M      |
   +------------------+----------+--------+
-  >>> data[:5].order_by("gender")
+
+  >>> data[:5].order_by("gender").print(pretty=True)
   +------------------+--------+----------+
   | name             | gender | birthday |
   +------------------+--------+----------+
@@ -504,16 +508,17 @@ is ascending. For descending sorting prepend the field name with
   | Shirley Gray     | M      | 19510403 |
   | Virginia Lambert | M      | 19930404 |
   +------------------+--------+----------+
-  >>> data[:5].order_by("gender", "-birthday")
-  +------------------+--------+----------+
-  | name             | gender | birthday |
-  +------------------+--------+----------+
-  | Virginia Lambert | M      | 19930404 |
-  | Shirley Gray     | M      | 19510403 |
-  | Rosalyn Clark    | M      | 19940213 |
-  | Georgia Frank    | F      | 20110508 |
-  | Dianne Mcintosh  | F      | 19570526 |
-  +------------------+--------+----------+
+
+  >>> data[:5].order_by("gender", "-birthday").print(pretty=True)
+  +--------------------------+----------+--------+
+  |           name           | birthday | gender |
+  +--------------------------+----------+--------+
+  | Georgia Frank            | 20110508 |   F    |
+  | Dianne Mcintosh          | 19570526 |   F    |
+  | Rosalyn Clark            | 19940213 |   M    |
+  | Virginia Lambert         | 19930404 |   M    |
+  | Shirley Gray             | 19510403 |   M    |
+  +--------------------------+----------+--------+
 
 
 .unique(field_name)
@@ -523,25 +528,8 @@ Return a list of unique values for that field.
 
 .. code-block:: Python
 
-  from fwf_db import fwf_open, op
-
-  class HumanFileSpec:
-      FIELDSPECS = [
-              {"name": "name",       "slice": (32, 56)},
-              {"name": "gender",     "slice": (19, 20)},
-              {"name": "birthday",   "slice": (11, 19)},
-              {"name": "location",   "slice": ( 0,  9)},
-              {"name": "state",      "slice": ( 9, 11)},
-              {"name": "universe",   "slice": (56, 68)},
-              {"name": "profession", "slice": (68, 81)},
-          ]
-
-  data = fwf_open(HumanFileSpec, "sample_data/humans.txt")
-
-.. code-block:: Python
-
   >>> data = fwf_open(HumanFileSpec, "sample_data/humans.txt")
-  >>> data[:5]
+  >>> data[:5].print(pretty=True)
   +------------------+--------+----------+----------+-------+----------+--------------+
   | name             | gender | birthday | location | state | universe | profession   |
   +------------------+--------+----------+----------+-------+----------+--------------+
@@ -552,15 +540,13 @@ Return a list of unique values for that field.
   | Virginia Lambert | M      | 19930404 | US       | PA    | Whatever | Shark tammer |
   +------------------+--------+----------+----------+-------+----------+--------------+
   >>> # Looking into all objects
-  >>> data.unique("gender")
-  ['F', 'M']
-  >>> data.unique("profession")
-  ['', 'Time traveler', 'Student', 'Berserk', 'Hero', 'Soldier', 'Super hero', 'Shark tammer', 'Artist', 'Hunter', 'Cookie maker', 'Comedian', 'Mecromancer', 'Programmer', 'Medic', 'Siren']
-  >>> data.unique("state")
-  ['', 'MT', 'WA', 'NY', 'AZ', 'MD', 'LA', 'IN', 'IL', 'WY', 'OK', 'NJ', 'VT', 'OH', 'AR', 'FL', 'DE', 'KS', 'NC', 'NM', 'MA', 'NH', 'ME', 'CT', 'MS', 'RI', 'ID', 'HI', 'NE', 'TN', 'AL', 'MN', 'TX', 'WV', 'KY', 'CA', 'NV', 'AK', 'IA', 'PA', 'UT', 'SD', 'CO', 'MI', 'VA', 'GA', 'ND', 'OR', 'SC', 'WI', 'MO']
+  >>> sorted(data.unique("gender"))
+  [b'F', b'M']
+  >>> sorted(data.unique("profession"))[0:5]
+  [b'             ', b'Artist       ', b'Berserk      ', b'Comedian     ', b'Cookie maker ']
+  >>> sorted(data.unique("state"))[0:10]
+  [b'  ', b'AK', b'AL', b'AR', b'AZ', b'CA', b'CO', b'CT', b'DE', b'FL']
 
-TODO: Unique by special field
-TODO: Need to explain computed fields first
 
 .count()
 ========
@@ -571,7 +557,7 @@ Return how many records are in a view: `len(data) == data.count()`
 Computed fields
 ================
 
-By default the following fields are supported:
+By default the following fields are available in all views:
 
 - "_lineno": The line number (record number) within the original file, excluding leading comments
 - "_file": The file name, e.g. as in a multi-file scenario
@@ -582,52 +568,53 @@ For how to add your own computed fields, please see further down below.
 .. code-block:: Python
 
   >>> data = fwf_open(HumanFileSpec, "sample_data/humans.txt")
-  >>> first5 = data[:5]
-  >>> first5.print("_lineno", "name")
-  +--------------+------------------+
-  | _lineno      | name             |
-  +--------------+------------------+
-  | 4328         | John Cleese      |
-  | 9282         | Johnny Andres    |
-  | 8466         | Oscar Callaghan  |
-  | 3446         | Gilbert Garcia   |
-  | 6378         | Helen Villarreal |
-  +--------------+------------------+
+  >>> data[10:15].print("_lineno", "name")
+  +---------+--------------------------+
+  | _lineno |           name           |
+  +---------+--------------------------+
+  |    10   | Robert Carolina          |
+  |    11   | Gladys Martin            |
+  |    12   | Jason Stinebaugh         |
+  |    13   | Kenneth Provines         |
+  |    14   | James Mcgloster          |
+  +---------+--------------------------+
 
-  >>> first5.print("_lineno", *first5.header())
-  +--------------+------------------+--------+----------+----------+-------+--------------+------------+
-  | _line_number | name             | gender | birthday | location | state | universe     | profession |
-  +--------------+------------------+--------+----------+----------+-------+--------------+------------+
-  | 4328         | John Cleese      | M      | 19391027 | UK       |       | Monty Python | Comedian   |
-  | 9282         | Johnny Andres    | F      | 19400107 | US       | TX    | Whatever     | Student    |
-  | 8466         | Oscar Callaghan  | M      | 19400121 | US       | ID    | Whatever     | Comedian   |
-  | 3446         | Gilbert Garcia   | M      | 19400125 | US       | NC    | Whatever     | Student    |
-  | 6378         | Helen Villarreal | F      | 19400125 | US       | MD    | Whatever     |            |
-  +--------------+------------------+--------+----------+----------+-------+--------------+------------+
+  >>> data[10:15].print("_lineno", data.header())
+  +---------+--------------------------+--------+----------+-----------+-------+--------------+---------------+
+  | _lineno |           name           | gender | birthday |  location | state |   universe   |   profession  |
+  +---------+--------------------------+--------+----------+-----------+-------+--------------+---------------+
+  |    10   | Robert Carolina          |   M    | 20090527 | US        |   AL  | Whatever     | Time traveler |
+  |    11   | Gladys Martin            |   F    | 19990123 | US        |   WY  | Whatever     | Medic         |
+  |    12   | Jason Stinebaugh         |   M    | 19610219 | US        |   FL  | Whatever     | Comedian      |
+  |    13   | Kenneth Provines         |   F    | 19911219 | US        |   HI  | Whatever     | Super hero    |
+  |    14   | James Mcgloster          |   M    | 19741114 | US        |   AL  | Whatever     | Programmer    |
+  +---------+--------------------------+--------+----------+-----------+-------+--------------+---------------+
 
   >>> # Note the trailing whitespaces and breakline on __line
-  >>> first5.set_header("_lineno", "_line")
-  +--------------+-----------------------------------------------------------------------------------+
-  | _lineno      | _line                                                                             |
-  +--------------+-----------------------------------------------------------------------------------+
-  | 1            | US       AR19570526Fbe56008be36eDianne Mcintosh         Whatever    Medic         |
-  |              |                                                                                   |
-  | 2            | US       MI19940213M706a6e0afc3dRosalyn Clark           Whatever    Comedian      |
-  |              |                                                                                   |
-  | 3            | US       WI19510403M451ed630accbShirley Gray            Whatever    Comedian      |
-  |              |                                                                                   |
-  | 4            | US       MD20110508F7e5cd7324f38Georgia Frank           Whatever    Comedian      |
-  |              |                                                                                   |
-  | 5            | US       PA19930404Mecc7f17c16a6Virginia Lambert        Whatever    Shark tammer  |
-  |              |                                                                                   |
-  +--------------+-----------------------------------------------------------------------------------+
+  >>> data[10:15].print("_lineno", "_line", pretty=True)
+  +---------+------------------------------------------------------------------------------------+
+  | _lineno |                                       _line                                        |
+  +---------+------------------------------------------------------------------------------------+
+  |    10   | US       AL20090527M771b0ad5b70fRobert Carolina         Whatever    Time traveler# |
+  |         |                                                                                    |
+  |    11   | US       WY19990123Fad2d64883e15Gladys Martin           Whatever    Medic        # |
+  |         |                                                                                    |
+  |    12   | US       FL19610219Ma701d784bc77Jason Stinebaugh        Whatever    Comedian     # |
+  |         |                                                                                    |
+  |    13   | US       HI19911219Fe301c6ea97b9Kenneth Provines        Whatever    Super hero   # |
+  |         |                                                                                    |
+  |    14   | US       AL19741114M4f56d046e3b5James Mcgloster         Whatever    Programmer   # |
+  |         |                                                                                    |
+  +---------+------------------------------------------------------------------------------------+
 
-  >>> first5.to_list()
-  [(1, 'US       AR19570526Fbe56008be36eDianne Mcintosh         Whatever    Medic        \n'),
-      (2, 'US       MI19940213M706a6e0afc3dRosalyn Clark           Whatever    Comedian     \n'),
-      (3, 'US       WI19510403M451ed630accbShirley Gray            Whatever    Comedian     \n'),
-      (4, 'US       MD20110508F7e5cd7324f38Georgia Frank           Whatever    Comedian     \n'),
-      (5, 'US       PA19930404Mecc7f17c16a6Virginia Lambert        Whatever    Shark tammer \n')]
+  >>> list(data[10:15].to_list("_lineno", "_line"))
+  [
+    (10, b'US       AL20090527M771b0ad5b70fRobert Carolina         Whatever    Time traveler#\n'),
+    (11, b'US       WY19990123Fad2d64883e15Gladys Martin           Whatever    Medic        #\n'),
+    (12, b'US       FL19610219Ma701d784bc77Jason Stinebaugh        Whatever    Comedian     #\n'),
+    (13, b'US       HI19911219Fe301c6ea97b9Kenneth Provines        Whatever    Super hero   #\n'),
+    (14, b'US       AL19741114M4f56d046e3b5James Mcgloster         Whatever    Programmer   #\n')
+  ]
 
 
 Additional computed fields:
@@ -646,7 +633,7 @@ methods can be added to it, e.g:
 
 .. code-block:: Python
 
-  class HumanFileSpec:
+  class ExtendedHumanFileSpec:
       FIELDSPECS = [
               {"name": "name",       "slice": (32, 56)},
               {"name": "gender",     "slice": (19, 20)},
@@ -654,7 +641,7 @@ methods can be added to it, e.g:
           ]
 
       def __header__(self) -> list[str]:
-          # Re-define the default for header
+          # Define the default header
           return ["name", "gender", "birthday", "birthday_year", "age"]
 
       def birthday_year(self, line: FWFLine):
@@ -672,8 +659,15 @@ methods can be added to it, e.g:
 
 .. code-block:: Python
 
+  >>> # Filter with a user defined method
   >>> data.filter(data.filespec.my_comment_filter)
-  >>> data[:5]    # Will print headers as defined in __headers__()
+
+  >>> # Print headers as defined in __headers__()
+  >>> # And including user-defined computed fields
+  >>> data[:5].print(pretty=True)
+
+  >>> # Test every line on your own criteria and list the errornous lines
+  >>> data.validate().print("_lineno", "_lineno", pretty=True)
 
 
 More on "debugging" fwf files

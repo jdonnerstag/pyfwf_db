@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+"""FWFLine: represents a line in a file"""
+
 from collections import OrderedDict
 from typing import Iterator, Iterable, Union, Optional, Callable
 from typing import overload, TYPE_CHECKING, Any
@@ -136,15 +138,15 @@ class FWFLine:
         return self.parent.field_getter.keys()
 
 
-    def items(self, *keys: 'str', to_bytes: bool = True) -> Iterable[tuple['str', Any]]:
-        """A list of items of the lines"""
-        names = self.parent.header(*keys)
-        for key in names:
-            data = self.parent.field_getter[key](self)
+    def items(self, *fields: 'str', to_bytes: bool = True) -> Iterable[tuple['str', Any]]:
+        """The list of items in this lines"""
+        fields = fields or tuple(self.parent.field_getter.keys())
+        for field in fields:
+            data = self.parent.field_getter[field](self)
             if isinstance(data, memoryview) and to_bytes:
                 data = bytes(data)
 
-            yield (key, data)
+            yield (field, data)
 
 
     def __iter__(self) -> Iterator[bytes]:
@@ -198,10 +200,10 @@ class FWFLine:
 
     def get_pretty_string(self, *fields: 'str') -> 'str':
         """Get a pretty line represention"""
-        headers = self.parent.header(*fields)
+        fields = fields or tuple(self.parent.field_getter.keys())
         data = self.to_list(*fields)
         rtn = PrettyTable()
-        rtn.field_names = headers
+        rtn.field_names = fields
         rtn.add_row([str(v, "utf-8") for v in data])
         return rtn.get_string()
 

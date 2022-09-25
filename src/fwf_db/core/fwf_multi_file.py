@@ -32,7 +32,7 @@ class FWFMultiFile(FWFViewLike):
     """
 
     def __init__(self, filespec, encoding=None, newline=None, comments=None):
-        super().__init__(filespec)
+        super().__init__(filespec, None)
 
         self.files: list[FWFFile] = []
         self.line_count = 0
@@ -120,10 +120,6 @@ class FWFMultiFile(FWFViewLike):
 
     def count(self) -> int:
         return self.line_count
-
-
-    def get_parent(self) -> None:
-        return None
 
 
     def _parent_index(self, index: int) -> int:

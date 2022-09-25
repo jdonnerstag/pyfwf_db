@@ -20,22 +20,19 @@ class FWFViewLike:
     indiviual indexes.
     """
 
-    def __init__(self, filespec):
-        # Filespec often is only the class (type) and not an instance of a class.
-        # If that is the case, then first create an instance.
-        self.filespec = filespec() if isinstance(filespec, type) else filespec
-
-        # We don't want to re-create fields, if not necessary. Since filespec
-        # gets passed to FWFRegion, FWFSubset etc., we need to put the fields
-        # into the filespec.
-        if hasattr(self.filespec, "__fields__"):
-            self.fields = getattr(self.filespec, "__fields__")
+    def __init__(self, filespec, parent: Optional['FWFViewLike']):
+        self.parent = parent
+        if parent is not None:
+            self.filespec = parent.filespec
+            self.fields = parent.fields
+            fields = tuple(parent.field_getter.keys())
         else:
+            self.filespec = filespec() if isinstance(filespec, type) else filespec
             self.fields = FWFFileFieldSpecs(getattr(self.filespec, "FIELDSPECS"))
-            setattr(self.filespec, "__fields__", self.fields)
+            fields = self._default_header()
 
-        # Map field name to function able to determine the field value
-        self.field_getter: OrderedDict[str, Callable] = self._update_all_field_getter()
+        # Map all field names to functions able to determine the field value
+        self.field_getter = self._determine_all_field_getters(*fields)
 
 
     def __len__(self) -> int:
@@ -62,11 +59,6 @@ class FWFViewLike:
 
 
     @abc.abstractmethod
-    def get_parent(self) -> Optional['FWFViewLike']:
-        """Return the parent"""
-
-
-    @abc.abstractmethod
     def _parent_index(self, index: int) -> int:
         """Determine the index in the context of the parent view"""
 
@@ -87,12 +79,11 @@ class FWFViewLike:
         if (stop_view is not None) and (self == stop_view):
             return self, index
 
-        parent = self.get_parent()
-        if parent is None:
+        if self.parent is None:
             return self, index
 
         index = self._parent_index(index)
-        return parent.root(index, stop_view)
+        return self.parent.root(index, stop_view)
 
 
     @abc.abstractmethod
@@ -230,18 +221,14 @@ class FWFViewLike:
 
     def filter(self, *args: Callable, is_or: bool=False) -> 'FWFViewLike':
         """Apply filters (keep) and return a new view."""
-        if is_or:
-            return self.filter_by_line(lambda x: any(arg(x) for arg in args))
-
-        return self.filter_by_line(lambda x: all(arg(x) for arg in args))
+        func = any if is_or else all
+        return self.filter_by_line(lambda x: func(arg(x) for arg in args))
 
 
     def exclude(self, *args: Callable, is_or: bool=False) -> 'FWFViewLike':
         """Apply filters (remove) and return a new view."""
-        if is_or:
-            return self.filter_by_line(lambda x: not any(arg(x) for arg in args))
-
-        return self.filter_by_line(lambda x: not all(arg(x) for arg in args))
+        func = any if is_or else all
+        return self.filter_by_line(lambda x: not func(arg(x) for arg in args))
 
 
     def filter_by_line(self, func: Callable[[FWFLine], bool]) -> 'FWFViewLike':
@@ -297,45 +284,24 @@ class FWFViewLike:
         return self.fwf_by_indices(indexes)
 
 
-    def unique(self, *names: str, last: bool=True) -> 'FWFViewLike':
-        """Create a new view with entry unique on the fields provided.
+    def unique(self, *fields: str) -> list[bytes|tuple[bytes]]:
+        """Determine the unique values for one or more fields"""
 
-        'last' = True: keep the last one found
-        'last' = False: keep the first one found
-        """
+        assert fields, "You must provide at least one field name"
 
-        if not names:
-            return self
-
-        idx_dict: dict[_FWFSort, _FWFSort] = {}
-        for i in range(self.count()):
-            key = _FWFSort(self, i, names)
-            if last:
-                idx_dict[key] = key
+        idx_dict: set[bytes|tuple[bytes]] = set()
+        for line in self:
+            if len(fields) == 1:
+                data = line[fields[0]]
             else:
-                idx_dict.setdefault(key, key)
+                data = line.to_list(*fields)
+            idx_dict.add(data)
 
-        if len(idx_dict) == self.count():
-            return self
-
-        idx = [value.line.lineno for value in idx_dict.values()]
-        return self.fwf_by_indices(idx)
-
-
-    def header(self, *fields: str) -> tuple[str]:
-        """Get the names for all fields"""
-        if not fields:
-            return tuple(self.field_getter.keys())
-
-        rtn = set()
-        for field in fields:
-            _ = self.getter_for_field(field)
-            rtn.add(field)
-
-        return tuple(rtn)
+        return list(idx_dict)
 
 
     def _default_header(self) -> tuple[str]:
+        """Determine the default list of header fields for this view"""
         func = getattr(self.filespec, "__header__", None)
         if callable(func):
             header = func()
@@ -398,16 +364,24 @@ class FWFViewLike:
         return rtn
 
 
-    def _update_all_field_getter(self, *fields: str) -> OrderedDict[str, Callable]:
+    def _determine_all_field_getters(self, *fields: str) -> OrderedDict[str, Callable]:
         if not fields:
-            fields = self._default_header()
+            try:
+                fields = tuple(self.field_getter.keys())
+            except AttributeError:
+                fields = self._default_header()
 
         return OrderedDict((field, self.getter_for_field(field)) for field in fields)
 
 
+    def header(self) -> tuple[str]:
+        """Return the current list of columns in the header"""
+        return tuple(self.field_getter.keys())
+
+
     def set_header(self, *fields: str) -> 'FWFViewLike':
         """Change the order and or selection of columns"""
-        self.fields = self.fields.clone(*fields)
+        self.field_getter = self._determine_all_field_getters(*fields)
         return self
 
 
@@ -422,16 +396,18 @@ class FWFViewLike:
         self.fields.update_field(name, **kwargs)
 
 
-    def to_list(self, *fields: str, stop: int = -1, header: bool = True) -> Iterator[tuple]:
+    def to_list(self, *fields: str, stop: int = -1, header: bool = False) -> Iterator[tuple]:
         """Create an ordinary python list from the view"""
 
+        getter = self._determine_all_field_getters(*fields)
+        fields = tuple(getter.keys())
+
         if header:
-            yield self.header(*fields)
+            yield fields
 
         stop = self.count() if stop < 0 else min(self.count(), stop)
-        getter = self._update_all_field_getter(*fields)
         for i in range(stop):
-            values = tuple(getter[field](self[i]) for field in fields)
+            values = tuple(func(self[i]) for _, func in getter.items())
             yield values
 
 
@@ -462,10 +438,11 @@ class FWFViewLike:
     def get_pretty_string(self, *fields: str, stop: int = 10) -> str:
         """Create a string representation of the data"""
         stop = self.count() if stop < 0 else min(self.count(), stop)
+        gen = self.to_list(*fields, stop=stop, header=True)
+        fields = next(gen)
         rtn = PrettyTable()
-        rtn.field_names = self.header(*fields)
-        gen = self.to_list(*fields, stop=stop, header=False)
-        gen = (tuple(str(v) for v in row) for row in gen)
+        rtn.field_names = fields
+        gen = (tuple(str(v, "utf-8") if isinstance(v, bytes) else v for v in row) for row in gen)
         rtn.add_rows(gen)
         return rtn.get_string() + f"\n  len: {stop:,}/{self.count():,}"
 
@@ -528,12 +505,3 @@ class _FWFSort:
                     return True
 
         return False
-
-
-    def __hash__(self) -> int:
-        value = tuple(bytes(self.line[name]) for name, _ in self.names)
-        return hash(value)
-
-
-    def __eq__(self, other: '_FWFSort') -> bool:
-        return all(bytes(self.line[name]) == bytes(other.line[name]) for name, _ in self.names)

@@ -15,7 +15,7 @@ def to_pandas(fwfview: FWFViewLike, dtype=None) -> pd.DataFrame:
     if dtype is None:
         parent = fwfview
         while True:
-            newp = parent.get_parent()
+            newp = parent.parent
             if newp is None:
                 break
             parent = newp

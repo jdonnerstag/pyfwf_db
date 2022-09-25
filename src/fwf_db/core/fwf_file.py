@@ -38,7 +38,7 @@ class FWFFile(FWFViewLike):
         Please see the unit tests for an example.
         """
 
-        super().__init__(filespec)
+        super().__init__(filespec, None)
 
         # Used when automatically decoding bytes into strings
         self.encoding = encoding or getattr(filespec, "ENCODING", None)
@@ -233,10 +233,6 @@ class FWFFile(FWFViewLike):
     def count(self) -> int:
         """Return the number of records in the file"""
         return self.line_count
-
-
-    def get_parent(self) -> None:
-        return None
 
 
     def _parent_index(self, index: int) -> int:

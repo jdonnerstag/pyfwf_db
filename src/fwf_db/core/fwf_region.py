@@ -3,10 +3,13 @@
 
 """Define a view that represents a region of its parent view"""
 
-from typing import Iterator
+from typing import Iterator, TYPE_CHECKING
 
 from .fwf_view_like import FWFViewLike
-from .fwf_subset import FWFSubset
+
+# To prevent circular dependencies only during type checking
+if TYPE_CHECKING:
+    from .fwf_subset import FWFSubset
 
 
 class FWFRegion(FWFViewLike):
@@ -15,12 +18,11 @@ class FWFRegion(FWFViewLike):
     """
 
     def __init__(self, parent: FWFViewLike, start: int, stop: int):
-        super().__init__(parent.filespec)
+        super().__init__(None, parent)
 
         assert start >= 0
         assert start <= stop
 
-        self.parent = parent
         self.start = start
         self.stop = stop
 
@@ -29,30 +31,26 @@ class FWFRegion(FWFViewLike):
         return self.stop - self.start
 
 
-    def get_parent(self) -> 'FWFViewLike':
-        return self.parent
-
-
     def _parent_index(self, index: int) -> int:
         return self.start + index
 
 
     def _raw_line_at(self, index: int) -> memoryview:
+        assert self.parent is not None
         index = self.parent_index(index)
-        return self.get_parent().raw_line_at(index)
+        return self.parent.raw_line_at(index)
 
 
-    def _fwf_by_indices(self, indices: list[int]) -> FWFSubset:
-        indices = [self.parent_index(i) for i in indices]
-        return FWFSubset(self.parent, indices)
+    def _fwf_by_indices(self, indices: list[int]) -> 'FWFSubset':
+        from .fwf_subset import FWFSubset   # pylint: disable=import-outside-toplevel
+        return FWFSubset(self, indices)
 
 
     def _fwf_by_slice(self, start: int, stop: int) -> 'FWFRegion':
-        start = self._normalize_index(self._parent_index(start), 0)
-        stop = self._normalize_index(self._parent_index(stop), len(self))
-        return FWFRegion(self.parent, start, stop)
+        return FWFRegion(self, start, stop)
 
 
     def iter_lines(self) -> Iterator[memoryview]:
+        assert self.parent is not None
         for i in range(self.start, self.stop):
-            yield self.get_parent().raw_line_at(i)
+            yield self.parent.raw_line_at(i)

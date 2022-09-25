@@ -269,17 +269,17 @@ def test_multiple_selectors():
 
         rec = rec[0, 1, 2, 4]
         assert isinstance(rec, FWFSubset)
-        assert rec.lines == [2, 3, 4, 6]
+        assert rec.lines == [0, 1, 2, 4]
         assert rec.count() == len(rec) == 4
 
         rec = rec[True, False, True]    # Implicit false, if True/False list is shorter
         assert isinstance(rec, FWFSubset)
-        assert rec.lines == [2, 4]
+        assert rec.lines == [0, 2]
         assert rec.count() == len(rec) == 2
 
         rec = fwf[:][:][0:-1][2:-2][1, 2, 4][True, False, True]
         assert isinstance(rec, FWFSubset)
-        assert rec.lines == [3, 6]
+        assert rec.lines == [0, 2]
         assert rec.count() == len(rec) == 2
 
 
@@ -288,6 +288,10 @@ def test_table_filter_by_line():
         rtn = fwf.filter(lambda l: l[19] == ord('F'))
         assert rtn.count() == len(list(rtn)) == 7
         assert rtn.count() == len(rtn) == 7
+
+        rtn = fwf.exclude(lambda l: l[19] == ord('F'))
+        assert rtn.count() == len(list(rtn)) == 3
+        assert rtn.count() == len(rtn) == 3
 
         rtn = fwf.filter(lambda l: l[fwf.fields["gender"].start] == ord('M'))
         assert rtn.count() == len(list(rtn)) == 3
@@ -338,7 +342,7 @@ def test_table_filter_by_field():
         rtn = fwf.filter(op("state").str().contains("A"))           # "state.contains('M')"
         assert rtn.count() == len(list(rtn)) == 3
 
-        rtn = fwf.filter(lambda line: op("birthday").str().date().get(line).year == 1957)    # "birthday.date.year == 1957"
+        rtn = fwf.filter(lambda line: op("birthday").str().date().get(line).year == 1957)
         assert rtn.count() == len(list(rtn)) == 1
 
         rtn = fwf.filter(op("birthday").bytes().startswith(b"1957"))    # "birthday.date.year == 1957"
@@ -438,35 +442,19 @@ def test_sort():
 
 def test_unique():
     with fwf_open(HumanFile, DATA) as fwf:
-        x = _FWFSort(fwf, 0, ("state",))
-        y = _FWFSort(fwf, 8, ("state",))
-        assert hash(x) == hash(y)
-        assert x == y
-        d = {}
-        d[x] = x
-        assert len(d) == 1
-        assert d[x].line.lineno == 0
-        d[y] = y
-        assert len(d) == 1
-        assert d[x] == d[y]
-        assert d[x].line.lineno == 8   # Remember the last
+        x = fwf.unique("state")
+        assert sorted(x) == [b'AR', b'MD', b'ME', b'MI', b'NV', b'OK', b'PA', b'VT', b'WI']
 
-        #fwf.print(pretty=False)
-
-        x = fwf.unique("state", last=True)
-        #x.print(pretty=False)
-        assert x.count() == 9
-        assert bytes(x[0].state) == b"AR"
-        assert x[0].rooted().lineno == 8
-
-        # Keep the first one
-        x = fwf.unique("state", last=False)
-        assert x.count() == 9
-        assert bytes(x[0].state) == b"AR"
-        assert x[0].rooted().lineno == 0
-
-        x = fwf.unique("universe", "profession")
-        assert x.count() == 6
+        x = sorted(fwf.unique("universe", "profession"))
+        #print(x)
+        assert x == [
+            (b'Whatever    ', b'Comedian     '),
+            (b'Whatever    ', b'Medic        '),
+            (b'Whatever    ', b'Shark tammer '),
+            (b'Whatever    ', b'Student      '),
+            (b'Whatever    ', b'Super hero   '),
+            (b'Whatever    ', b'Time traveler')
+        ]
 
 
 def test_lineno_line_file():
@@ -546,3 +534,46 @@ def test_computed_field():
 
         assert line.validate() is False
         assert line.parse() == rtn
+
+
+def test_get_string():
+    with fwf_open(HumanFile, DATA) as fwf:
+        data = list(fwf.to_list(header=False))
+        assert len(fwf) == len(data)
+        assert len(data) == 10
+        for row in data:
+            assert len(row) == 8    # Number of fields
+
+        data = fwf.get_string(pretty=False, stop=5)
+        #print(data)
+        assert data
+
+        data = fwf.get_string(pretty=True, stop=5)
+        #print(data)
+        assert data
+
+        data = list(fwf.to_list("name", "state", "birthday", header=False, stop=5))
+        assert len(data) == 5
+        for row in data:
+            assert len(row) == 3    # Number of fields
+
+        data = fwf.get_string("name", "state", "birthday", pretty=False, stop=5)
+        #print(data)
+        assert data
+
+        data = fwf.get_string("name", "state", "birthday", pretty=True, stop=5)
+        #print(data)
+        assert data
+
+        data = list(fwf[0:5].to_list("name", "state", "birthday", header=False, stop=5))
+        assert len(data) == 5
+        for row in data:
+            assert len(row) == 3    # Number of fields
+
+        data = fwf[:5].get_string(pretty=False, stop=5)
+        #print(data)
+        assert data
+
+        data = fwf[:5].get_string(pretty=True, stop=5)
+        #print(data)
+        assert data
