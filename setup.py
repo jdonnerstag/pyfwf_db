@@ -31,7 +31,7 @@ ext_modules=cythonize([ext_1, ext_2], language_level=3)
 here = pathlib.Path(__file__).parent.resolve()
 
 # Get the long description from the README file
-long_description = (here / "README.rst").read_text(encoding="utf-8")
+long_description = (here / "README.md").read_text(encoding="utf-8")
 
 class CleanCommand(Command):
     """Custom clean command to tidy up the project root."""

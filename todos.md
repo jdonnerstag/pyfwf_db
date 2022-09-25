@@ -17,8 +17,6 @@
   file caching in this module, or rather create another re-useable one? Is it
   may be already in fsspec?
 - Handle files with no break lines => That is done, isn't it? Test cases?
-- Recursive special filters like: birthday\_\_year\_\_lt  <= field "birthday", extract only "year", "less then"
-  I think the new approach is better, but not reflected in readme.rst
 - Filter with same line like: .filter(start\_day=L("end\_day"))
 - Multi-column order like: .order\_by("-age", "name")
 - Values using special fields like: .values("name\_\_len") <= probably after trimming?

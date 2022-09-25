@@ -1,9 +1,9 @@
 *__pycache__
 *.pyc
 *.DS_Store
-/dist/
-/*.egg-info
-/build/
+dist/
+*.egg-info/
+build/
 .vscode
 *.c
 *.pyd
@@ -15,4 +15,3 @@
 .venv/
 build/
 _build/
-fwf_db.egg-info/

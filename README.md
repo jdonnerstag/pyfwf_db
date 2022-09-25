@@ -1,13 +1,11 @@
-=================================================
-FWF - Python Fixed-Width-Field file format tools
-=================================================
+# FWF - Python Fixed-Width-Field file format tools
 
 A python library that provides (very) fast, read-only, NOSQL-like, access
 to (very) large, multi-partitioned, files with fixed-width-fields.
 
 Files that look like this:
-::
 
+```
   USAR19570526Fbe56008be36eDianne Mcintosh WhateverMedic
   USMI19940213M706a6e0afc3dRosalyn Clark   WhateverComedian
   USWI19510403M451ed630accbShirley Gray    WhateverComedian
@@ -18,13 +16,12 @@ Files that look like this:
   USNV20120604F5f02187599d7Mildred Henke   WhateverSuper hero
   USRI19820125Fcf54b2eb5219Marc Kidd       WhateverMedic
   USME20080503F0f51da89a299Kelly Crose     WhateverComedian
-  ...
+```
 
 Where each line represents one dataset and every field, respectively
 line, has a fixed length, without explicit separator between the fields.
 
-Key Features
-============
+## Key Features
 
 This lib is especially targetted for the following use cases:
 
@@ -62,8 +59,7 @@ This lib is especially targetted for the following use cases:
   laptops with full production datasets (anonymized).
 
 
-How did we get here?
-====================
+## How did we get here?
 
 Building this lib wasn't our first thought:
 
@@ -103,25 +99,21 @@ Building this lib wasn't our first thought:
      full size (anonmized) data sets.
 
 
-Jupyter Notebook
-=================
+## Jupyter Notebook
 
-The package contains a Jupyter notebook ` ./sample_data/intro.ipynb ./sample_data/intro.ipynb`_,
+The package contains a Jupyter notebook [./sample_data/intro.ipynb](./sample_data/intro.ipynb),
 which many examples on how to use the library and its most important features.
 
 
-Installation
-============
+## Installation
 
 Standard python `pip`.
 
-.. code-block:: Python
-
+```
   pip install git+https://github.com/jdonnerstag/pyfwf_db.git
+```
 
-
-Development
-============
+## Development
 
 We are using a virtual env (`.venv`) for dependencies. And given the chosen
 file structure (`./src` directory; `./tests` directory without `__init__.py`), we do
@@ -130,4 +122,4 @@ development enabled (-e).
 
 Test execution: `pytest -sx tests\...`
 
-Build the cython exentions only: ./build_ext.bat
+Build the cython exentions only: `./build_ext.bat`
