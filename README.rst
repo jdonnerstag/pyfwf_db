@@ -106,8 +106,8 @@ Building this lib wasn't our first thought:
 Jupyter Notebook
 =================
 
-The package contains a Jupyter notebook `./sample_data/intro.ipynb`, which
-many examples on how to use the library and its most important features.
+The package contains a Jupyter notebook ` ./sample_data/intro.ipynb ./sample_data/intro.ipynb`_,
+which many examples on how to use the library and its most important features.
 
 
 Installation
