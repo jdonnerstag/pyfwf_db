@@ -9,11 +9,9 @@ It should not be necessary by user code to use it directly.
 
 # pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name
 
-from sys import stderr
 from fwf_db import FWFFile
+from fwf_db import FWFIndexDict, FWFUniqueIndexDict
 from fwf_db._cython import fwf_db_cython
-from fwf_db.fwf_index_like import FWFIndexDict, FWFUniqueIndexDict
-
 
 def test_say_hello():
     """ Make sure we can load the lib and invoke same basic function """

@@ -12,7 +12,6 @@ Run individual tests like:
 """
 
 from io import TextIOWrapper
-from itertools import islice
 from random import randrange
 from time import time
 from collections import defaultdict
@@ -24,16 +23,16 @@ import pandas as pd
 
 import pytest
 
-from fwf_db.fwf_file import FWFFile
-from fwf_db.fwf_dict import FWFDict
-from fwf_db.fwf_line import FWFLine
-from fwf_db.fwf_operator import FWFOperator as op
+from fwf_db import FWFFile
+from fwf_db import FWFDict
+from fwf_db import FWFLine
+from fwf_db import op
 from fwf_db._cython import fwf_db_cython
-from fwf_db.fwf_index_like import FWFIndexDict, FWFUniqueIndexDict
-from fwf_db.fwf_index_builder_simple import FWFSimpleIndexBuilder
-from fwf_db.fwf_index_builder_cython import FWFCythonIndexBuilder
-from fwf_db.fwf_index_builder_numpy import FWFNumpyIndexBuilder
-from fwf_db._cython.fwf_mem_optimized_index import BytesDictWithIntListValues
+from fwf_db import FWFIndexDict, FWFUniqueIndexDict
+from fwf_db import FWFCythonIndexBuilder
+from fwf_db.core import FWFNumpyIndexBuilder
+from fwf_db.core import FWFSimpleIndexBuilder
+from fwf_db import BytesDictWithIntListValues
 
 # ---------------------------------------------
 # Performance Log
@@ -657,53 +656,12 @@ def test_non_unique_index():
         # non-unique index with mem optimized dict
         # approx 40 secs. Quite a bit slower then defaultdict(list)
 
-"""
-# @pytest.mark.slow
-# TODO This test is not yet implemented
-def test_MyIndexDict_get():
-
-    fwf = FWFFile(CENT_PARTY)
-    with fwf.open(FILE_CENT_PARTY) as fd:
-        rec_size = len(fd)
-        assert rec_size == 5_889_278
-
-        field_pos = fd.fields["PARTY_ID"].start
-        field_len = fd.fields["PARTY_ID"].stop - fd.fields["PARTY_ID"].start
-
-        data = MyIndexDict(size=rec_size, mm=fd.mm, reclen=fd.reclen, field_pos=field_pos, field_len=field_len, align="right")
-        assert data
-
-        # Get list of keys and timeit
-        t1 = time()
-        gen = ((i, line[fd.fields["PARTY_ID"]]) for i, line in fd.iter_lines())
-        for i, key in gen:
-            pass
-        print(f'1. Elapsed time is {time() - t1} seconds.')
-
-        # Put the keys into the index
-        t1 = time()
-        gen = ((i, line[fd.fields["PARTY_ID"]]) for i, line in fd.iter_lines())
-        for i, key in gen:
-            data.put(key, i)
-        percentage_filled, buckets_by_length, max_length, buckets_length = data.analyze()
-        print(f"precentage filled: {percentage_filled}, max_length: {max_length}, distibution: {buckets_by_length}")
-        print(f'2. Elapsed time is {time() - t1} seconds.')
-
-        # TODO randomly pick value from list for 1 mio get() and timeit.
-
-        # TODO 1 mio get() with "key not found"
-
-        # TODO randomly pick key and every 10th is not-found
-
-        # TODO Play with "capacity" and compare performance results
-
-        # TODO if possible compare key length < 8 bytes, == 8 bytes and > 8 bytes
-"""
 
 if __name__ == "__main__":
     #setup_module(None)
 
-    test_cython_filter()
+    #test_cython_filter()
     #test_find_last()
+    test_cython_create_index()
 
     #teardown_module(None)

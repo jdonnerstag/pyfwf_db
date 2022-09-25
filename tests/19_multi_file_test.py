@@ -4,12 +4,12 @@
 # pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name, missing-module-docstring
 # pylint: disable=protected-access
 
-from fwf_db.fwf_multi_file import FWFMultiFile
-from fwf_db.fwf_operator import FWFOperator as op
-from fwf_db.fwf_index_like import FWFIndexDict, FWFUniqueIndexDict
-from fwf_db.fwf_index_builder_simple import FWFSimpleIndexBuilder
-from fwf_db.fwf_index_builder_numpy import FWFNumpyIndexBuilder
-from fwf_db.fwf_index_builder_cython import FWFCythonIndexBuilder
+from fwf_db import FWFMultiFile
+from fwf_db import op
+from fwf_db import FWFIndexDict, FWFUniqueIndexDict
+from fwf_db.core import FWFSimpleIndexBuilder
+from fwf_db import FWFCythonIndexBuilder
+from fwf_db import fwf_open
 
 
 DATA_1 = b"""#
@@ -50,28 +50,35 @@ class DataFile:
     ]
 
 
+class HumanFileSpec:
+
+    FIELDSPECS = [
+        {"name": "location", "len": 9},
+        {"name": "state", "len": 2},
+        {"name": "birthday", "len": 8},
+        {"name": "gender", "len": 1},
+        {"name": "name", "len": 36},
+        {"name": "universe", "len": 12},
+        {"name": "profession", "len": 13},
+        {"name": "dummy", "len": 1},
+    ]
+
+
 def test_with_statement():
-
-    with FWFMultiFile(DataFile) as mf:
-        fwf1 = mf.open_and_add(DATA_1)
-        fwf2 = mf.open_and_add(DATA_2)
-
+    with fwf_open(DataFile, DATA_1, DATA_2) as mf:
+        assert isinstance(mf, FWFMultiFile)
         assert len(mf) == 20
         assert len(mf.files) == 2
         assert mf.line_count == 20
 
-        assert fwf1._mm is not None
-        assert fwf2._mm is not None
+        assert all(file._mm is not None for file in mf.files)
 
-    assert fwf1._mm is None
-    assert fwf2._mm is None
+    assert all(file._mm is None for file in mf.files)
 
 
 def test_multi_file():
-    with FWFMultiFile(DataFile) as mf:
-        mf.open_and_add(DATA_1)
-        mf.open_and_add(DATA_2)
-
+    with fwf_open(DataFile, DATA_1, DATA_2) as mf:
+        assert isinstance(mf, FWFMultiFile)
         assert len(mf) == 20
         assert len(mf.files) == 2
         assert mf.line_count == 20
@@ -104,10 +111,8 @@ def test_multi_file():
 
 
 def test_index():
-    with FWFMultiFile(DataFile) as mf:
-        mf.open_and_add(DATA_1)
-        mf.open_and_add(DATA_2)
-
+    with fwf_open(DataFile, DATA_1, DATA_2) as mf:
+        assert isinstance(mf, FWFMultiFile)
         assert len(mf) == 20
         assert len(mf.files) == 2
         assert mf.line_count == 20
@@ -120,10 +125,8 @@ def test_index():
 
 
 def test_effective_date():
-    with FWFMultiFile(DataFile) as mf:
-        mf.open_and_add(DATA_1)     # 10 lines
-        mf.open_and_add(DATA_2)     # 10 lines
-
+    with fwf_open(DataFile, DATA_1, DATA_2) as mf:
+        assert isinstance(mf, FWFMultiFile)
         assert len(mf) == 20        # 10 + 10 lines
         assert len(mf.files) == 2   # 2 files have been added
         assert mf.line_count == 20  # 10 + 10 lines
@@ -153,10 +156,8 @@ def test_effective_date():
 
 
 def test_cython_filter():
-    with FWFMultiFile(DataFile) as mf:
-        mf.open_and_add(DATA_1)
-        mf.open_and_add(DATA_2)
-
+    with fwf_open(DataFile, DATA_1, DATA_2) as mf:
+        assert isinstance(mf, FWFMultiFile)
         assert len(mf) == 20
         assert len(mf.files) == 2
         assert mf.line_count == 20
@@ -186,10 +187,8 @@ def test_cython_filter():
 
 
 def test_cython_index():
-    with FWFMultiFile(DataFile) as mf:
-        fwf1 = mf.open_and_add(DATA_1)
-        fwf2 = mf.open_and_add(DATA_2)
-
+    with fwf_open(DataFile, [DATA_1, DATA_2]) as mf:
+        assert isinstance(mf, FWFMultiFile)
         mi = FWFIndexDict(mf)
         FWFSimpleIndexBuilder(mi).index(mf, "ID")
         assert len(mi) == 11
@@ -197,10 +196,10 @@ def test_cython_index():
         assert len(mi[b"1    "]) == 2
         assert len(mi[b"22   "]) == 1
 
-        assert mi[b"1    "][0].rooted().fwf_view == fwf1
-        assert mi[b"1    "][1].rooted().fwf_view == fwf2
-        assert mi[b"2    "][0].rooted().fwf_view == fwf1
-        assert mi[b"22   "][0].rooted().fwf_view == fwf2
+        assert mi[b"1    "][0].rooted().parent == mf.files[0]
+        assert mi[b"1    "][1].rooted().parent == mf.files[1]
+        assert mi[b"2    "][0].rooted().parent == mf.files[0]
+        assert mi[b"22   "][0].rooted().parent == mf.files[1]
 
         assert mi[b"1    "][0].rooted().lineno == 0
         assert mi[b"1    "][1].rooted().lineno == 0
@@ -215,10 +214,10 @@ def test_cython_index():
         assert len(mi[b"1    "]) == 2
         assert len(mi[b"22   "]) == 1
 
-        assert mi[b"1    "][0].rooted().fwf_view == fwf1
-        assert mi[b"1    "][1].rooted().fwf_view == fwf2
-        assert mi[b"2    "][0].rooted().fwf_view == fwf1
-        assert mi[b"22   "][0].rooted().fwf_view == fwf2
+        assert mi[b"1    "][0].rooted().parent == mf.files[0]
+        assert mi[b"1    "][1].rooted().parent == mf.files[1]
+        assert mi[b"2    "][0].rooted().parent == mf.files[0]
+        assert mi[b"22   "][0].rooted().parent == mf.files[1]
 
         assert mi[b"1    "][0].rooted().lineno == 0
         assert mi[b"1    "][1].rooted().lineno == 0
@@ -227,10 +226,8 @@ def test_cython_index():
 
 
 def test_cython_unique_index():
-    with FWFMultiFile(DataFile) as mf:
-        fwf1 = mf.open_and_add(DATA_1)
-        fwf2 = mf.open_and_add(DATA_2)
-
+    with fwf_open(DataFile, [[DATA_1], DATA_2]) as mf:
+        assert isinstance(mf, FWFMultiFile)
         mi = FWFUniqueIndexDict(mf)
         FWFCythonIndexBuilder(mi).index(mf, "ID")
         assert len(mi) == 11
@@ -239,12 +236,25 @@ def test_cython_unique_index():
         assert mi[b"2    "].lineno == 1
         assert mi[b"22   "].lineno == 11
 
-        assert mi[b"1    "].rooted().fwf_view is fwf2
-        assert mi[b"2    "].rooted().fwf_view is fwf1
-        assert mi[b"22   "].rooted().fwf_view is fwf2
+        assert mi[b"1    "].rooted().parent is mf.files[1]
+        assert mi[b"2    "].rooted().parent is mf.files[0]
+        assert mi[b"22   "].rooted().parent is mf.files[1]
 
         assert mi[b"1    "].rooted().lineno == 0
         assert mi[b"2    "].rooted().lineno == 1
         assert mi[b"22   "].rooted().lineno == 1
+
+
+def test_pretty_print():
+    with fwf_open(HumanFileSpec, "sample_data/humans-subset.txt", "sample_data/humans.txt") as mf:
+
+        data = list(mf[8:12].to_list("_lineno", "_file", header=False))
+        assert data[0] == (8, "sample_data/humans-subset.txt")
+        assert data[1] == (9, "sample_data/humans-subset.txt")
+        assert data[2] == (0, "sample_data/humans.txt")
+        assert data[3] == (1, "sample_data/humans.txt")
+
+        assert mf[8:12].get_string("_lineno", "_file", pretty=True)
+
 
 # TODO We need multi-file tests with mem-optimized index

@@ -2,9 +2,11 @@
 # encoding: utf-8
 
 import sys
+from datetime import datetime
 from typing import Callable, Any
 
-from fwf_db import FWFLine
+from .fwf_line import FWFLine
+
 
 class FWFOperator:
     """ Easily define filter criteria
@@ -41,15 +43,16 @@ class FWFOperator:
     def __le__(self, other):
         return lambda line: self.get(line) <= other
 
-    def is_in(self, other):
+    def any(self, other):
         """ Apply the 'in' operator to the field's value """
         return lambda line: self.get(line) in other
 
-    def is_notin(self, other):
+    def none(self, other):
         """ Apply the 'not in' operator to the field's value """
         return lambda line: self.get(line) not in other
 
     def bytes(self):
+        """Convert the raw data from line into bytes"""
         orig = self.func
         self.func = lambda x: bytes(orig(x))
         return self
@@ -83,4 +86,27 @@ class FWFOperator:
         """ Convert the field's value into an integer """
         orig = self.func
         self.func = lambda x: int(orig(x))
+        return self
+
+    def startswith(self, other):
+        """Test whether the field data starts with 'arg'"""
+        return lambda line: self.get(line).startswith(other)
+
+    def endswith(self, other):
+        """Test whether the field data ends with 'arg'"""
+        return lambda line: self.get(line).endswith(other)
+
+    def contains(self, other):
+        """Test whether the field data contain 'arg'"""
+        return lambda line: other in self.get(line)
+
+    def date(self, fmt="%Y%m%d"):
+        """ Convert the field's value into date """
+        orig = self.func
+        self.func = lambda x: datetime.strptime(orig(x), fmt)
+        return self
+
+    def __getitem__(self, arg):
+        orig = self.func
+        self.func = lambda x: orig(x)[arg]
         return self

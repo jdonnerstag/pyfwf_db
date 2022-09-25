@@ -3,7 +3,7 @@
 
 - Test setup.py and build process (wheels) with new structure.
    - IMPORTANT: install and test the generated wheel
-- Make sure that everything is mentioned in readme, is actually working
+- Make sure that everything is mentioned in readme, is actually working. Currently the CLI is missing
 - I originally used Pandas, but memory consumption was huge (5x raw data).
   Veax supports memory-mapped files, but I didn't see fixed-width files support.
   And I haven't tested yet, whether it suffers from the same memory problem.
@@ -18,6 +18,7 @@
   may be already in fsspec?
 - Handle files with no break lines => That is done, isn't it? Test cases?
 - Recursive special filters like: birthday\_\_year\_\_lt  <= field "birthday", extract only "year", "less then"
+  I think the new approach is better, but not reflected in readme.rst
 - Filter with same line like: .filter(start\_day=L("end\_day"))
 - Multi-column order like: .order\_by("-age", "name")
 - Values using special fields like: .values("name\_\_len") <= probably after trimming?
@@ -30,3 +31,4 @@
 - We are using setup.py. Do we still need requirements.txt?
 - use "_" for protected variables and methods, and __ for private ones
 - check that we are using __len__() rather then len(), and __iter__() rather then iter() etc.
+- Create a jypiter notebook for the examples

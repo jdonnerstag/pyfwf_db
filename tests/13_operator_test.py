@@ -4,7 +4,7 @@
 # pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name
 
 from fwf_db import FWFFile
-from fwf_db.fwf_operator import FWFOperator as op
+from fwf_db import op
 
 
 DATA = b"""# My comment test
@@ -41,32 +41,32 @@ def test_table_filter_by_line():
     with fwf.open(DATA):
 
         rtn = fwf.filter(op("gender") == b"M")
-        assert len(list(rtn)) == 3
-        assert len(rtn) == 3
+        assert rtn.count() == len(list(rtn)) == 3
+        assert rtn.count() == len(rtn) == 3
 
         rtn = fwf.filter(op("gender") != b"M")
-        assert len(list(rtn)) == 7
-        assert len(rtn) == 7
+        assert rtn.count() == len(list(rtn)) == 7
+        assert rtn.count() == len(rtn) == 7
 
         rtn = fwf.filter(op("gender").bytes() > b"F")
-        assert len(list(rtn)) == 3
-        assert len(rtn) == 3
+        assert rtn.count() == len(list(rtn)) == 3
+        assert rtn.count() == len(rtn) == 3
 
         rtn = fwf.filter(op("gender").bytes() < b"M")
-        assert len(list(rtn)) == 7
-        assert len(rtn) == 7
+        assert rtn.count() == len(list(rtn)) == 7
+        assert rtn.count() == len(rtn) == 7
 
         rtn = fwf.filter(op("gender").str() == "F")
-        assert len(rtn) == 7
+        assert rtn.count() == len(rtn) == 7
 
         rtn = fwf.filter(op("gender").str().strip() == "F")
-        assert len(rtn) == 7
+        assert rtn.count() == len(rtn) == 7
 
         rtn = fwf.filter(op("gender").str().lower() == "f")
-        assert len(rtn) == 7
+        assert rtn.count() == len(rtn) == 7
 
         rtn = fwf.filter(op("birthday").int() < 19600000)
-        assert len(rtn) == 2
+        assert rtn.count() == len(rtn) == 2
 
         birthday_year = op("birthday")
         birthday_year.func = lambda x: int(x) / 100 / 100

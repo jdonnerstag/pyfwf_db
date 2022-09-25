@@ -6,7 +6,7 @@ to speed up index creation."""
 
 from typing import Callable
 
-from ._cython import fwf_db_cython
+from .._cython import fwf_db_cython
 from .fwf_index_like import FWFIndexLike
 from .fwf_file import FWFFile
 from .fwf_multi_file import FWFMultiFile

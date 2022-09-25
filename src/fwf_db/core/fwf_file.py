@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+""" FWFFile """
+
 import mmap
 from typing import Iterator
 
@@ -22,7 +24,7 @@ class FWFFile(FWFViewLike):
     different ways.
     """
 
-    def __init__(self, reader):
+    def __init__(self, filespec, encoding=None, newline=None, comments=None):
         """Constructor
 
         'reader' is a class that provides information about the
@@ -36,14 +38,12 @@ class FWFFile(FWFViewLike):
         Please see the unit tests for an example.
         """
 
-        # TODO Currently 'reader' is fully dynamic. Would like something more explicit.
-        self._reader = reader
+        super().__init__(filespec, None)
 
         # Used when automatically decoding bytes into strings
-        self.encoding = getattr(reader, "ENCODING", None)
-        self.fieldspecs = FWFFileFieldSpecs(reader.FIELDSPECS)     # fixed width file spec
-        self.newline_bytes = getattr(reader, "NEWLINE", None) or [0, 1, 10, 13]  # These bytes we recognize as newline
-        self.comment_char = getattr(reader, "COMMENTS", None) or '#'
+        self.encoding = encoding or getattr(filespec, "ENCODING", None)
+        self.newline_bytes = newline or getattr(filespec, "NEWLINE", [0, 1, 10, 13])  # These bytes we recognize as newline
+        self.comments = comments if comments is not None else getattr(filespec, "COMMENTS", '#')
 
         # The number of newline bytes, e.g. "\r\n", "\n" or "\01"...
         # Required to determine overall line length
@@ -57,7 +57,15 @@ class FWFFile(FWFViewLike):
         self._fd = None         # open file handle
         self._mm: memoryview|None = None   # memory map (read-only)
 
-        super().__init__(self.fieldspecs)
+        # This is only to be consistent with FWFMultiFile and thus avoid
+        # false-positiv pylint warnings
+        self.files = [self.file]
+
+
+    def data(self, fslice: slice) -> bytes:
+        """Some you may want to take a look at the underlying (raw) data"""
+        assert self._mm is not None
+        return bytes(self._mm[fslice])
 
 
     def is_newline(self, byte: int) -> bool:
@@ -65,8 +73,12 @@ class FWFFile(FWFViewLike):
         return byte in self.newline_bytes
 
 
-    def skip_comment_line(self, _mm, comment_char: str) -> int:
+    def skip_comment_line(self, _mm: memoryview, comments: str) -> int:
         """Find the first line that is not a comment line and return its position."""
+
+        clen = len(comments)
+        if clen == 0:
+            return 0
 
         def skip_line(data, pos):
             while pos < len(data):
@@ -77,19 +89,22 @@ class FWFFile(FWFViewLike):
 
             return pos
 
+        bcomment = comments.encode("utf-8")
         pos = 0
-        comment_char_cp = ord(comment_char)
-        while (pos < len(_mm)) and (_mm[pos] == comment_char_cp):
+        while pos < len(_mm):
+            if _mm[pos:pos + clen] != bcomment:
+                break
+
             pos = skip_line(_mm, pos)
 
         return pos
 
 
-    def get_file_size(self, _mm) -> int:
+    def get_file_size(self, _mm: memoryview) -> int:
         """Determine the file size.
 
         Adjust the file size if the last line has no newline.
-        TODO I don't like that it is changing the file size. It may create confusion.
+        TODO I don't like that it is virtually changing the file size. It may create confusion.
         """
 
         fsize = len(_mm)
@@ -121,9 +136,21 @@ class FWFFile(FWFViewLike):
         raise FWFFileException("Failed to find newlines in date")
 
 
-    def record_length(self, fields) -> int:
-        """Determine the overall record lenght from the fieldspecs"""
-        return max(x.stop for x in fields.values())
+    def _next_newline(self, _mm: memoryview, start_pos: int) -> int:
+        i = 0
+        for i, byte in enumerate(_mm[start_pos:]):
+            if self.is_newline(byte):
+                return i
+
+        return -1
+
+
+    def record_length(self, _mm: memoryview, fields: FWFFileFieldSpecs, start_pos: int) -> int:
+        """Determine the overall record length from the fieldspecs"""
+
+        field_len = max(x.stop for x in fields.values()) if fields else (len(_mm) - start_pos)
+        reclen = self._next_newline(_mm, start_pos)
+        return reclen if reclen > field_len else field_len
 
 
     def __enter__(self):
@@ -168,17 +195,24 @@ class FWFFile(FWFViewLike):
             self.file = id(file)
             _mm = file
         else:
-            raise FWFFileException(f"Invalid 'file' argument. Must be of type str or bytes: {file}")
+            raise FWFFileException(f"Invalid 'file' argument. Must be of type str or bytes: {type(file)}")
 
         self._mm = memoryview(_mm)
-        self.number_of_newline_bytes = self._number_of_newline_bytes(self._mm)
-        # The length of each line
-        self.fwidth = self.record_length(self.fields) + self.number_of_newline_bytes
-        self.fsize = self.get_file_size(self._mm)
-        self.start_pos = self.skip_comment_line(self._mm, self.comment_char)
-        self.line_count = self.calculate_line_count(self._mm)
+        self.initialize()
 
         return self
+
+
+    def initialize(self) -> None:
+        """Determine the newline byte(s), start_pos, line length, etc."""
+
+        assert self._mm is not None
+        self.number_of_newline_bytes = self._number_of_newline_bytes(self._mm)
+        self.fsize = self.get_file_size(self._mm)
+        self.start_pos = self.skip_comment_line(self._mm, self.comments)
+        # The length of each line
+        self.fwidth = self.record_length(self._mm, self.fields, self.start_pos) + self.number_of_newline_bytes
+        self.line_count = self.calculate_line_count(self._mm)
 
 
     def close(self) -> None:
@@ -196,13 +230,9 @@ class FWFFile(FWFViewLike):
         self._mm = self._fd = None
 
 
-    def __len__(self) -> int:
+    def count(self) -> int:
         """Return the number of records in the file"""
         return self.line_count
-
-
-    def get_parent(self) -> None:
-        return None
 
 
     def _parent_index(self, index: int) -> int:
@@ -233,11 +263,11 @@ class FWFFile(FWFViewLike):
 
 
     def _fwf_by_indices(self, indices: list[int]) -> FWFSubset:
-        return FWFSubset(self, indices, self.fields)
+        return FWFSubset(self, indices)
 
 
     def _fwf_by_slice(self, start: int, stop: int) -> FWFRegion:
-        return FWFRegion(self, start, stop, self.fields)
+        return FWFRegion(self, start, stop)
 
 
     def iter_lines(self) -> Iterator[memoryview]:

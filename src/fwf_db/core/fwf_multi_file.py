@@ -31,13 +31,14 @@ class FWFMultiFile(FWFViewLike):
     necessary to concat the files first.
     """
 
-    def __init__(self, reader):
-        super().__init__(self._determine_fieldspecs(reader))
+    def __init__(self, filespec, encoding=None, newline=None, comments=None):
+        super().__init__(filespec, None)
 
-        self.reader = reader
         self.files: list[FWFFile] = []
-
         self.line_count = 0
+        self.encoding = encoding
+        self.newline = newline
+        self.comments = comments
 
 
     @classmethod
@@ -74,11 +75,11 @@ class FWFMultiFile(FWFViewLike):
                 close()
 
 
-    def open_and_add(self, file) -> FWFFile:
+    def open_and_add(self, file, encoding=None, newline=None, comments=None) -> FWFFile:
         """Open a file complying to the filespec provided in the
         constructor, and register the file for auto-close"""
 
-        fwf = FWFFile(self.reader)
+        fwf = FWFFile(self.filespec, encoding, newline, comments)
         fwf.open(file)
         self.add_file(fwf)
 
@@ -117,12 +118,8 @@ class FWFMultiFile(FWFViewLike):
         raise IndexError(f"Index not found: {index}")
 
 
-    def __len__(self) -> int:
+    def count(self) -> int:
         return self.line_count
-
-
-    def get_parent(self) -> None:
-        return None
 
 
     def _parent_index(self, index: int) -> int:
@@ -135,11 +132,11 @@ class FWFMultiFile(FWFViewLike):
 
 
     def _fwf_by_indices(self, indices: list[int]) -> FWFSubset:
-        return FWFSubset(self, indices, self.get_fields())
+        return FWFSubset(self, indices)
 
 
     def _fwf_by_slice(self, start: int, stop: int) -> FWFRegion:
-        return FWFRegion(self, start, stop, self.get_fields())
+        return FWFRegion(self, start, stop)
 
 
     def iter_lines(self) -> Iterator[memoryview]:

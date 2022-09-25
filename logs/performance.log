@@ -138,3 +138,5 @@
 { date: 2022-09-20 18:19:27, }
 { date: 2022-09-20 18:22:30, }
 { date: 2022-09-20 18:25:37, }
+{ date: 2022-09-21 16:33:13, test_perf_iter_lines: 1.863213300704956, test_perf_iter_fwfline: 3.5931923389434814, test_dict_fromkeys-1.1 read PARTY_ID data from file: 5889278 records: 4.079167604446411, }
+{ date: 2022-09-21 16:33:32, test_perf_iter_lines: 1.974679946899414, test_perf_iter_fwfline: 3.7861616611480713, test_dict_fromkeys-1.1 read PARTY_ID data from file: 5889278 records: 1.4535739421844482, test_dict_fromkeys-1.2 use fromkeys() to create dict: 5889278 keys: 2.532822370529175, test_dict_fromkeys-1.3 use dict-comprehension() to create dict with empty list: 5.733291387557983, test_dict_fromkeys-1.4 use dict-comprehension() to create dict with zero: 2.8185746669769287, test_dict_fromkeys-2.1 read SALES_LOCATION_ID data from file: 10363608 records: 2.775209426879883, }

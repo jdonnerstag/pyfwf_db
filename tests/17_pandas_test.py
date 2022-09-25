@@ -3,8 +3,8 @@
 
 # pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name, missing-module-docstring
 
+import fwf_db
 from fwf_db import FWFFile
-from fwf_db.fwf_pandas import FWFPandas
 
 
 DATA = b"""# My comment test
@@ -39,7 +39,7 @@ def test_pandas():
     fwf = FWFFile(HumanFile)
     with fwf.open(DATA):
 
-        df = FWFPandas().to_pandas(fwf)
+        df = fwf_db.to_pandas(fwf)
         assert len(df.index) == 10
         assert len(df.columns) == 8
         assert list(df.columns) == list(fwf.fields.keys())
@@ -49,7 +49,7 @@ def exec_pandas_empty(data):
     fwf = FWFFile(HumanFile)
     with fwf.open(data):
 
-        df = FWFPandas().to_pandas(fwf)
+        df = fwf_db.to_pandas(fwf)
         assert len(df.index) == 0
 
 
