@@ -40,6 +40,10 @@ class FWFFieldSpec:
         raise AttributeError(f"Fieldspec('{self.name}'): Attribute '{attr}' not found in {self.attr}")
 
 
+    def __setitem__(self, attr: str, value):
+        self.attr[attr] = value
+
+
     def __getattr__(self, attr: str) -> Any:
         return self[attr]
 
@@ -229,6 +233,15 @@ class FWFFileFieldSpecs:
         """Update an existing field to the spec"""
         self.fields[name].set_pos(**kwargs)
         self.reclen = self.record_length()
+
+
+    def apply_defaults(self, defaults: None|dict[str, Any]) -> None:
+        """Apply the defaults to ALL fields"""
+        if defaults:
+            for spec in self.fields.values():
+                for k, data in defaults.items():
+                    spec.attr.setdefault(k, data)
+
 
     def __len__(self):
         return len(self.fields)

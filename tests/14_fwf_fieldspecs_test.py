@@ -134,3 +134,29 @@ def test_invalid_slice():
             {"name": "aa", "len": 10},
             {"name": "bb", "slice": (1, 2, 3)},
         ])
+
+
+def test_apply_defaults():
+    spec = FWFFileFieldSpecs([
+        {"name": "aa", "len": 9},
+        {"name": "bb", "slice": slice(10, 12)},
+        {"name": "cc", "slice": (10, 12)},
+    ])
+
+    spec.apply_defaults(None)
+    for x in spec:
+        print(x.attr)
+        assert len(x.attr) == 1
+
+    spec.apply_defaults({})
+    for x in spec:
+        assert len(x.attr) == 1
+
+    spec.apply_defaults(dict(dtype=1))
+    assert spec["aa"].dtype == 1
+    for x in spec:
+        assert len(x.attr) == 2
+        assert "dtype" in x
+
+    spec["aa"]["regex"] = "test"
+    assert "regex" in spec["aa"]
