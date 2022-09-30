@@ -5,72 +5,46 @@
 """Define two classes. One to hold a single field specification,
 and one to hold all field specifications which define a file."""
 
-from typing import Any, Optional, Iterator
+from abc import ABCMeta, abstractmethod
+from typing import Any, MutableMapping, TypeVar
 from collections import OrderedDict
 
 
-class FWFFieldSpec:
-    """The specification of a single field"""
+# CSV, FWF, Excel, etc. may all have different FieldSpecs
+FieldSpec = MutableMapping[str, Any]
 
-    def __init__(self, startpos: int, name: str, **kwargs):
+class FWFFieldSpec(dict[str, Any], FieldSpec):
+    """A FieldSpec for fixed-width fields"""
+
+    def __init__(self, startpos: int, name: str, **kvargs):
         assert len(name) > 0
 
         self.name = name
-        self.fslice = slice(0, 0)
-        self.flen = 0
-        self.set_pos(startpos=startpos, **kwargs)
-        self.attr = kwargs
+        super().__init__(name=name, **kvargs)
 
-
-    def _validate(self) -> None:
-        assert 0 <= self.len < 1000
-        assert self.fslice.start >= 0
-        assert self.fslice.stop >= self.fslice.start
-
-
-    def __contains__(self, attr) -> bool:
-        return self.get(attr, None) is not None
-
-
-    def __getitem__(self, attr: str) -> Any:
-        rtn = self.get(attr)
-        if rtn is not None:
-            return rtn
-
-        raise AttributeError(f"Fieldspec('{self.name}'): Attribute '{attr}' not found in {self.attr}")
-
-
-    def __setitem__(self, attr: str, value):
-        self.attr[attr] = value
+        self.update(startpos=startpos, **kvargs)
 
 
     def __getattr__(self, attr: str) -> Any:
         return self[attr]
 
 
-    def get(self, attr: str, default=None) -> None|Any:
-        """Get the attribute"""
-
-        if attr == "start":
-            return self.fslice.start
-        if attr == "stop":
-            return self.fslice.stop
-
-        return self.attr.get(attr, default)
-
-
-    def set_pos(self, startpos=0, **kwargs) -> None:
+    def update(self, **kvargs) -> None:
         """Update the start and stop position of the field and a combination
         of 'slice', 'len', 'start' and 'stop' attributes"""
 
-        fslice = kwargs.get("slice", None)
-        flen = kwargs.get("len", None)
-        start = kwargs.get("start", None)
-        stop = kwargs.get("stop", None)
+        startpos = kvargs.pop("startpos", 0)
+
+        fslice = kvargs.pop("slice", None)
+        flen = kvargs.pop("len", None)
+        start = kvargs.pop("start", None)
+        stop = kvargs.pop("stop", None)
+
+        super().update(**kvargs)
 
         if fslice is not None:
             if start is not None or stop is not None or flen is not None:
-                raise KeyError(f"If 'slice' is present, 'start', 'stop' or 'len' are not allowed: {kwargs.keys()}")
+                raise KeyError(f"If 'slice' is present, 'start', 'stop' or 'len' are not allowed: {kvargs.keys()}")
 
             if isinstance(fslice, slice):
                 start = fslice.start
@@ -83,24 +57,24 @@ class FWFFieldSpec:
                 raise KeyError(f"Fieldspec: 'slice' must be one of slice, tuple(2), list(2)': {fslice}")
         elif start is not None and flen is not None:
             if stop is not None:
-                raise KeyError(f"If 'start' and 'len' are present, 'stop' is not allowed: {kwargs.keys()}")
+                raise KeyError(f"If 'start' and 'len' are present, 'stop' is not allowed: {kvargs.keys()}")
 
             stop = start + flen
         elif stop is not None and flen is not None:
             if start is not None:
-                raise KeyError(f"If 'stop' and 'len' are present, 'start' is not allowed: {kwargs.keys()}")
+                raise KeyError(f"If 'stop' and 'len' are present, 'start' is not allowed: {kvargs.keys()}")
 
             start = stop - flen
         elif start is not None and stop is not None:
             if flen is not None:
-                raise KeyError(f"If 'start' and 'stop' are present, 'len' is not allowed: {kwargs.keys()}")
+                raise KeyError(f"If 'start' and 'stop' are present, 'len' is not allowed: {kvargs.keys()}")
 
         elif flen is not None:
             start = startpos
             stop = start + flen
         else:
             raise KeyError(
-                f"Fieldspecs requires either 'len', 'slice', 'start' or 'stop' combinations: {kwargs.keys()}")
+                f"Fieldspecs requires either 'len', 'slice', 'start' or 'stop' combinations: {kvargs.keys()}")
 
         try:
             start = int(start)
@@ -112,139 +86,73 @@ class FWFFieldSpec:
         except ValueError as exc:
             raise ValueError(f"'stop' is not a valid integer: '{stop}'") from exc
 
-        self.fslice = slice(start, stop)
-        self.len = self.fslice.stop - self.fslice.start
-        self._validate()
+        self["slice"] = fslice = slice(start, stop)
+        self["len"] = flen = fslice.stop - fslice.start
+        self["start"] = fslice.start
+        self["stop"] = fslice.stop
 
-
-    def __str__(self) -> str:
-        """Compute the “informal” string representation of an object
-
-        A representation that is useful for printing the object
-        """
-        return f"{self.name}=({self.fslice.start}, {self.fslice.stop})"
-
-
-    def __repr__(self) -> str:
-        """Compute the “official” string representation of an object
-
-        A representation that has all information about the object
-        """
-        return f"{self.__class__.__name__}(name=\"{self.name}\", slice=({self.fslice.start}, {self.fslice.stop}))"
+        assert 0 <= flen < 1000
+        assert fslice.start >= 0
+        assert fslice.stop >= fslice.start
 
 # --------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------
 
-class FWFFileFieldSpecs:
-    """CSV is a tabular format. This class maintains the field specifications"""
+T = TypeVar('T', bound=FieldSpec)
+
+class FileFieldSpecs(OrderedDict[str, T], metaclass=ABCMeta):
+    """An abstract base class for file specifications"""
 
     def __init__(self, specs: list[dict[str, Any]]):
         """Constructor"""
 
-        self.fields = self._init(specs)
-        self.reclen = self.record_length()
+        super().__init__()
 
-
-    def _init(self, specs: list[dict[str, Any]]) -> OrderedDict[str, FWFFieldSpec]:
-        startpos = 0
-        _fields: OrderedDict[str, FWFFieldSpec] = OrderedDict()
         for spec in specs:
             _name = spec["name"]
-            if _name in _fields:
+            if _name in self:
                 raise KeyError(f"Names must be unique: '{_name}' in {specs}")
 
-            field = _fields[_name] = FWFFieldSpec(startpos=startpos, **spec)
-            startpos += field.len
-            startpos = max(startpos, field.stop)
-
-        return _fields
+            self[_name] = self.new_field_spec(**spec)
 
 
-    def record_length(self) -> int:
-        """Return the line length"""
-        if len(self.fields) == 0:
-            return 0
-
-        return max(x["stop"] for x in self.fields.values())
+    @abstractmethod
+    def new_field_spec(self, **data) -> T:
+        """Create a new field spec"""
 
 
-    def get(self, key: str, default=None) -> Optional[FWFFieldSpec]:
-        """Get a fieldspec by name or index"""
-        return self.fields.get(key, default)
-
-
-    def __getitem__(self, key: str) -> FWFFieldSpec:
-        value = self.get(key)
-        if value is not None:
-            return value
-
-        raise KeyError(f"Fieldspec does not contain field: {key}")
-
-
-    def __contains__(self, key: str) -> bool:
-        return key in self.fields
-
-
-    def keys(self):
-        """The list of all field names"""
-        return self.fields.keys()
-
-
-    def names(self):
+    def names(self) -> list[str]:
         """The list of all field names. Sames as keys() but more meaningful"""
-        return self.keys()
+        return list(self.keys())
 
 
-    def values(self):
-        """The list of all field specifications"""
-        return self.fields.values()
-
-
-    def __iter__(self) -> Iterator[FWFFieldSpec]:
-        for field in self.names():
-            yield self[field]
-
-
-    def items(self):
-        """Similar to dict's items()"""
-        return self.fields.items()
-
-
-    def clone(self, *fields: str) -> 'FWFFileFieldSpecs':
+    def clone(self, *fields: str):
         """Create a copy of the spec with selected and or re-ordered columns"""
 
-        spec = FWFFileFieldSpecs([])
-        new_fields = fields or self.fields.keys()
-        for field in new_fields:
-            spec.fields[field] = self.fields[field]
+        rtn = self.__class__([])
+        for field in fields:
+            rtn[field] = self[field]
 
-        spec.reclen = spec.record_length()
-        return spec
+        return rtn
 
 
-    def add_field(self, name:str, **kwargs) -> None:
+    def add_field(self, name:str, **kvargs) -> None:
         """Add an additional field to the spec"""
-        field = FWFFieldSpec(startpos=self.reclen, name=name, **kwargs)
-        self.fields[name] = field
-        self.reclen = self.record_length()
+        field = self.new_field_spec(name=name, **kvargs)
+        self[name] = field
 
 
-    def update_field(self, name:str, **kwargs) -> None:
+    def update_field(self, name:str, **kvargs) -> None:
         """Update an existing field to the spec"""
-        self.fields[name].set_pos(**kwargs)
-        self.reclen = self.record_length()
+        self[name].update(**kvargs)
 
 
     def apply_defaults(self, defaults: None|dict[str, Any]) -> None:
         """Apply the defaults to ALL fields"""
         if defaults:
-            for spec in self.fields.values():
+            for spec in self.values():
                 for k, data in defaults.items():
-                    spec.attr.setdefault(k, data)
-
-
-    def __len__(self):
-        return len(self.fields)
+                    spec.setdefault(k, data)
 
 
     def __str__(self) -> str:
@@ -252,5 +160,53 @@ class FWFFileFieldSpecs:
 
 
     def __repr__(self) -> str:
-        fields = "[" + ", ".join(f.__str__() for f in self.fields.values()) + "]"
+        fields = "[" + ", ".join(f.__str__() for f in self.values()) + "]"
+        return f"{self.__class__.__name__}(fields={fields})"
+
+
+# --------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------
+
+class FWFFileFieldSpecs(FileFieldSpecs[FWFFieldSpec]):
+    """A file specification for fwf file"""
+
+    def __init__(self, specs: list[dict[str, Any]]):
+        """Constructor"""
+
+        self.startpos = 0
+        super().__init__(specs)
+        self.reclen = self.record_length()
+
+
+    def new_field_spec(self, **data) -> FWFFieldSpec:
+        """Create a new field spec"""
+        rtn = FWFFieldSpec(startpos=self.startpos, **data)
+
+        self.startpos += rtn.len
+        self.startpos = max(self.startpos, rtn.stop)
+        return rtn
+
+
+    def record_length(self) -> int:
+        """Return the line length"""
+        if len(self) == 0:
+            return 0
+
+        return max(field["stop"] for field in self.values())
+
+
+    def add_field(self, name:str, **kvargs) -> None:
+        """Add an additional field to the spec"""
+        super().add_field(name, **kvargs)
+        self.reclen = self.record_length()
+
+
+    def update_field(self, name:str, **kvargs) -> None:
+        """Update an existing field to the spec"""
+        super().update_field(name, **kvargs)
+        self.reclen = self.record_length()
+
+
+    def __repr__(self) -> str:
+        fields = "[" + ", ".join(f.__str__() for f in self.values()) + "]"
         return f"{self.__class__.__name__}(reclen={self.reclen}, fields={fields})"

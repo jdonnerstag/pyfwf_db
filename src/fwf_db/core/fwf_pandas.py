@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+"""Export data into pandas"""
+
 import pandas as pd
 
 from .fwf_view_like import FWFViewLike
@@ -21,7 +23,7 @@ def to_pandas(fwfview: FWFViewLike, dtype=None) -> pd.DataFrame:
             parent = newp
 
         assert isinstance(parent, FWFFile)
-        dtype = {e.name : e.get("dtype", None) for e in parent.fields}
+        dtype = {e.name : e.get("dtype", None) for e in parent.fields.values()}
     elif isinstance(dtype, list):
         list_of_strings = all(isinstance(x, str) for x in dtype)
         if list_of_strings:

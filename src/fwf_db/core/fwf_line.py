@@ -95,7 +95,7 @@ class FWFLine:
         slice: return the bytes associated with the slice
         """
         if isinstance(arg, FWFFieldSpec):
-            rtn = bytes(self.line[arg.fslice])
+            rtn = bytes(self.line[arg.slice])
         elif isinstance(arg, str):
             rtn = self.parent.getter_for_field(arg)(self)
         elif isinstance(arg, int):

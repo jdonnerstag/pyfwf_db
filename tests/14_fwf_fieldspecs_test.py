@@ -20,28 +20,28 @@ def test_single():
     assert field.len == 2
     assert field.start == 0
     assert field.stop == 2
-    assert field.fslice == slice(0, 2)
+    assert field.slice == slice(0, 2)
 
     field = FWFFieldSpec(startpos=0, name="id", slice=slice(0, 2))
     assert field.name == "id"
     assert field.len == 2
     assert field.start == 0
     assert field.stop == 2
-    assert field.fslice == slice(0, 2)
+    assert field.slice == slice(0, 2)
 
     field = FWFFieldSpec(startpos=0, name="id", slice=(0, 2))
     assert field.name == "id"
     assert field.len == 2
     assert field.start == 0
     assert field.stop == 2
-    assert field.fslice == slice(0, 2)
+    assert field.slice == slice(0, 2)
 
     field = FWFFieldSpec(startpos=0, name="id", slice=[0, 2])
     assert field.name == "id"
     assert field.len == 2
     assert field.start == 0
     assert field.stop == 2
-    assert field.fslice == slice(0, 2)
+    assert field.slice == slice(0, 2)
 
     with pytest.raises(Exception):
         _ = FWFFieldSpec(startpos=0, name="id", slice=[1, 2, 3])
@@ -54,21 +54,21 @@ def test_single():
     assert field.len == 2
     assert field.start == 0
     assert field.stop == 2
-    assert field.fslice == slice(0, 2)
+    assert field.slice == slice(0, 2)
 
     field = FWFFieldSpec(startpos=0, name="id", start=0, len=2)
     assert field.name == "id"
     assert field.len == 2
     assert field.start == 0
     assert field.stop == 2
-    assert field.fslice == slice(0, 2)
+    assert field.slice == slice(0, 2)
 
     field = FWFFieldSpec(startpos=0, name="id", stop=2, len=2)
     assert field.name == "id"
     assert field.len == 2
     assert field.start == 0
     assert field.stop == 2
-    assert field.fslice == slice(0, 2)
+    assert field.slice == slice(0, 2)
 
     with pytest.raises(Exception):
         _ = FWFFieldSpec(startpos=0, name="id", slice=(1, 2), start=2)
@@ -144,18 +144,18 @@ def test_apply_defaults():
     ])
 
     spec.apply_defaults(None)
-    for x in spec:
-        print(x.attr)
-        assert len(x.attr) == 1
+    for x in spec.values():
+        #print(x)
+        assert len(x) == 5  # name, len, slice, start, stop
 
     spec.apply_defaults({})
-    for x in spec:
-        assert len(x.attr) == 1
+    for x in spec.values():
+        assert len(x) == 5
 
     spec.apply_defaults(dict(dtype=1))
     assert spec["aa"].dtype == 1
-    for x in spec:
-        assert len(x.attr) == 2
+    for x in spec.values():
+        assert len(x) == 6
         assert "dtype" in x
 
     spec["aa"]["regex"] = "test"

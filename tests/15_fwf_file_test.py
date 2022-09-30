@@ -107,7 +107,7 @@ def test_initialize():
         fwf.add_field(name="location", len=9)
         fwf.initialize()
         assert len(fwf.fields) == 1
-        assert fwf.fields["location"].fslice == slice(0, 9)
+        assert fwf.fields["location"].slice == slice(0, 9)
         assert fwf.fwidth == 83
         assert fwf.start_pos == 18
         assert fwf.line_count == 10
@@ -116,23 +116,23 @@ def test_initialize():
         fwf.add_field(name="state", len=2)
         fwf.initialize()
         assert len(fwf.fields) == 2
-        assert fwf.fields["location"].fslice == slice(0, 9)
-        assert fwf.fields["state"].fslice == slice(9, 11)
+        assert fwf.fields["location"].slice == slice(0, 9)
+        assert fwf.fields["state"].slice == slice(9, 11)
         assert fwf.fwidth == 83
         assert fwf.start_pos == 18
         assert fwf.line_count == 10
         assert fwf.count() == len(fwf) == 10
 
         fwf.add_field(name="name", len=20)
-        assert fwf.fields["location"].fslice == slice(0, 9)
-        assert fwf.fields["state"].fslice == slice(9, 11)
-        assert fwf.fields["name"].fslice == slice(11, 31)
+        assert fwf.fields["location"].slice == slice(0, 9)
+        assert fwf.fields["state"].slice == slice(9, 11)
+        assert fwf.fields["name"].slice == slice(11, 31)
         #print(fwf.fields)
 
         fwf.update_field(name="name", start=20, len=10)
-        assert fwf.fields["location"].fslice == slice(0, 9)
-        assert fwf.fields["state"].fslice == slice(9, 11)
-        assert fwf.fields["name"].fslice == slice(20, 30)
+        assert fwf.fields["location"].slice == slice(0, 9)
+        assert fwf.fields["state"].slice == slice(9, 11)
+        assert fwf.fields["name"].slice == slice(20, 30)
 
 
 def test_file_input():
@@ -297,11 +297,11 @@ def test_table_filter_by_line():
         assert rtn.count() == len(list(rtn)) == 3
         assert rtn.count() == len(rtn) == 3
 
-        rtn = fwf.filter(lambda l: l[fwf.fields["state"].fslice] == b'AR')
+        rtn = fwf.filter(lambda l: l[fwf.fields["state"].slice] == b'AR')
         assert rtn.count() == len(list(rtn)) == 2
         assert rtn.count() == len(rtn) == 2
 
-        rtn = fwf.filter(lambda l: l[fwf.fields["state"].fslice] == b'XX')
+        rtn = fwf.filter(lambda l: l[fwf.fields["state"].slice] == b'XX')
         assert rtn.count() == len(list(rtn)) == 0
         assert rtn.count() == len(rtn) == 0
 

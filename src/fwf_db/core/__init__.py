@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+""" fwf_db.core module """
+
 from .fwf_dict import FWFDict
 from .fwf_fieldspecs import FWFFieldSpec, FWFFileFieldSpecs
 from .fwf_line import FWFLine

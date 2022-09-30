@@ -214,7 +214,7 @@ class FWFViewLike:
 
     def iter_lines_with_field(self, field) -> Iterator[memoryview]:
         """Iterate over all lines in the file returning the raw field data"""
-        sslice: slice = self.fields[field].fslice
+        sslice: slice = self.fields[field].slice
         gen = (line[sslice] for line in self.iter_lines())
         return gen
 
@@ -331,7 +331,7 @@ class FWFViewLike:
 
     def get_with_fieldspec(self, field: str) -> Callable:
         """Return a function that retrieves the data for field from a line"""
-        field_slice: slice = self.fields[field].fslice
+        field_slice: slice = self.fields[field]["slice"]
         return lambda line: bytes(line.line[field_slice])
 
 
