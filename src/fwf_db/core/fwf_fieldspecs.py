@@ -5,12 +5,11 @@
 """Define two classes. One to hold a single field specification,
 and one to hold all field specifications which define a file."""
 
-from abc import ABCMeta, abstractmethod
-from typing import Any, MutableMapping, TypeVar
+from typing import Any, MutableMapping, TypeVar, Type
 from collections import OrderedDict
 
-
 # CSV, FWF, Excel, etc. may all have different FieldSpecs
+
 FieldSpec = MutableMapping[str, Any]
 
 class FWFFieldSpec(dict[str, Any], FieldSpec):
@@ -98,14 +97,19 @@ class FWFFieldSpec(dict[str, Any], FieldSpec):
 # --------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------
 
+class FileFieldSpecsException(Exception):
+    "FileFieldSpecsException"
+
+
 T = TypeVar('T', bound=FieldSpec)
 
-class FileFieldSpecs(OrderedDict[str, T], metaclass=ABCMeta):
+class FileFieldSpecs(OrderedDict[str, T]):
     """An abstract base class for file specifications"""
 
-    def __init__(self, specs: list[dict[str, Any]]):
+    def __init__(self, fieldspec_type: Type, specs: list[dict[str, Any]]):
         """Constructor"""
 
+        self.fieldspec_type = fieldspec_type
         super().__init__()
 
         for spec in specs:
@@ -116,9 +120,9 @@ class FileFieldSpecs(OrderedDict[str, T], metaclass=ABCMeta):
             self[_name] = self.new_field_spec(**spec)
 
 
-    @abstractmethod
     def new_field_spec(self, **data) -> T:
         """Create a new field spec"""
+        return self.fieldspec_type(**data)
 
 
     def names(self) -> list[str]:
@@ -129,7 +133,7 @@ class FileFieldSpecs(OrderedDict[str, T], metaclass=ABCMeta):
     def clone(self, *fields: str):
         """Create a copy of the spec with selected and or re-ordered columns"""
 
-        rtn = self.__class__([])
+        rtn = self.__class__(self.fieldspec_type, [])
         for field in fields:
             rtn[field] = self[field]
 
@@ -174,7 +178,7 @@ class FWFFileFieldSpecs(FileFieldSpecs[FWFFieldSpec]):
         """Constructor"""
 
         self.startpos = 0
-        super().__init__(specs)
+        super().__init__(FWFFieldSpec, specs)
         self.reclen = self.record_length()
 
 

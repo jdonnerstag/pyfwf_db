@@ -4,6 +4,7 @@
 """ fwf_db.core module """
 
 from .fwf_dict import FWFDict
+from .fwf_fieldspecs import FieldSpec, FileFieldSpecs
 from .fwf_fieldspecs import FWFFieldSpec, FWFFileFieldSpecs
 from .fwf_line import FWFLine
 from .fwf_view_like import FWFViewLike

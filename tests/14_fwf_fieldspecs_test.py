@@ -6,9 +6,11 @@
 # Current version of pylint not yet working well with python type hints and is causing plenty false positiv.
 # pylint: disable=not-an-iterable, unsubscriptable-object
 
+from typing import Any
+
 import pytest
 
-from fwf_db import FWFFileFieldSpecs, FWFFieldSpec
+from fwf_db import FWFFileFieldSpecs, FWFFieldSpec, FileFieldSpecs
 
 def test_single():
 
@@ -160,3 +162,17 @@ def test_apply_defaults():
 
     spec["aa"]["regex"] = "test"
     assert "regex" in spec["aa"]
+
+
+class XYZFileFieldSpecs(FileFieldSpecs[dict]):
+    """A file specification for fwf file"""
+
+
+def test_default_filespec():
+    spec = XYZFileFieldSpecs(dict, [
+        {"name": "aa", "len": 9},
+    ])
+
+    spec = FileFieldSpecs(dict, [
+        {"name": "aa", "len": 9},
+    ])

@@ -51,6 +51,7 @@ key features:
 """
 
 from .core import FWFDict
+from .core import FieldSpec, FileFieldSpecs
 from .core import FWFFieldSpec, FWFFileFieldSpecs
 from .core import FWFLine
 from .core import FWFViewLike
