@@ -125,7 +125,8 @@ class FileFieldSpecs(OrderedDict[str, T]):
         return self.fieldspec_type(**data)
 
 
-    def names(self) -> list[str]:
+    @property
+    def columns(self) -> list[str]:
         """The list of all field names. Sames as keys() but more meaningful"""
         return list(self.keys())
 
@@ -157,6 +158,22 @@ class FileFieldSpecs(OrderedDict[str, T]):
             for spec in self.values():
                 for k, data in defaults.items():
                     spec.setdefault(k, data)
+
+
+    def __iter__(self):
+        for key, value in self.items():
+            yield key, value
+
+
+    def to_dict(self, key: str, exists: bool=True):
+        """Create a dict from the field name and one of the field values"""
+
+        rtn: dict[str, Any] = {}
+        for k, field in self.items():
+            if (key in field) or (exists is False):
+                rtn[k] = field.get(key, None)
+
+        return rtn
 
 
     def __str__(self) -> str:

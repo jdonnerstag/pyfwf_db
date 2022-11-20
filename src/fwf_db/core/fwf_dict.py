@@ -13,9 +13,9 @@ class FWFDict(dict[Any, list[int]]):
     and hence 'dict[key] = value' should do the append (rather then replace)
 
     Indexes exist in two flavors: unique or not-unique. Unique indexes allow
-    only one 1 value (which is default dict behavior). None-unique indexes allow
+    only one value (which is default dict behavior). None-unique indexes allow
     many values (a list). Indexes are read-only, except while creating the index.
-    The unified interface helps to keep the the index-creation code lean and mean.
+    The unified interface helps to keep the the index-creation code lean.
     """
 
     def __setitem__(self, key, value: int) -> None:

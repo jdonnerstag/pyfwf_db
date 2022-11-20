@@ -26,7 +26,7 @@
 - Consider using Nuitka as Python (to C++) Compiler
 - Support ignore-case (convert to upper case) key and/or value.
 - Use python module "black" for formatting the source code
-- We are using setup.py. Do we still need requirements.txt?
 - use "_" for protected variables and methods, and __ for private ones
 - check that we are using __len__() rather then len(), and __iter__() rather then iter() etc.
-- Create a jypiter notebook for the examples
+- build something similar for CSV files
+- See https://stackoverflow.com/questions/73800736/pyproject-toml-and-cython-extension-module/74196255#74196255

@@ -2,21 +2,20 @@
 # encoding: utf-8
 
 from typing import Union
+from pathlib import Path
 
 from .fwf_file import FWFFile
 from .fwf_multi_file import FWFMultiFile
 
 
-FilesType = Union[str, bytes, list['FilesType']]
+FilesType = Union[str, bytes, Path, list['FilesType']]
 
-def fwf_open(filespec: type, *files: FilesType, encoding=None, newline=None, comments=None) -> FWFFile|FWFMultiFile:
+def fwf_open(filespec, files: FilesType, encoding=None, newline=None, comments=None) -> FWFFile|FWFMultiFile:
     """Open a fwf file (read-only) with the file specification provided"""
 
-    assert len(files) > 0, "You must provide at least one file name"
-
-    if len(files) == 1 and isinstance(files[0], str|bytes):
+    if not isinstance(files, list):
         fwf = FWFFile(filespec, encoding, newline, comments)
-        fwf.open(files[0])
+        fwf.open(files)
         return fwf
 
     fwf = FWFMultiFile(filespec, encoding, newline, comments)

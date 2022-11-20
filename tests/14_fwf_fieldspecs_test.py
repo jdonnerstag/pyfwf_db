@@ -6,11 +6,10 @@
 # Current version of pylint not yet working well with python type hints and is causing plenty false positiv.
 # pylint: disable=not-an-iterable, unsubscriptable-object
 
-from typing import Any
 
 import pytest
 
-from fwf_db import FWFFileFieldSpecs, FWFFieldSpec, FileFieldSpecs
+from fwf_db import FWFFileFieldSpecs, FWFFieldSpec, FileFieldSpecs, FieldSpec
 
 def test_single():
 
@@ -119,7 +118,20 @@ def test_filespec_ok():
     assert list(spec.values())[1].name == "bb"
 
     assert len(spec) == 7
-    assert list(spec.names()) == ["aa", "bb", "cc", "dd", "ee", "ff", "gg"]
+    assert list(spec.columns) == ["aa", "bb", "cc", "dd", "ee", "ff", "gg"]
+
+    for k, v in spec:
+        assert isinstance(k, str)
+        assert isinstance(v, FWFFieldSpec)
+
+    data = spec.to_dict("regex", exists=True)
+    assert len(data) == 1
+    assert data["gg"] == "222"
+
+    data = spec.to_dict("regex", exists=False)
+    assert len(data) == 7
+    assert data.pop("gg") == "222"
+    assert all(v is None for _, v in data.items())
 
 
 def test_duplicate_names():
@@ -169,10 +181,10 @@ class XYZFileFieldSpecs(FileFieldSpecs[dict]):
 
 
 def test_default_filespec():
-    spec = XYZFileFieldSpecs(dict, [
+    _ = XYZFileFieldSpecs(dict, [
         {"name": "aa", "len": 9},
     ])
 
-    spec = FileFieldSpecs(dict, [
+    _ = FileFieldSpecs[FieldSpec](dict, [
         {"name": "aa", "len": 9},
     ])

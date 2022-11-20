@@ -65,7 +65,7 @@ class HumanFileSpec:
 
 
 def test_with_statement():
-    with fwf_open(DataFile, DATA_1, DATA_2) as mf:
+    with fwf_open(DataFile, [DATA_1, DATA_2]) as mf:
         assert isinstance(mf, FWFMultiFile)
         assert len(mf) == 20
         assert len(mf.files) == 2
@@ -77,7 +77,7 @@ def test_with_statement():
 
 
 def test_multi_file():
-    with fwf_open(DataFile, DATA_1, DATA_2) as mf:
+    with fwf_open(DataFile, [DATA_1, DATA_2]) as mf:
         assert isinstance(mf, FWFMultiFile)
         assert len(mf) == 20
         assert len(mf.files) == 2
@@ -111,7 +111,7 @@ def test_multi_file():
 
 
 def test_index():
-    with fwf_open(DataFile, DATA_1, DATA_2) as mf:
+    with fwf_open(DataFile, [DATA_1, DATA_2]) as mf:
         assert isinstance(mf, FWFMultiFile)
         assert len(mf) == 20
         assert len(mf.files) == 2
@@ -125,7 +125,7 @@ def test_index():
 
 
 def test_effective_date():
-    with fwf_open(DataFile, DATA_1, DATA_2) as mf:
+    with fwf_open(DataFile, [DATA_1, DATA_2]) as mf:
         assert isinstance(mf, FWFMultiFile)
         assert len(mf) == 20        # 10 + 10 lines
         assert len(mf.files) == 2   # 2 files have been added
@@ -156,7 +156,7 @@ def test_effective_date():
 
 
 def test_cython_filter():
-    with fwf_open(DataFile, DATA_1, DATA_2) as mf:
+    with fwf_open(DataFile, [DATA_1, DATA_2]) as mf:
         assert isinstance(mf, FWFMultiFile)
         assert len(mf) == 20
         assert len(mf.files) == 2
@@ -246,7 +246,7 @@ def test_cython_unique_index():
 
 
 def test_pretty_print():
-    with fwf_open(HumanFileSpec, "sample_data/humans-subset.txt", "sample_data/humans.txt") as mf:
+    with fwf_open(HumanFileSpec, ["sample_data/humans-subset.txt", "sample_data/humans.txt"]) as mf:
 
         data = list(mf[8:12].to_list("_lineno", "_file", header=False))
         assert data[0] == (8, "sample_data/humans-subset.txt")

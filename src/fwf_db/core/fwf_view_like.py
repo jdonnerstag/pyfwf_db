@@ -23,12 +23,18 @@ class FWFViewLike:
     def __init__(self, filespec, parent: Optional['FWFViewLike']):
         self.parent = parent
         if parent is not None:
+            assert filespec is None, "If 'parent' is present, 'filespec' must be None"
             self.filespec = parent.filespec
             self.fields = parent.fields
             fields = tuple(parent.field_getter.keys())
         else:
             self.filespec = filespec() if isinstance(filespec, type) else filespec
-            self.fields = FWFFileFieldSpecs(getattr(self.filespec, "FIELDSPECS"))
+            func = getattr(self.filespec, "__fieldspecs__", None)
+            if callable(func):
+                self.fields = func()
+            else:
+                self.fields = FWFFileFieldSpecs(getattr(self.filespec, "FIELDSPECS"))
+
             fields = self._default_header()
 
         # Map all field names to functions able to determine the field value
@@ -42,7 +48,7 @@ class FWFViewLike:
 
     @abc.abstractmethod
     def count(self) -> int:
-        """Provide the number of records in this view"""
+        """Same as len(). Provide the number of records in this view"""
 
 
     def validate_index(self, index: int) -> int:
@@ -306,7 +312,7 @@ class FWFViewLike:
         if callable(func):
             header = func()
         else:
-            header = self.fields.names()
+            header = self.fields.columns
 
         return tuple(header)
 
@@ -374,7 +380,8 @@ class FWFViewLike:
         return OrderedDict((field, self.getter_for_field(field)) for field in fields)
 
 
-    def header(self) -> tuple[str]:
+    @property
+    def columns(self) -> tuple[str]:
         """Return the current list of columns in the header"""
         return tuple(self.field_getter.keys())
 

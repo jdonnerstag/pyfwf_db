@@ -104,6 +104,16 @@ Building this lib wasn't our first thought:
 The package contains a Jupyter notebook [./sample_data/intro.ipynb](./sample_data/intro.ipynb),
 which many examples on how to use the library and its most important features.
 
+## Cloud Files
+
+There are numerous libraries which help with cloud files, including pyfilesystem, fsspec,
+cloud-files, smart-open, cloudpathlib, and several more.
+
+I couldn't decide which one to use. They're all well-thought through, tested, etc., but
+none seemed perfect. And I didn't want to decide for the users of this library, which
+ones is the better. Eventually I reverted to the position, that what fwf_db package
+needs is one out of two things: either a local file (e.g. cache, decompressed, unzipped, ..)
+or bytes (file content streamed into memory).
 
 ## Installation
 

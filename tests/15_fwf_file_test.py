@@ -16,7 +16,6 @@ from fwf_db import FWFLine
 from fwf_db import FWFRegion
 from fwf_db import FWFSubset
 from fwf_db import fwf_open, op
-from fwf_db.core.fwf_view_like import _FWFSort
 
 
 DATA = b"""# My comment test
